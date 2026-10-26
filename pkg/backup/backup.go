@@ -132,6 +132,25 @@ func copyDirectory(srcDir, destDir string, excludes, secrets []string, res *Resu
 
 		targetPath := filepath.Join(destDir, rel)
 
+		if info.Mode()&os.ModeSymlink != 0 {
+			linkTarget, err := os.Readlink(path)
+			if err != nil {
+				res.Warnings = append(res.Warnings, fmt.Sprintf("cannot read symlink %s: %v", path, err))
+				return nil
+			}
+			if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+				res.Warnings = append(res.Warnings, fmt.Sprintf("failed creating parent dir for symlink %s: %v", targetPath, err))
+				return nil
+			}
+			_ = os.Remove(targetPath)
+			if err := os.Symlink(linkTarget, targetPath); err != nil {
+				res.Warnings = append(res.Warnings, fmt.Sprintf("failed creating symlink %s: %v", targetPath, err))
+			} else {
+				res.Copied = append(res.Copied, targetPath)
+			}
+			return nil
+		}
+
 		if info.IsDir() {
 			return os.MkdirAll(targetPath, 0755)
 		}

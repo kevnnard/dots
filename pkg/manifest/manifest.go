@@ -117,6 +117,17 @@ func DefaultManifest() *Manifest {
 					"mcp-auth.json",
 				},
 			},
+			"skills": {
+				Description: "Agent skills catalog in ~/.agents/skills",
+				Profile:     "core",
+				Paths: []PathMapping{
+					{Src: "~/.agents/skills", Dest: "configs/agents/skills"},
+				},
+				Exclude: []string{
+					".git/**",
+					".DS_Store",
+				},
+			},
 			"zsh": {
 				Description: "Zsh shell configuration",
 				Paths: []PathMapping{

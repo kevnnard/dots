@@ -103,6 +103,24 @@ func ApplyAppFiles(appName string, app manifest.AppConfig, repoDir string, dryRu
 				}
 
 				destFile := filepath.Join(targetExpanded, rel)
+
+				if fInfo.Mode()&os.ModeSymlink != 0 {
+					if !dryRun {
+						linkTarget, err := os.Readlink(path)
+						if err != nil {
+							res.Warnings = append(res.Warnings, fmt.Sprintf("cannot read symlink %s: %v", path, err))
+							return nil
+						}
+						_ = os.Remove(destFile)
+						if err := os.Symlink(linkTarget, destFile); err != nil {
+							res.Warnings = append(res.Warnings, fmt.Sprintf("failed creating symlink %s: %v", destFile, err))
+							return nil
+						}
+					}
+					res.Restored = append(res.Restored, destFile)
+					return nil
+				}
+
 				if fInfo.IsDir() {
 					if !dryRun {
 						return os.MkdirAll(destFile, 0755)
