@@ -256,6 +256,34 @@ func DefaultManifest() *Manifest {
 					"darwin": {Manager: "brew", Package: "gentleman-programming/tap/engram"},
 				},
 			},
+			"herdr": {
+				Description: "Herdr terminal workspace and agent process manager",
+				Profile:     "core,ai",
+				Paths: []PathMapping{
+					{Src: "~/.config/herdr/config.toml", Dest: "configs/herdr/config.toml"},
+				},
+				Exclude: []string{
+					"*.sock*",
+					"*.log",
+					"session-history.json",
+					"session-snapshots/**",
+					".DS_Store",
+				},
+				Install: map[string]InstallRecipe{
+					"darwin": {Manager: "brew", Package: "herdr"},
+				},
+			},
+			"orca": {
+				Description: "Orca agent workspace and integration hooks",
+				Profile:     "ai",
+				Paths: []PathMapping{
+					{Src: "~/.orca/agent-hooks", Dest: "configs/orca/agent-hooks"},
+				},
+				Exclude: []string{
+					"*.installed",
+					".DS_Store",
+				},
+			},
 			"zed": {
 				Description: "Zed Editor configurations, keymaps, and themes",
 				Profile:     "core",

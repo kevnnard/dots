@@ -106,6 +106,31 @@ apps:
             darwin:
                 manager: brew
                 package: gentleman-programming/tap/gentle-ai
+    herdr:
+        description: Herdr terminal workspace and agent process manager
+        profile: core,ai
+        paths:
+            - src: ~/.config/herdr/config.toml
+              dest: configs/herdr/config.toml
+        exclude:
+            - '*.sock*'
+            - '*.log'
+            - session-history.json
+            - session-snapshots/**
+            - .DS_Store
+        install:
+            darwin:
+                manager: brew
+                package: herdr
+    orca:
+        description: Orca agent workspace and integration hooks
+        profile: ai
+        paths:
+            - src: ~/.orca/agent-hooks
+              dest: configs/orca/agent-hooks
+        exclude:
+            - '*.installed'
+            - .DS_Store
     flashspace:
         description: Flashspace macOS workspace manager settings and profiles
         profile: core

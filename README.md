@@ -131,8 +131,8 @@ Configurations and software packages are grouped into modular profiles. You can 
 
 | Profile | Focus | Included Tools & Applications | Default State |
 |:---|:---|:---|:---:|
-| **`core`** | **Daily Driver & Web** | • **Shell**: Zsh, Powerlevel10k, Atuin history, Zoxide, FZF, Carapace, Tmux<br/>• **Editors**: Neovim (LazyVim setup), Ghostty, Zed, Git, LazyGit<br/>• **Dev Runtimes**: Go, FNM (Node), PNPM, Python UV, .NET 9 SDK, Docker Desktop<br/>• **Productivity**: Bruno (API Client), Bitwarden, DBeaver, SmartWindow, Nerd Fonts | **ON** |
-| **`ai`** | **AI Coding Agents** | • **Harness**: Gentle AI (`gentle-ai`), Engram Persistent Memory (`engram`)<br/>• **Agents**: Pi Agent Harness (`~/.pi`), Claude Code CLI (`~/.claude`), Codex CLI (`~/.codex`)<br/>• **Skills**: Full Gentleman agent skills catalog (`~/.agents/skills`)<br/>• **Local Models**: Ollama runtime (`ollama` cask / script) | **ON** *(Ollama optional)* |
+| **`core`** | **Daily Driver & Web** | • **Shell**: Zsh, Powerlevel10k, Atuin history, Zoxide, FZF, Carapace, Tmux<br/>• **Editors & Terminal**: Neovim (LazyVim setup), Ghostty (custom shaders & themes), Herdr process manager, Zed, Git, LazyGit<br/>• **Dev Runtimes**: Go, FNM (Node), PNPM, Python UV, .NET 9 SDK, Docker Desktop<br/>• **Productivity**: Bruno (API Client), Bitwarden, DBeaver, SmartWindow, Nerd Fonts | **ON** |
+| **`ai`** | **AI Coding Agents** | • **Harness**: Gentle AI (`gentle-ai`), Engram Persistent Memory (`engram`)<br/>• **Agents**: Pi Agent Harness (`~/.pi`), Claude Code CLI (`~/.claude`), Codex CLI (`~/.codex`), Orca integration hooks (`~/.orca`)<br/>• **Skills**: Full Gentleman agent skills catalog (`~/.agents/skills`)<br/>• **Local Models**: Ollama runtime (`ollama` cask / script) | **ON** *(Ollama optional)* |
 | **`mobile`** | **Mobile Builds** | • OpenJDK 17 (`openjdk@17`)<br/>• CocoaPods (`cocoapods`)<br/>• Fastlane (`fastlane`) for React Native and native iOS/Android deployment | Optional |
 | **`infra`** | **Cloud & Devops** | • Caddy web server with automatic HTTPS (`caddy`)<br/>• Local SSL certificates (`mkcert`)<br/>• Local GitHub Actions runner (`act`) | Optional |
 
@@ -228,7 +228,9 @@ dots/
 │   ├── engram/              # Engram memory protocol configuration
 │   ├── gentle-ai/           # Gentle AI harness state and model assignments
 │   ├── ghostty/             # Ghostty shaders, themes, and configuration
+│   ├── herdr/               # Herdr terminal workspace and agent manager
 │   ├── nvim/                # LazyVim setup, plugins, and keymaps
+│   ├── orca/                # Orca agent workspace hooks
 │   ├── pi/                  # Pi Agent harness, models, chains, mcp.json.template
 │   ├── ssh/                 # Sanitized config.template (IPs masked)
 │   ├── zed/                 # Zed editor keymaps and settings
