@@ -1,68 +1,92 @@
-# dots ⚡️
+# dots ⚡️ (`kevnnard-dots`)
 
-A compiled, standalone Go CLI to manage, backup, and restore your dotfiles, configurations, and software packages across macOS and Linux machines.
+An interactive Go TUI and standalone CLI to manage, backup, version, and restore dotfiles, AI agent configs, and software packages across macOS and Linux machines.
+
+```
+██╗  ██╗███████╗██╗   ██╗███╗   ██╗███╗   ██╗ █████╗ ██████╗ ██████╗ 
+██║ ██╔╝██╔════╝██║   ██║████╗  ██║████╗  ██║██╔══██╗██╔══██╗██╔══██╗
+█████╔╝ █████╗  ██║   ██║██╔██╗ ██║██╔██╗ ██║███████║██████╔╝██║  ██║
+██╔═██╗ ██╔══╝  ╚██╗ ██╔╝██║╚██╗██║██║╚██╗██║██╔══██║██╔══██╗██║  ██║
+██║  ██╗███████╗ ╚████╔╝ ██║ ╚████║██║ ╚████║██║  ██║██║  ██║██████╔╝
+╚═╝  ╚═╝╚══════╝  ╚═══╝  ╚═╝  ╚═══╝╚═╝  ╚═══╝╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝ 
+                      DOTFILES & MACHINE PROVISIONER
+```
 
 ## Why `dots`?
 
-- **Zero dependencies on clean machines**: Compiled as a single static Go binary. No Node/Python/Brew required to run the tool that installs your environment.
-- **Cross-platform OS & package manager detection**: Automatically identifies Darwin (macOS), Linux distributions (Ubuntu, Debian, Arch, Fedora) and their package managers (`brew`, `apt`, `pacman`, `pnpm`).
-- **Secret & token protection**: Automatically sanitizes `.env` files, certificates, and private keys into `.template` / `.example` files so you never leak secrets in git dotfiles repositories.
-- **Homebrew bundle sync**: Seamlessly dumps and restores your macOS `Brewfile`.
-- **Drift detection**: Quickly inspect which files have drifted between your machine and your dotfiles repo.
+- **Interactive TUI Dashboard**: Full visual terminal interface built with Bubble Tea & Lipgloss featuring retro 8-bit ANSI shadow banner, live drift detection, and single-click or keystroke restore/backup actions.
+- **Zero dependencies on clean machines**: Single static Go binary. Auto-clones repository when executed in an empty environment.
+- **Enterprise-Grade Secret Protection**: AST-level sanitization for `.env`, JSON configs (`auth.json`, `mcp-auth.json`, `mcp.json`), and SSH configs. Automatically redacts API keys (Linear, OpenAI, Anthropic, GCP), bearer tokens, database connection strings, and private server IPs into clean `.template` files.
+- **Zero Data Loss Guarantee**: Local safety backups (`<target>.<timestamp>.bk`) created before overwriting modified files during restoration.
+- **Automated Git Snapshots**: Commits backups with timestamped host snapshots and remote push.
+- **Cross-Platform OS & Package Manager Detection**: Automatically identifies Darwin (macOS), Linux distributions (Ubuntu, Debian, Arch, Fedora) and their package managers (`brew`, `apt`, `pacman`, `pnpm`).
 
 ---
 
-## Installation & Setup
+## ⚡️ Quick Install
 
-### 1. Build from source
+### Option A: One-line bootstrap (recommended for fresh machines)
+```bash
+curl -fsSL https://raw.githubusercontent.com/kevnnard/dots/main/install.sh | bash
+```
+
+### Option B: Homebrew Tap (macOS)
+```bash
+brew tap kevnnard/tap
+brew install --HEAD kevnnard/tap/dots
+```
+*(Both `dots` and `kevnnard-dots` binary aliases are available).*
+
+### Option C: Build from source
 ```bash
 git clone https://github.com/kevnnard/dots.git ~/Repositories/dots
 cd ~/Repositories/dots
-go build -o /usr/local/bin/dots ./cmd/dots
+go build -o ~/.local/bin/dots ./cmd/dots
 ```
-
-### 2. Initialize your dotfiles repository
-By default, `dots` manages `~/.dotfiles`:
-```bash
-dots init
-```
-This sets up a git-ready `~/.dotfiles` repository with default configurations for:
-- **Neovim** (`~/.config/nvim`)
-- **Pi** (`~/.pi/agent/settings.json`, skills)
-- **Ghostty** (`~/.config/ghostty`)
-- **Zsh** (`~/.zshrc`)
-- **Git** (`~/.gitconfig`, `~/.config/git`)
-- **pnpm**
-- **Homebrew** (`Brewfile`)
 
 ---
 
-## Usage Commands
+## Interactive Visual TUI
 
-### Check Environment & Sync Status
+Running `dots` (or `kevnnard-dots`) with no arguments launches the interactive dashboard:
+
+```bash
+dots
+```
+
+- Navigate applications with `↑` / `↓` or `j` / `k`
+- Select profiles (`core`, `mobile`, `infra`, `all`) with `Tab`
+- Hit `b` to Backup, `r` to Restore, or `d` to Dry-run simulate
+- Hit `q` to quit
+
+---
+
+## CLI Commands
+
+### Environment & Drift Status
 ```bash
 # Detect OS, Architecture, and available package managers
 dots detect
 
-# Inspect synchronization state and drift
+# Inspect synchronization state and file drift
 dots status
 ```
 
-### Backup Your Configurations
+### Backup Configurations
 ```bash
 # Backup all apps declared in manifest.yaml
 dots backup
 
-# Or backup a specific app
+# Backup a specific app
 dots backup nvim
 ```
 
 ### Restore on a Clean Machine
 ```bash
-# Preview what would be installed and copied for the CORE profile
+# Preview what would be copied and installed
 dots restore --dry-run
 
-# Restore CORE profile (config files + automatic package installation)
+# Restore CORE profile (configs + auto package installation)
 dots restore --install-packages
 
 # Restore MOBILE profile (React Native, OpenJDK 17, CocoaPods, Fastlane)
@@ -71,55 +95,29 @@ dots restore --profile mobile --install-packages
 # Restore INFRA profile (Caddy, mkcert, act)
 dots restore --profile infra --install-packages
 
-# Restore ALL profiles at once
+# Restore ALL profiles
 dots restore --all --install-packages
 ```
 
-### Stacks & Profiles
-- **`core` (default)**: Essential shell (zsh, p10k, zoxide, atuin, fzf), Neovim, Ghostty, Zed, Docker Desktop, .NET SDK, Bruno, Bitwarden, Nerd Fonts, and Gentleman tools.
-- **`mobile`**: Toolchain for React Native and native builds (`openjdk@17`, `cocoapods`, `fastlane`).
-- **`infra`**: Optional local server & action testing tools (`caddy`, `mkcert`, `act`).
-
-### Track a New App / Config
-```bash
-# Track and immediately backup a custom config
-dots add alacritty ~/.config/alacritty/alacritty.toml
-
-# Or track without immediate backup
-dots add custom-app ~/.config/app/conf.json --backup=false
-```
+### Profiles
+- **`core` (default)**: Essential shell (zsh, p10k, zoxide, atuin, fzf), Neovim, Ghostty, Zed, Docker Desktop, .NET SDK, Bruno, Bitwarden, Nerd Fonts, Pi, Claude Code, and Codex CLI.
+- **`mobile`**: Toolchain for mobile development (`openjdk@17`, `cocoapods`, `fastlane`).
+- **`infra`**: Server and container testing tools (`caddy`, `mkcert`, `act`).
 
 ---
 
-## Architecture: `manifest.yaml`
+## Managing Secrets & Templates
 
-Your configurations and installation recipes are declared in `~/.dotfiles/manifest.yaml`:
+Files containing sensitive information are masked on backup and stored as `.template` files:
+- `~/.ssh/config` ➔ `configs/ssh/config.template` (Private IPs and usernames replaced with `YOUR_SERVER_HOST_OR_IP` and `YOUR_SSH_USER`)
+- `~/.pi/agent/mcp.json` ➔ `configs/pi/mcp.json.template` (API keys, Postgres URLs, tokens sanitized)
+- `~/.claude/mcp.json` ➔ `configs/claude/mcp.json.template`
+- `auth.json` / `mcp-auth.json` ➔ `*.template`
 
-```yaml
-version: 1.0.0
-apps:
-  nvim:
-    description: "Neovim editor and plugins"
-    paths:
-      - src: "~/.config/nvim"
-        dest: "configs/nvim"
-    exclude:
-      - ".git/**"
-      - ".DS_Store"
-      - "undo/**"
-    install:
-      darwin:
-        manager: brew
-        package: neovim
-      ubuntu:
-        manager: apt
-        package: neovim
-      arch:
-        manager: pacman
-        package: neovim
-```
+When restoring on a new machine, `.template` files are copied only if the target does not already exist, prompting you to fill in your private credentials.
 
 ---
 
 ## License
 MIT
+
