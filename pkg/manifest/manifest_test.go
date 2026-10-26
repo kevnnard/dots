@@ -12,7 +12,7 @@ func TestDefaultManifest(t *testing.T) {
 		t.Error("expected non-empty version")
 	}
 
-	expectedApps := []string{"nvim", "pi", "ghostty", "zsh", "git", "pnpm", "brew", "claude", "codex", "zed", "atuin", "flashspace", "gh", "ssh", "ollama", "gentle-ai", "engram", "herdr", "orca"}
+	expectedApps := []string{"nvim", "pi", "ghostty", "zsh", "git", "pnpm", "brew", "claude", "codex", "zed", "atuin", "flashspace", "gh", "ssh", "ollama", "gentle-ai", "engram", "herdr", "orca", "android-studio", "xcode"}
 	for _, app := range expectedApps {
 		if _, ok := m.Apps[app]; !ok {
 			t.Errorf("expected default manifest to contain %s", app)

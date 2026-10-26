@@ -1,0 +1,4 @@
+# Brewfile.infra (Local Infrastructure & Actions Testing)
+brew "caddy"
+brew "mkcert"
+brew "act"

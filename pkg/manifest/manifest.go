@@ -385,6 +385,23 @@ func DefaultManifest() *Manifest {
 					"darwin": {Manager: "script", Command: "brew bundle --file=Brewfile.mobile"},
 				},
 			},
+			"android-studio": {
+				Description: "Android Studio IDE, SDK tools, and emulator (cross-platform)",
+				Profile:     "mobile",
+				Install: map[string]InstallRecipe{
+					"darwin": {Manager: "brew", Cask: "android-studio"},
+					"ubuntu": {Manager: "script", Command: "sudo snap install android-studio --classic"},
+					"debian": {Manager: "script", Command: "sudo snap install android-studio --classic"},
+					"arch":   {Manager: "yay", Package: "android-studio"},
+				},
+			},
+			"xcode": {
+				Description: "Apple Xcode command line developer tools (macOS only)",
+				Profile:     "mobile",
+				Install: map[string]InstallRecipe{
+					"darwin": {Manager: "script", Command: "xcode-select -p &>/dev/null || xcode-select --install"},
+				},
+			},
 			"infra": {
 				Description: "Local infrastructure & Actions testing (Caddy, mkcert, act)",
 				Profile:     "infra",

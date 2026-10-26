@@ -70,6 +70,9 @@ const DefaultMobileBrewfile = `# Brewfile.mobile (React Native & Mobile Builds)
 brew "openjdk@17"
 brew "cocoapods"
 brew "fastlane"
+
+# Android Studio (Cross-platform IDE)
+cask "android-studio"
 `
 
 const DefaultInfraBrewfile = `# Brewfile.infra (Local Infrastructure & Actions Testing)

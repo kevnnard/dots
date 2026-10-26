@@ -22,6 +22,7 @@ func TestWriteDefaultBrewfiles(t *testing.T) {
 		{"Brewfile", "dotnet-sdk"},
 		{"Brewfile.mobile", "openjdk@17"},
 		{"Brewfile.mobile", "cocoapods"},
+		{"Brewfile.mobile", "android-studio"},
 		{"Brewfile.infra", "caddy"},
 		{"Brewfile.infra", "mkcert"},
 		{"Brewfile.ai", "ollama"},

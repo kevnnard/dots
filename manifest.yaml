@@ -209,6 +209,29 @@ apps:
             darwin:
                 manager: script
                 command: brew bundle --file=Brewfile.mobile
+    android-studio:
+        description: Android Studio IDE, SDK tools, and emulator (cross-platform)
+        profile: mobile
+        install:
+            darwin:
+                manager: brew
+                cask: android-studio
+            ubuntu:
+                manager: script
+                command: sudo snap install android-studio --classic
+            debian:
+                manager: script
+                command: sudo snap install android-studio --classic
+            arch:
+                manager: yay
+                package: android-studio
+    xcode:
+        description: Apple Xcode command line developer tools (macOS only)
+        profile: mobile
+        install:
+            darwin:
+                manager: script
+                command: xcode-select -p &>/dev/null || xcode-select --install
     nvim:
         description: Neovim editor and plugins
         paths:
