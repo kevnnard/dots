@@ -28,9 +28,10 @@ A Go-based cross-platform dotfiles and workstation setup manager for macOS and L
 - T13 (S10): Automatic Git snapshot commit and remote push (`snapshot: <timestamp> (<hostname>)`) in backup engine. [DONE]
 - T14 (S11): Unify tool and storage into the same repository (smart root resolution: current repo as dotfiles store). [DONE]
 - T15 (S11): Add all audited apps to manifest: Claude, Codex, P10k, Ghostty full, Zed, Atuin, Flashspace, GH, SSH config. [DONE]
-- T16 (S12): Auto-bootstrap clone helper in `dots` when no local repo is found (clones from GitHub to `~/.dotfiles` or `~/Repositories/dots`).
-- T17 (S12): Homebrew Formula `Formula/kevnnard-dots.rb` in `~/Repositories/homebrew-tap`.
-- T18 (S12): Zero-dependency root `install.sh` script for fresh machine bootstrapping.
+- T16 (S12): Auto-bootstrap clone helper in `dots` when no local repo is found (clones from GitHub to `~/.dotfiles` or `~/Repositories/dots`). [DONE]
+- T17 (S12): Homebrew Formula `Formula/kevnnard-dots.rb` in `~/Repositories/homebrew-tap`. [DONE]
+- T18 (S12): Zero-dependency root `install.sh` script for fresh machine bootstrapping. [DONE]
+- T19 (S13): Comprehensive secret AST sanitization (Linear, GCP, bearer, postgres connection strings) and SSH host masking to guarantee safe public distribution. [DONE]
 
 ## Log
 - L1: User requested a terminal program in Go to save macOS and cross-platform configurations (nvim, PI, pnpm, brew, essential dependencies and configs), detect target OS on clean install/new PC, copy selected paths, handle secrets safely, and provide backup/install systems.
@@ -40,3 +41,5 @@ A Go-based cross-platform dotfiles and workstation setup manager for macOS and L
 - L5: User requested timestamped snapshot commits in the repo, remote git sync/push, and safety `.bk` backup on restore.
 - L6: User requested unified single repository (the tool and storage in the same repo, source of truth deployed outwards to host OS) and adding full audited configs (Claude, Codex, p10k, Ghostty, Zed, Atuin, Flashspace, SSH config).
 - L7: User requested installer experience: auto-cloning repo on clean machines, Homebrew formula in `kevnnard/tap`, and one-line `install.sh` curl script.
+- L8: Sanitized all secret configurations (SSH config, MCP configs for Pi and Claude, JSON AST masks), cleaned Git history, published public repository at github.com/kevnnard/dots, and verified Homebrew Tap formulas.
+
