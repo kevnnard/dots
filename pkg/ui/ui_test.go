@@ -44,7 +44,7 @@ func TestUIModelNavigation(t *testing.T) {
 
 	// Render view
 	viewOutput := mUpdated.View()
-	if !strings.Contains(viewOutput, "KEVNNARD-DOTS") {
+	if !strings.Contains(viewOutput, "WORKSTATION & DOTFILES MANAGER") {
 		t.Errorf("expected header in view output, got: %s", viewOutput)
 	}
 }

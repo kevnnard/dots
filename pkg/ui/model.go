@@ -300,15 +300,18 @@ func (m Model) executeAction() (tea.Model, tea.Cmd) {
 func (m Model) View() string {
 	var s strings.Builder
 
-	// Header banner with gradient / neon pills
+	// 8-bit ASCII Banner & System Pills
 	s.WriteString("\n")
-	title := StyleTitle.Render("⚡️ KEVNNARD-DOTS")
-	osPill := StyleBadgeAccent.Render(m.SysInfo.OS)
-	archPill := StyleBadge.Render(m.SysInfo.Arch)
-	pkgPill := StyleBadge.Render(string(m.SysInfo.PrimaryManager))
+	s.WriteString(StyleBanner.Render(AsciiBanner))
+	s.WriteString("\n\n")
+
+	subHeader := StyleSubtitle.Render("⚡️ WORKSTATION & DOTFILES MANAGER")
+	osPill := StyleBadgeAccent.Render("os: " + m.SysInfo.OS)
+	archPill := StyleBadge.Render("arch: " + m.SysInfo.Arch)
+	pkgPill := StyleBadge.Render("pkg: " + string(m.SysInfo.PrimaryManager))
 	repoPill := StyleMuted.Render(fmt.Sprintf("repo: %s", m.RepoDir))
 
-	s.WriteString(lipgloss.JoinHorizontal(lipgloss.Center, title, osPill, archPill, pkgPill, repoPill))
+	s.WriteString(lipgloss.JoinHorizontal(lipgloss.Center, subHeader, "  ", osPill, archPill, pkgPill, repoPill))
 	s.WriteString("\n\n")
 
 	switch m.State {
