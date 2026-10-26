@@ -1,0 +1,187 @@
+{
+  "installed_agents": [
+    "pi"
+  ],
+  "installed_binary_version": "4.2.0",
+  "managed_asset_digest": "sha256:390dc4a930494a1481c8a915e079de3c55614468cad22f78e8960859df3a01b2",
+  "selection_configured": true,
+  "components": [
+    "engram"
+  ],
+  "preset": "full-gentleman",
+  "community_tools_configured": true,
+  "claude_phase_assignments": {
+    "default": {
+      "model": "sonnet"
+    },
+    "jd-fix-agent": {
+      "model": "sonnet"
+    },
+    "jd-judge-a": {
+      "model": "sonnet"
+    },
+    "jd-judge-b": {
+      "model": "sonnet"
+    },
+    "sdd-apply": {
+      "model": "sonnet"
+    },
+    "sdd-archive": {
+      "model": "haiku"
+    },
+    "sdd-design": {
+      "model": "opus"
+    },
+    "sdd-explore": {
+      "model": "sonnet"
+    },
+    "sdd-onboard": {
+      "model": "haiku"
+    },
+    "sdd-propose": {
+      "model": "opus"
+    },
+    "sdd-spec": {
+      "model": "sonnet"
+    },
+    "sdd-tasks": {
+      "model": "sonnet"
+    },
+    "sdd-verify": {
+      "model": "sonnet"
+    }
+  },
+  "codexModelAssignments": {
+    "odd-explorer": "high",
+    "odd-verify": "medium",
+    "odd-worker": "high"
+  },
+  "codexOrchestratorAssignment": {
+    "model": "gpt-6.1-sol",
+    "effort": "medium"
+  },
+  "codexCarrilModelAssignments": {
+    "sdd-cheap": "gpt-6.1-luna",
+    "sdd-mid": "gpt-6.1-luna",
+    "sdd-strong": "gpt-6.1-sol"
+  },
+  "model_assignments": {
+    "explore": {
+      "provider_id": "openai",
+      "model_id": "gpt-6-luna"
+    },
+    "general": {
+      "provider_id": "minimax-coding-plan",
+      "model_id": "MiniMax-M3"
+    },
+    "gentle-ai-explore": {
+      "provider_id": "openai",
+      "model_id": "gpt-6-luna"
+    },
+    "gentle-ai-verify": {
+      "provider_id": "minimax-coding-plan",
+      "model_id": "MiniMax-M3.1-Flash-Preview"
+    },
+    "gentle-ai-worker": {
+      "provider_id": "anthropic",
+      "model_id": "claude-sonnet-5-5"
+    },
+    "gentle-orchestrator": {
+      "provider_id": "minimax-coding-plan",
+      "model_id": "MiniMax-M3"
+    },
+    "jd-fix-agent": {
+      "provider_id": "anthropic",
+      "model_id": "claude-sonnet-5-5"
+    },
+    "jd-judge-a": {
+      "provider_id": "google",
+      "model_id": "gemini-3.8-flash",
+      "effort": "high"
+    },
+    "jd-judge-b": {
+      "provider_id": "openai",
+      "model_id": "gpt-6-luna",
+      "effort": "high"
+    },
+    "review-readability": {
+      "provider_id": "google",
+      "model_id": "gemini-3.8-flash"
+    },
+    "review-refuter": {
+      "provider_id": "google",
+      "model_id": "gemini-3.8-flash"
+    },
+    "review-reliability": {
+      "provider_id": "minimax-coding-plan",
+      "model_id": "MiniMax-M3.1-Flash-Preview"
+    },
+    "review-resilience": {
+      "provider_id": "openai",
+      "model_id": "gpt-6-luna"
+    },
+    "review-risk": {
+      "provider_id": "openai",
+      "model_id": "gpt-6-luna"
+    },
+    "review-validator": {
+      "provider_id": "minimax-coding-plan",
+      "model_id": "MiniMax-M3.1-Flash-Preview"
+    },
+    "sdd-apply": {
+      "provider_id": "anthropic",
+      "model_id": "claude-sonnet-5-5"
+    },
+    "sdd-archive": {
+      "provider_id": "minimax-coding-plan",
+      "model_id": "MiniMax-M3"
+    },
+    "sdd-design": {
+      "provider_id": "openai",
+      "model_id": "gpt-6-luna",
+      "effort": "high"
+    },
+    "sdd-explore": {
+      "provider_id": "openai",
+      "model_id": "gpt-6-luna",
+      "effort": "high"
+    },
+    "sdd-init": {
+      "provider_id": "openai",
+      "model_id": "gpt-5.4-mini",
+      "effort": "medium"
+    },
+    "sdd-onboard": {
+      "provider_id": "minimax-coding-plan",
+      "model_id": "MiniMax-M3.1-Flash-Preview"
+    },
+    "sdd-propose": {
+      "provider_id": "google",
+      "model_id": "gemini-3.8-flash",
+      "effort": "high"
+    },
+    "sdd-research": {
+      "provider_id": "google",
+      "model_id": "deep-research-max-preview-04-2026"
+    },
+    "sdd-spec": {
+      "provider_id": "google",
+      "model_id": "gemini-3.8-flash",
+      "effort": "high"
+    },
+    "sdd-tasks": {
+      "provider_id": "minimax-coding-plan",
+      "model_id": "MiniMax-M3.1-Flash-Preview"
+    },
+    "sdd-verify": {
+      "provider_id": "openai",
+      "model_id": "gpt-6-luna"
+    }
+  },
+  "persona": "gentleman",
+  "last_update_check": "2026-10-25T13:47:19.689667-05:00",
+  "rdd_mode": "on",
+  "rdd_mode_recorded_at": "2026-10-08T21:53:58.454863Z",
+  "pi_background_subagents": "on",
+  "last_synced_at": "2026-10-25T18:47:21.269991Z"
+}

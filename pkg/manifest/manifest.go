@@ -224,6 +224,38 @@ func DefaultManifest() *Manifest {
 					"linux":  {Manager: "script", Command: "curl -fsSL https://ollama.com/install.sh | sh"},
 				},
 			},
+			"gentle-ai": {
+				Description: "Gentle AI development workflow harness (ODD, SDD, 4R Review, Judgment Day)",
+				Profile:     "core,ai",
+				Paths: []PathMapping{
+					{Src: "~/.gentle-ai/state.json", Dest: "configs/gentle-ai/state.json"},
+				},
+				Exclude: []string{
+					"cache/**",
+					"backups/**",
+					"review-contexts/**",
+					"*.lock",
+					".DS_Store",
+				},
+				Install: map[string]InstallRecipe{
+					"darwin": {Manager: "brew", Package: "gentleman-programming/tap/gentle-ai"},
+				},
+			},
+			"engram": {
+				Description: "Persistent cross-session memory engine for AI coding agents",
+				Profile:     "core,ai",
+				Paths: []PathMapping{
+					{Src: "~/.engram/protocol-mode.json", Dest: "configs/engram/protocol-mode.json"},
+				},
+				Exclude: []string{
+					"*.db*",
+					"*.lock",
+					".instance-id*",
+				},
+				Install: map[string]InstallRecipe{
+					"darwin": {Manager: "brew", Package: "gentleman-programming/tap/engram"},
+				},
+			},
 			"zed": {
 				Description: "Zed Editor configurations, keymaps, and themes",
 				Profile:     "core",

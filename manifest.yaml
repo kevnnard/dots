@@ -76,6 +76,36 @@ apps:
             - .DS_Store
         secrets:
             - auth.json
+    engram:
+        description: Persistent cross-session memory engine for AI coding agents
+        profile: core,ai
+        paths:
+            - src: ~/.engram/protocol-mode.json
+              dest: configs/engram/protocol-mode.json
+        exclude:
+            - '*.db*'
+            - '*.lock'
+            - .instance-id*
+        install:
+            darwin:
+                manager: brew
+                package: gentleman-programming/tap/engram
+    gentle-ai:
+        description: Gentle AI development workflow harness (ODD, SDD, 4R Review, Judgment Day)
+        profile: core,ai
+        paths:
+            - src: ~/.gentle-ai/state.json
+              dest: configs/gentle-ai/state.json
+        exclude:
+            - cache/**
+            - backups/**
+            - review-contexts/**
+            - '*.lock'
+            - .DS_Store
+        install:
+            darwin:
+                manager: brew
+                package: gentleman-programming/tap/gentle-ai
     flashspace:
         description: Flashspace macOS workspace manager settings and profiles
         profile: core
