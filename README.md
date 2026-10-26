@@ -59,15 +59,26 @@ dots backup nvim
 
 ### Restore on a Clean Machine
 ```bash
-# Preview what would be installed and copied without touching anything
+# Preview what would be installed and copied for the CORE profile
 dots restore --dry-run
 
-# Restore config files only
-dots restore
-
-# Restore config files AND automatically install required packages
+# Restore CORE profile (config files + automatic package installation)
 dots restore --install-packages
+
+# Restore MOBILE profile (React Native, OpenJDK 17, CocoaPods, Fastlane)
+dots restore --profile mobile --install-packages
+
+# Restore INFRA profile (Caddy, mkcert, act)
+dots restore --profile infra --install-packages
+
+# Restore ALL profiles at once
+dots restore --all --install-packages
 ```
+
+### Stacks & Profiles
+- **`core` (default)**: Essential shell (zsh, p10k, zoxide, atuin, fzf), Neovim, Ghostty, Zed, Docker Desktop, .NET SDK, Bruno, Bitwarden, Nerd Fonts, and Gentleman tools.
+- **`mobile`**: Toolchain for React Native and native builds (`openjdk@17`, `cocoapods`, `fastlane`).
+- **`infra`**: Optional local server & action testing tools (`caddy`, `mkcert`, `act`).
 
 ### Track a New App / Config
 ```bash

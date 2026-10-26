@@ -11,6 +11,8 @@ import (
 var (
 	dryRunFlag          bool
 	installPackagesFlag bool
+	profileFlag         string
+	allProfilesFlag     bool
 )
 
 var restoreCmd = &cobra.Command{
@@ -28,8 +30,16 @@ var restoreCmd = &cobra.Command{
 			return err
 		}
 
+		targetProfile := profileFlag
+		if allProfilesFlag {
+			targetProfile = "all"
+		}
+		if targetProfile == "" {
+			targetProfile = "core"
+		}
+
 		sys := detector.Detect()
-		fmt.Printf("🎯 Target System: %s (%s, %s)\n", sys.OS, sys.Arch, sys.PrimaryManager)
+		fmt.Printf("🎯 Target System: %s (%s, %s) | Profile: %s\n", sys.OS, sys.Arch, sys.PrimaryManager, targetProfile)
 		if dryRunFlag {
 			fmt.Println("🔍 DRY RUN MODE: No files will be modified or commands executed.")
 			fmt.Println()
@@ -42,6 +52,10 @@ var restoreCmd = &cobra.Command{
 		fmt.Println("📦 Software Provisioning Plan:")
 		for _, p := range plans {
 			if len(args) > 0 && args[0] != p.AppName {
+				continue
+			}
+			app := m.Apps[p.AppName]
+			if len(args) == 0 && !app.MatchesProfile(targetProfile) {
 				continue
 			}
 			if p.InstallCmd != "" {
@@ -65,6 +79,9 @@ var restoreCmd = &cobra.Command{
 		fmt.Println("\n📁 Deploying Configurations:")
 		for name, app := range m.Apps {
 			if len(args) > 0 && args[0] != name {
+				continue
+			}
+			if len(args) == 0 && !app.MatchesProfile(targetProfile) {
 				continue
 			}
 
@@ -97,5 +114,7 @@ var restoreCmd = &cobra.Command{
 func init() {
 	restoreCmd.Flags().BoolVarP(&dryRunFlag, "dry-run", "n", false, "Simulate restore without modifying files or running commands")
 	restoreCmd.Flags().BoolVarP(&installPackagesFlag, "install-packages", "i", false, "Execute package manager commands to install apps")
+	restoreCmd.Flags().StringVarP(&profileFlag, "profile", "p", "core", "Target profile: core (default), mobile, infra, or all")
+	restoreCmd.Flags().BoolVarP(&allProfilesFlag, "all", "a", false, "Restore all profiles")
 	rootCmd.AddCommand(restoreCmd)
 }

@@ -51,6 +51,31 @@ func TestManifestSaveAndLoad(t *testing.T) {
 	}
 }
 
+func TestMatchesProfile(t *testing.T) {
+	appCore := AppConfig{Profile: "core"}
+	appMobile := AppConfig{Profile: "mobile"}
+	appDefault := AppConfig{}
+
+	if !appCore.MatchesProfile("core") {
+		t.Error("expected appCore to match 'core'")
+	}
+	if !appDefault.MatchesProfile("core") {
+		t.Error("expected appDefault to match 'core'")
+	}
+	if appCore.MatchesProfile("mobile") {
+		t.Error("expected appCore not to match 'mobile'")
+	}
+	if !appMobile.MatchesProfile("mobile") {
+		t.Error("expected appMobile to match 'mobile'")
+	}
+	if !appMobile.MatchesProfile("all") {
+		t.Error("expected appMobile to match 'all'")
+	}
+	if !appMobile.MatchesProfile("") {
+		t.Error("expected appMobile to match empty target (all)")
+	}
+}
+
 func TestExpandPath(t *testing.T) {
 	home, err := os.UserHomeDir()
 	if err != nil {

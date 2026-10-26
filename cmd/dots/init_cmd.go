@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/kevnnard/dots/pkg/manifest"
 	"github.com/spf13/cobra"
 )
 
@@ -25,6 +26,10 @@ var initCmd = &cobra.Command{
 		m, err := loadOrInitManifest(repoDir)
 		if err != nil {
 			return err
+		}
+
+		if err := manifest.WriteDefaultBrewfiles(repoDir); err != nil {
+			return fmt.Errorf("failed creating default Brewfiles: %w", err)
 		}
 
 		// Initialize git repo if not already present

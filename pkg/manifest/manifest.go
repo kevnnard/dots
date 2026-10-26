@@ -24,10 +24,23 @@ type InstallRecipe struct {
 type AppConfig struct {
 	Name        string                   `yaml:"name,omitempty"`
 	Description string                   `yaml:"description,omitempty"`
+	Profile     string                   `yaml:"profile,omitempty"` // core (default), mobile, infra, optional
 	Paths       []PathMapping            `yaml:"paths"`
 	Exclude     []string                 `yaml:"exclude,omitempty"`
 	Secrets     []string                 `yaml:"secrets,omitempty"`
 	Install     map[string]InstallRecipe `yaml:"install,omitempty"`
+}
+
+// MatchesProfile returns true if the app matches the requested profile.
+func (a AppConfig) MatchesProfile(target string) bool {
+	if target == "" || target == "all" {
+		return true
+	}
+	p := a.Profile
+	if p == "" {
+		p = "core"
+	}
+	return strings.EqualFold(p, target)
 }
 
 type Manifest struct {
@@ -127,12 +140,33 @@ func DefaultManifest() *Manifest {
 				},
 			},
 			"brew": {
-				Description: "Homebrew bundle and packages",
+				Description: "Core Homebrew bundle (CLI tools, fonts, GUIs)",
+				Profile:     "core",
 				Paths: []PathMapping{
 					{Src: "Brewfile", Dest: "Brewfile"},
 				},
 				Install: map[string]InstallRecipe{
-					"darwin": {Manager: "script", Command: `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`},
+					"darwin": {Manager: "script", Command: "brew bundle --file=Brewfile"},
+				},
+			},
+			"mobile": {
+				Description: "React Native & Mobile Build Toolchain (OpenJDK 17, CocoaPods, Fastlane)",
+				Profile:     "mobile",
+				Paths: []PathMapping{
+					{Src: "Brewfile.mobile", Dest: "Brewfile.mobile"},
+				},
+				Install: map[string]InstallRecipe{
+					"darwin": {Manager: "script", Command: "brew bundle --file=Brewfile.mobile"},
+				},
+			},
+			"infra": {
+				Description: "Local infrastructure & Actions testing (Caddy, mkcert, act)",
+				Profile:     "infra",
+				Paths: []PathMapping{
+					{Src: "Brewfile.infra", Dest: "Brewfile.infra"},
+				},
+				Install: map[string]InstallRecipe{
+					"darwin": {Manager: "script", Command: "brew bundle --file=Brewfile.infra"},
 				},
 			},
 		},

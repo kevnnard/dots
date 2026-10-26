@@ -8,6 +8,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var statusProfileFlag string
+
 var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Check synchronization state and drift between machine and dotfiles repo",
@@ -29,6 +31,11 @@ var statusCmd = &cobra.Command{
 
 		driftCount := 0
 		for name, st := range overall.Apps {
+			app := m.Apps[name]
+			if statusProfileFlag != "" && statusProfileFlag != "all" && !app.MatchesProfile(statusProfileFlag) {
+				continue
+			}
+
 			installedBadge := "✗ Not installed"
 			if st.Installed {
 				installedBadge = "✓ Installed"
@@ -70,5 +77,6 @@ var statusCmd = &cobra.Command{
 }
 
 func init() {
+	statusCmd.Flags().StringVarP(&statusProfileFlag, "profile", "p", "all", "Filter status by profile (core, mobile, infra, or all)")
 	rootCmd.AddCommand(statusCmd)
 }
