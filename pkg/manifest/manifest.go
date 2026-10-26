@@ -85,20 +85,36 @@ func DefaultManifest() *Manifest {
 				},
 			},
 			"pi": {
-				Description: "Pi coding agent harness settings and extensions",
+				Description: "Pi coding agent harness settings, models, MCP servers, skills, and agents",
+				Profile:     "core",
 				Paths: []PathMapping{
 					{Src: "~/.pi/agent/settings.json", Dest: "configs/pi/settings.json"},
+					{Src: "~/.pi/agent/models.json", Dest: "configs/pi/models.json"},
+					{Src: "~/.pi/agent/mcp.json", Dest: "configs/pi/mcp.json"},
+					{Src: "~/.pi/agent/trust.json", Dest: "configs/pi/trust.json"},
 					{Src: "~/.pi/agent/skills", Dest: "configs/pi/skills"},
+					{Src: "~/.pi/agent/agents", Dest: "configs/pi/agents"},
+					{Src: "~/.pi/agent/chains", Dest: "configs/pi/chains"},
+					{Src: "~/.pi/agent/auth.json", Dest: "configs/pi/auth.json"},
+					{Src: "~/.pi/agent/mcp-auth.json", Dest: "configs/pi/mcp-auth.json"},
 				},
 				Exclude: []string{
 					"sessions/**",
+					"web-search-cache/**",
+					"cc-cli-logs/**",
+					"*.log",
 					"*.tmp.*",
+					"*.cache.json",
+					"crashes.json",
+					"npm/**",
+					"bin/**",
 					"node_modules/**",
 					".git/**",
 					".DS_Store",
 				},
 				Secrets: []string{
-					"agent/settings.json", // May contain sensitive keys if configured
+					"auth.json",
+					"mcp-auth.json",
 				},
 			},
 			"zsh": {

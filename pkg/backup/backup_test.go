@@ -125,3 +125,48 @@ func TestSanitizeSecretFile(t *testing.T) {
 		t.Errorf("template should keep the key name. Output:\n%s", templateStr)
 	}
 }
+
+func TestSanitizeJSONSecretFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	jsonFile := filepath.Join(tmpDir, "auth.json")
+	content := `{
+		"anthropic": {
+			"apiKey": "sk-ant-api03-secret123456"
+		},
+		"openai": {
+			"apiKey": "sk-proj-secret789"
+		}
+	}`
+	os.WriteFile(jsonFile, []byte(content), 0644)
+
+	destDir := filepath.Join(tmpDir, "dotfiles")
+	app := manifest.AppConfig{
+		Paths: []manifest.PathMapping{
+			{Src: jsonFile, Dest: "configs/pi/auth.json"},
+		},
+		Secrets: []string{"auth.json"},
+	}
+
+	res, err := BackupApp("pi", app, destDir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(res.SecretsMasked) != 1 {
+		t.Fatalf("expected 1 secret masked, got %d", len(res.SecretsMasked))
+	}
+
+	templatePath := filepath.Join(destDir, "configs/pi/auth.json.template")
+	data, err := os.ReadFile(templatePath)
+	if err != nil {
+		t.Fatalf("expected template at %s: %v", templatePath, err)
+	}
+
+	output := string(data)
+	if strings.Contains(output, "secret123456") || strings.Contains(output, "secret789") {
+		t.Errorf("template still contains raw secret! Output:\n%s", output)
+	}
+	if !strings.Contains(output, "YOUR_APIKEY_HERE") && !strings.Contains(output, "YOUR_API_KEY_HERE") {
+		t.Errorf("expected placeholder in JSON template. Output:\n%s", output)
+	}
+}

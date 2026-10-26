@@ -2,6 +2,7 @@ package backup
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -226,23 +227,35 @@ func isSecret(path string, secretList []string) bool {
 }
 
 func sanitizeSecretFile(src, destTemplate string) error {
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-
 	if err := os.MkdirAll(filepath.Dir(destTemplate), 0755); err != nil {
 		return err
 	}
 
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+
+	// If it's a JSON file, sanitize JSON structure preserving valid syntax
+	if strings.HasSuffix(src, ".json") {
+		var parsed any
+		if err := json.Unmarshal(data, &parsed); err == nil {
+			masked := maskJSONValues(parsed, "VALUE")
+			marshaled, err := json.MarshalIndent(masked, "", "  ")
+			if err == nil {
+				return os.WriteFile(destTemplate, marshaled, 0644)
+			}
+		}
+	}
+
+	// Line-by-line fallback for .env / config files
 	out, err := os.Create(destTemplate)
 	if err != nil {
 		return err
 	}
 	defer out.Close()
 
-	scanner := bufio.NewScanner(in)
+	scanner := bufio.NewScanner(strings.NewReader(string(data)))
 	writer := bufio.NewWriter(out)
 
 	for scanner.Scan() {
@@ -268,6 +281,28 @@ func sanitizeSecretFile(src, destTemplate string) error {
 	}
 
 	return writer.Flush()
+}
+
+func maskJSONValues(val any, keyName string) any {
+	switch v := val.(type) {
+	case map[string]any:
+		res := make(map[string]any)
+		for k, child := range v {
+			res[k] = maskJSONValues(child, k)
+		}
+		return res
+	case []any:
+		var res []any
+		for _, child := range v {
+			res = append(res, maskJSONValues(child, keyName))
+		}
+		return res
+	case string:
+		cleanKey := strings.ToUpper(strings.ReplaceAll(keyName, "-", "_"))
+		return fmt.Sprintf("YOUR_%s_HERE", cleanKey)
+	default:
+		return v
+	}
 }
 
 func dumpBrewfile(destDir string) error {
