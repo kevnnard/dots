@@ -22,11 +22,14 @@ A Go-based cross-platform dotfiles and workstation setup manager for macOS and L
 - T7 (S1-S7): End-to-end verification, tests, and documentation. [DONE]
 - T8 (S8): Add profile filtering (`core`, `mobile`, `infra`, `all`) to manifest and CLI. [DONE]
 - T9 (S8): Curate the user's specific Brewfiles and apps according to core, mobile, and infra profiles. [DONE]
-- T10 (S9): Interactive Bubble Tea / Lipgloss TUI (`pkg/ui`) with visual dashboard, custom selection checkboxes, status viewer, and runner.
-- T11 (S9): Wire root command to launch TUI on no args, alias binary to `kevnnard-dots` and `dots`.
+- T10 (S9): Interactive Bubble Tea / Lipgloss TUI (`pkg/ui`) with visual dashboard, custom selection checkboxes, status viewer, and runner. [DONE]
+- T11 (S9): Wire root command to launch TUI on no args, alias binary to `kevnnard-dots` and `dots`. [DONE]
+- T12 (S10): Local safety backup before overwriting files in restore (`<target>.<timestamp>.bk`).
+- T13 (S10): Automatic Git snapshot commit and remote push (`snapshot: <timestamp> (<hostname>)`) in backup engine.
 
 ## Log
 - L1: User requested a terminal program in Go to save macOS and cross-platform configurations (nvim, PI, pnpm, brew, essential dependencies and configs), detect target OS on clean install/new PC, copy selected paths, handle secrets safely, and provide backup/install systems.
 - L2: Agreed architecture: Go binary, manifest-driven in `~/.dotfiles`, repository in `~/Repositories/dots`.
 - L3: User defined profiles: core (default with shell, dev tools, web dev, dotnet, docker, fonts, gui), mobile (React Native: openjdk@17, cocoapods, fastlane), infra (optional: caddy, mkcert, act).
 - L4: User requested visual interactive TUI like gentle-ai, single command `kevnnard-dots` with custom vs default installation toggles.
+- L5: User requested timestamped snapshot commits in the repo, remote git sync/push, and safety `.bk` backup on restore.

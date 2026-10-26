@@ -2,6 +2,7 @@ package backup
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -168,5 +169,49 @@ func TestSanitizeJSONSecretFile(t *testing.T) {
 	}
 	if !strings.Contains(output, "YOUR_APIKEY_HERE") && !strings.Contains(output, "YOUR_API_KEY_HERE") {
 		t.Errorf("expected placeholder in JSON template. Output:\n%s", output)
+	}
+}
+
+func TestCreateGitSnapshot(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Initialize git repo in tmpDir
+	initCmd := exec.Command("git", "init", "-b", "main")
+	initCmd.Dir = tmpDir
+	if err := initCmd.Run(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Configure mock git user
+	configUser := exec.Command("git", "config", "user.name", "Tester")
+	configUser.Dir = tmpDir
+	configUser.Run()
+	configEmail := exec.Command("git", "config", "user.email", "tester@example.com")
+	configEmail.Dir = tmpDir
+	configEmail.Run()
+
+	// Write a file
+	testFile := filepath.Join(tmpDir, "config.txt")
+	os.WriteFile(testFile, []byte("hello=world\n"), 0644)
+
+	res, err := CreateGitSnapshot(tmpDir, false)
+	if err != nil {
+		t.Fatalf("unexpected error creating git snapshot: %v", err)
+	}
+
+	if !res.Committed {
+		t.Error("expected snapshot to be committed")
+	}
+	if !strings.Contains(res.Message, "snapshot:") {
+		t.Errorf("expected commit message to have snapshot prefix, got: %s", res.Message)
+	}
+
+	// Running it again on a clean repo should not fail and should report not committed (clean)
+	res2, err := CreateGitSnapshot(tmpDir, false)
+	if err != nil {
+		t.Fatalf("unexpected error on clean repo: %v", err)
+	}
+	if res2.Committed {
+		t.Error("expected clean repo not to create duplicate commit")
 	}
 }

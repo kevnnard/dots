@@ -263,6 +263,17 @@ func (m Model) executeAction() (tea.Model, tea.Cmd) {
 		}
 		m.Logs = append(m.Logs, "")
 		m.Logs = append(m.Logs, StyleSuccess.Render(fmt.Sprintf("✨ Backup complete! Total items saved: %d", totalCopied)))
+
+		// Create Git snapshot commit and push
+		snap, snapErr := backup.CreateGitSnapshot(m.RepoDir, true)
+		if snapErr == nil && snap.Committed {
+			m.Logs = append(m.Logs, StyleSelected.Render(fmt.Sprintf("📸 Git snapshot committed: %s [%s]", snap.Message, snap.CommitHash)))
+			if snap.Pushed {
+				m.Logs = append(m.Logs, StyleSuccess.Render("🚀 Pushed snapshot to remote repository!"))
+			} else if snap.Error != "" {
+				m.Logs = append(m.Logs, StyleMuted.Render(fmt.Sprintf("ℹ️ Remote push: %s", snap.Error)))
+			}
+		}
 	} else {
 		// Restore
 		m.Logs = append(m.Logs, StyleSubtitle.Render("🚀 Running Restore & Provisioning..."))
@@ -282,6 +293,9 @@ func (m Model) executeAction() (tea.Model, tea.Cmd) {
 			if err != nil {
 				m.Logs = append(m.Logs, StyleError.Render(fmt.Sprintf("✗ %s restore: %v", item.Name, err)))
 				continue
+			}
+			for _, bk := range res.LocalBackups {
+				m.Logs = append(m.Logs, StyleWarning.Render(fmt.Sprintf("  🛡️ Safety backup: %s", bk)))
 			}
 			for _, r := range res.Restored {
 				m.Logs = append(m.Logs, StyleSuccess.Render(fmt.Sprintf("  ✓ Restored: %s", r)))

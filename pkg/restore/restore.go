@@ -1,12 +1,14 @@
 package restore
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/kevnnard/dots/pkg/detector"
 	"github.com/kevnnard/dots/pkg/manifest"
@@ -23,6 +25,7 @@ type AppPlan struct {
 type ApplyResult struct {
 	AppName       string   `json:"app_name"`
 	Restored      []string `json:"restored"`
+	LocalBackups  []string `json:"local_backups"`
 	TemplatesInit []string `json:"templates_initialized"`
 	Skipped       []string `json:"skipped"`
 	Warnings      []string `json:"warnings"`
@@ -145,6 +148,9 @@ func ApplyAppFiles(appName string, app manifest.AppConfig, repoDir string, dryRu
 				}
 
 				if !dryRun {
+					if bk, err := makeSafetyBackup(destFile, path); err == nil && bk != "" {
+						res.LocalBackups = append(res.LocalBackups, bk)
+					}
 					if err := copyFile(path, destFile); err != nil {
 						res.Warnings = append(res.Warnings, fmt.Sprintf("failed copying %s to %s: %v", path, destFile, err))
 						return nil
@@ -158,6 +164,9 @@ func ApplyAppFiles(appName string, app manifest.AppConfig, repoDir string, dryRu
 			}
 		} else {
 			if !dryRun {
+				if bk, err := makeSafetyBackup(targetExpanded, repoPath); err == nil && bk != "" {
+					res.LocalBackups = append(res.LocalBackups, bk)
+				}
 				if err := copyFile(repoPath, targetExpanded); err != nil {
 					res.Warnings = append(res.Warnings, fmt.Sprintf("failed restoring %s to %s: %v", repoPath, targetExpanded, err))
 					continue
@@ -255,4 +264,33 @@ func copyFile(src, dest string) error {
 
 	_, err = io.Copy(out, in)
 	return err
+}
+
+func makeSafetyBackup(targetPath, repoSourcePath string) (string, error) {
+	info, err := os.Stat(targetPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", nil
+		}
+		return "", err
+	}
+	if info.IsDir() {
+		return "", nil
+	}
+
+	// If contents are already identical, no backup is needed
+	targetBytes, err := os.ReadFile(targetPath)
+	if err == nil {
+		sourceBytes, err := os.ReadFile(repoSourcePath)
+		if err == nil && bytes.Equal(targetBytes, sourceBytes) {
+			return "", nil
+		}
+	}
+
+	ts := time.Now().Format("20060102_150405")
+	backupPath := fmt.Sprintf("%s.%s.bk", targetPath, ts)
+	if err := copyFile(targetPath, backupPath); err != nil {
+		return "", err
+	}
+	return backupPath, nil
 }

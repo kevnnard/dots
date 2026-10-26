@@ -7,6 +7,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	pushFlag bool
+)
+
 var backupCmd = &cobra.Command{
 	Use:   "backup [app-name]",
 	Short: "Backup configs and dependencies into the dotfiles repository",
@@ -48,6 +52,20 @@ var backupCmd = &cobra.Command{
 		}
 
 		fmt.Printf("\n✨ Backup complete! Total files processed: %d\n", total.Total)
+
+		// Git Snapshot Commit & Push
+		snap, snapErr := backup.CreateGitSnapshot(repoDir, pushFlag)
+		if snapErr != nil {
+			fmt.Printf("⚠️  Git snapshot error: %v\n", snapErr)
+		} else if snap.Committed {
+			fmt.Printf("📸 Git snapshot committed: %s [%s]\n", snap.Message, snap.CommitHash)
+			if snap.Pushed {
+				fmt.Println("🚀 Snapshot pushed to remote repository!")
+			} else if snap.Error != "" {
+				fmt.Printf("⚠️  Remote push note: %s\n", snap.Error)
+			}
+		}
+
 		if len(total.Warnings) > 0 {
 			fmt.Println("\n⚠️  Warnings:")
 			for _, w := range total.Warnings {
@@ -78,5 +96,6 @@ func printAppBackupResult(res *backup.Result) {
 }
 
 func init() {
+	backupCmd.Flags().BoolVarP(&pushFlag, "push", "p", true, "Push snapshot commit to remote git repository (default true)")
 	rootCmd.AddCommand(backupCmd)
 }

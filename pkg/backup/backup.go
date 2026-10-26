@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/kevnnard/dots/pkg/manifest"
 )
@@ -332,4 +333,82 @@ func dumpBrewfile(destDir string) error {
 		return fmt.Errorf("%s: %w", string(output), err)
 	}
 	return nil
+}
+
+type GitSnapshotResult struct {
+	Committed  bool   `json:"committed"`
+	CommitHash string `json:"commit_hash,omitempty"`
+	Message    string `json:"message,omitempty"`
+	Pushed     bool   `json:"pushed"`
+	Error      string `json:"error,omitempty"`
+}
+
+// CreateGitSnapshot stages all changes in repoDir, creates a snapshot commit, and optionally pushes to remote.
+func CreateGitSnapshot(repoDir string, pushRemote bool) (*GitSnapshotResult, error) {
+	gitDir := filepath.Join(repoDir, ".git")
+	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
+		return &GitSnapshotResult{Committed: false}, nil
+	}
+
+	// Check if there are changes
+	statusCmd := exec.Command("git", "status", "--porcelain")
+	statusCmd.Dir = repoDir
+	statusOut, err := statusCmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("checking git status: %w", err)
+	}
+
+	if len(strings.TrimSpace(string(statusOut))) == 0 {
+		return &GitSnapshotResult{Committed: false}, nil
+	}
+
+	// Stage all changes
+	addCmd := exec.Command("git", "add", "-A")
+	addCmd.Dir = repoDir
+	if err := addCmd.Run(); err != nil {
+		return nil, fmt.Errorf("git add: %w", err)
+	}
+
+	// Prepare commit message
+	hostname, _ := os.Hostname()
+	if hostname == "" {
+		hostname = "machine"
+	}
+	ts := time.Now().Format("2006-01-02 15:04:05")
+	msg := fmt.Sprintf("snapshot: %s (%s)", ts, hostname)
+
+	commitCmd := exec.Command("git", "commit", "-m", msg)
+	commitCmd.Dir = repoDir
+	if out, err := commitCmd.CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("git commit failed: %s: %w", string(out), err)
+	}
+
+	// Get commit hash
+	revCmd := exec.Command("git", "rev-parse", "--short", "HEAD")
+	revCmd.Dir = repoDir
+	revOut, _ := revCmd.Output()
+	commitHash := strings.TrimSpace(string(revOut))
+
+	res := &GitSnapshotResult{
+		Committed:  true,
+		CommitHash: commitHash,
+		Message:    msg,
+	}
+
+	if pushRemote {
+		// Check if remote 'origin' exists
+		remoteCmd := exec.Command("git", "remote", "get-url", "origin")
+		remoteCmd.Dir = repoDir
+		if err := remoteCmd.Run(); err == nil {
+			pushCmd := exec.Command("git", "push", "origin", "HEAD")
+			pushCmd.Dir = repoDir
+			if err := pushCmd.Run(); err == nil {
+				res.Pushed = true
+			} else {
+				res.Error = fmt.Sprintf("git push failed: %v", err)
+			}
+		}
+	}
+
+	return res, nil
 }

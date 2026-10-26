@@ -92,6 +92,9 @@ var restoreCmd = &cobra.Command{
 			}
 
 			fmt.Printf("[%s]\n", name)
+			for _, bk := range res.LocalBackups {
+				fmt.Printf("  🛡️  Safety backup created: %s\n", bk)
+			}
 			for _, r := range res.Restored {
 				fmt.Printf("  ✓ Restored: %s\n", r)
 			}

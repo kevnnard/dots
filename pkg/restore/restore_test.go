@@ -81,3 +81,43 @@ func TestApplyFiles(t *testing.T) {
 		t.Errorf("expected 'print('restored')\\n', got %s", string(data))
 	}
 }
+
+func TestApplyFilesCreatesSafetyBackup(t *testing.T) {
+	tmpDir := t.TempDir()
+	repoDir := filepath.Join(tmpDir, "dotfiles")
+	targetHome := filepath.Join(tmpDir, "home")
+
+	// 1. Setup existing local file with old content
+	targetFile := filepath.Join(targetHome, ".zshrc")
+	os.MkdirAll(filepath.Dir(targetFile), 0755)
+	os.WriteFile(targetFile, []byte("echo 'my old local zsh'\n"), 0644)
+
+	// 2. Setup repo file with new content
+	repoFile := filepath.Join(repoDir, "configs", "zsh", ".zshrc")
+	os.MkdirAll(filepath.Dir(repoFile), 0755)
+	os.WriteFile(repoFile, []byte("echo 'restored from repo'\n"), 0644)
+
+	app := manifest.AppConfig{
+		Paths: []manifest.PathMapping{
+			{Src: targetFile, Dest: "configs/zsh/.zshrc"},
+		},
+	}
+
+	res, err := ApplyAppFiles("zsh", app, repoDir, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(res.LocalBackups) != 1 {
+		t.Fatalf("expected 1 local backup created, got %d", len(res.LocalBackups))
+	}
+
+	backupCreated := res.LocalBackups[0]
+	data, err := os.ReadFile(backupCreated)
+	if err != nil {
+		t.Fatalf("failed reading backup file %s: %v", backupCreated, err)
+	}
+	if string(data) != "echo 'my old local zsh'\n" {
+		t.Errorf("expected old content preserved in backup, got: %s", string(data))
+	}
+}
