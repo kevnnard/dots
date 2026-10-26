@@ -55,15 +55,16 @@ if ! command -v git &>/dev/null; then
 fi
 echo -e "  ${GREEN}✓${RESET} Git is available"
 
-# 3. Target Clone Directory
+# 3. Target Clone Directory and Repository Source
+REPO_URL="${DOTS_REPO:-https://github.com/kevnnard/dots.git}"
 DOTS_DIR="$HOME/.dotfiles"
 if [ -d "$HOME/Repositories" ]; then
     DOTS_DIR="$HOME/Repositories/dots"
 fi
 
 if [ ! -d "$DOTS_DIR" ]; then
-    echo -e "\n${BOLD}📦 Cloning dotfiles repository to ${DOTS_DIR}...${RESET}"
-    git clone https://github.com/kevnnard/dots.git "$DOTS_DIR"
+    echo -e "\n${BOLD}📦 Cloning dotfiles repository from ${REPO_URL} to ${DOTS_DIR}...${RESET}"
+    git clone "$REPO_URL" "$DOTS_DIR"
 else
     echo -e "  ${GREEN}✓${RESET} Dotfiles repository found at: ${DOTS_DIR}"
 fi

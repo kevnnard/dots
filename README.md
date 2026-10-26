@@ -57,6 +57,20 @@ go build -ldflags="-s -w" -o ~/.local/bin/dots ./cmd/dots
 
 ---
 
+## 👥 How to Use This Repository
+
+| Mode | Who it's for | Workflow |
+|:---|:---|:---|
+| **1. Use My Setup (Consumer)** | You like this exact workstation setup (Ghostty, Neovim, Herdr, Zsh, AI agents) and want your Mac or Linux to look and work identically. | Just run the Quickstart and execute `dots restore --install-packages`. You don't need to fork; your machine simply downloads and installs the official recipes. |
+| **2. Manage Your Own Dotfiles (Fork & Backup)** | You want to use `dots` as the engine to version and sync **your own personal** dotfiles across your own computers. | 1. Click **[Fork](https://github.com/kevnnard/dots/fork)** on GitHub to create `github.com/<your-username>/dots`.<br/>2. Clone your fork (`git clone https://github.com/<your-username>/dots.git ~/.dotfiles`).<br/>3. Run `dots backup` — snapshots and commits will push to **your own repository**, keeping your configs safe under your account! |
+
+> 💡 **Tip for Fork users:** You can run the one-line installer pointing directly to your fork:
+> ```bash
+> curl -fsSL https://raw.githubusercontent.com/kevnnard/dots/main/install.sh | DOTS_REPO="https://github.com/<your-username>/dots.git" bash
+> ```
+
+---
+
 ## 🗺️ System Architecture
 
 `dots` uses a **Single Source of Truth** model. Both the tool source code and the configuration files live in the same repository, safely deploying outwards to host OS destinations and collecting backups inward through an automated sanitization firewall:
