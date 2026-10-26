@@ -24,7 +24,8 @@ type InstallRecipe struct {
 type AppConfig struct {
 	Name        string                   `yaml:"name,omitempty"`
 	Description string                   `yaml:"description,omitempty"`
-	Profile     string                   `yaml:"profile,omitempty"` // core (default), mobile, infra, optional
+	Profile     string                   `yaml:"profile,omitempty"` // core (default), mobile, infra, ai, optional
+	Optional    bool                     `yaml:"optional,omitempty"`
 	Paths       []PathMapping            `yaml:"paths"`
 	Exclude     []string                 `yaml:"exclude,omitempty"`
 	Secrets     []string                 `yaml:"secrets,omitempty"`
@@ -40,7 +41,12 @@ func (a AppConfig) MatchesProfile(target string) bool {
 	if p == "" {
 		p = "core"
 	}
-	return strings.EqualFold(p, target)
+	for _, part := range strings.Split(p, ",") {
+		if strings.EqualFold(strings.TrimSpace(part), target) {
+			return true
+		}
+	}
+	return false
 }
 
 type Manifest struct {
@@ -86,7 +92,7 @@ func DefaultManifest() *Manifest {
 			},
 			"pi": {
 				Description: "Pi coding agent harness settings, models, MCP servers, skills, and agents",
-				Profile:     "core",
+				Profile:     "core,ai",
 				Paths: []PathMapping{
 					{Src: "~/.pi/agent/settings.json", Dest: "configs/pi/settings.json"},
 					{Src: "~/.pi/agent/models.json", Dest: "configs/pi/models.json"},
@@ -120,7 +126,7 @@ func DefaultManifest() *Manifest {
 			},
 			"skills": {
 				Description: "Agent skills catalog in ~/.agents/skills",
-				Profile:     "core",
+				Profile:     "core,ai",
 				Paths: []PathMapping{
 					{Src: "~/.agents/skills", Dest: "configs/agents/skills"},
 				},
@@ -149,7 +155,7 @@ func DefaultManifest() *Manifest {
 			},
 			"claude": {
 				Description: "Claude Code CLI settings, MCP servers, agents, and instructions",
-				Profile:     "core",
+				Profile:     "core,ai",
 				Paths: []PathMapping{
 					{Src: "~/.claude/settings.json", Dest: "configs/claude/settings.json"},
 					{Src: "~/.claude/mcp.json", Dest: "configs/claude/mcp.json"},
@@ -175,7 +181,7 @@ func DefaultManifest() *Manifest {
 			},
 			"codex": {
 				Description: "Codex CLI configurations, hooks, agents, and rules",
-				Profile:     "core",
+				Profile:     "core,ai",
 				Paths: []PathMapping{
 					{Src: "~/.codex/config.toml", Dest: "configs/codex/config.toml"},
 					{Src: "~/.codex/hooks.json", Dest: "configs/codex/hooks.json"},
@@ -197,6 +203,25 @@ func DefaultManifest() *Manifest {
 				},
 				Secrets: []string{
 					"auth.json",
+				},
+			},
+			"ollama": {
+				Description: "Ollama local AI runtime and models runner",
+				Profile:     "ai",
+				Optional:    true,
+				Paths: []PathMapping{
+					{Src: "~/.ollama", Dest: "configs/ollama"},
+				},
+				Exclude: []string{
+					"models/**",
+					"blobs/**",
+					"manifests/**",
+					"*.bin",
+					"*.gguf",
+				},
+				Install: map[string]InstallRecipe{
+					"darwin": {Manager: "brew", Cask: "ollama"},
+					"linux":  {Manager: "script", Command: "curl -fsSL https://ollama.com/install.sh | sh"},
 				},
 			},
 			"zed": {

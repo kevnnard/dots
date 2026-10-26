@@ -12,7 +12,7 @@ func TestDefaultManifest(t *testing.T) {
 		t.Error("expected non-empty version")
 	}
 
-	expectedApps := []string{"nvim", "pi", "ghostty", "zsh", "git", "pnpm", "brew", "claude", "codex", "zed", "atuin", "flashspace", "gh", "ssh"}
+	expectedApps := []string{"nvim", "pi", "ghostty", "zsh", "git", "pnpm", "brew", "claude", "codex", "zed", "atuin", "flashspace", "gh", "ssh", "ollama"}
 	for _, app := range expectedApps {
 		if _, ok := m.Apps[app]; !ok {
 			t.Errorf("expected default manifest to contain %s", app)
@@ -54,6 +54,7 @@ func TestManifestSaveAndLoad(t *testing.T) {
 func TestMatchesProfile(t *testing.T) {
 	appCore := AppConfig{Profile: "core"}
 	appMobile := AppConfig{Profile: "mobile"}
+	appMulti := AppConfig{Profile: "core,ai"}
 	appDefault := AppConfig{}
 
 	if !appCore.MatchesProfile("core") {
@@ -67,6 +68,9 @@ func TestMatchesProfile(t *testing.T) {
 	}
 	if !appMobile.MatchesProfile("mobile") {
 		t.Error("expected appMobile to match 'mobile'")
+	}
+	if !appMulti.MatchesProfile("core") || !appMulti.MatchesProfile("ai") {
+		t.Error("expected appMulti to match both 'core' and 'ai'")
 	}
 	if !appMobile.MatchesProfile("all") {
 		t.Error("expected appMobile to match 'all'")

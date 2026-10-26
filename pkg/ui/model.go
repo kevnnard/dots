@@ -67,7 +67,7 @@ func NewModel(m *manifest.Manifest, sys *detector.SystemInfo, repoDir string) Mo
 			Name:        name,
 			Description: app.Description,
 			Profile:     prof,
-			Checked:     prof == "core", // default core checked
+			Checked:     !app.Optional && app.MatchesProfile("core"), // default core checked unless optional
 		})
 	}
 
@@ -162,7 +162,7 @@ func (m Model) updateRestorePreset(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.Cursor--
 		}
 	case "down", "j":
-		if m.Cursor < 3 {
+		if m.Cursor < 4 {
 			m.Cursor++
 		}
 	case "esc":
@@ -172,20 +172,29 @@ func (m Model) updateRestorePreset(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		switch m.Cursor {
 		case 0: // Full Setup (All profiles)
 			for i := range m.AppItems {
-				m.AppItems[i].Checked = true
+				app := m.Manifest.Apps[m.AppItems[i].Name]
+				m.AppItems[i].Checked = !app.Optional
 			}
 			return m.executeAction()
 		case 1: // Core Only
 			for i := range m.AppItems {
-				m.AppItems[i].Checked = (m.AppItems[i].Profile == "core")
+				app := m.Manifest.Apps[m.AppItems[i].Name]
+				m.AppItems[i].Checked = app.MatchesProfile("core") && !app.Optional
 			}
 			return m.executeAction()
-		case 2: // Mobile Dev
+		case 2: // AI & Agents
 			for i := range m.AppItems {
-				m.AppItems[i].Checked = (m.AppItems[i].Profile == "mobile")
+				app := m.Manifest.Apps[m.AppItems[i].Name]
+				m.AppItems[i].Checked = app.MatchesProfile("ai")
 			}
 			return m.executeAction()
-		case 3: // Custom Selection
+		case 3: // Mobile Dev
+			for i := range m.AppItems {
+				app := m.Manifest.Apps[m.AppItems[i].Name]
+				m.AppItems[i].Checked = app.MatchesProfile("mobile")
+			}
+			return m.executeAction()
+		case 4: // Custom Selection
 			m.State = viewCustomApps
 			m.Cursor = 0
 		}
@@ -351,8 +360,9 @@ func (m Model) View() string {
 	case viewRestorePreset:
 		s.WriteString(StyleSubtitle.Render("Select Installation Mode:") + "\n\n")
 		presets := []string{
-			"🌟  Full Setup       (All Profiles: Core + Mobile + Infra)",
-			"⚡️  Core Only        (Workstation default: Shell, Neovim, Pi, Ghostty, Brew, Web)",
+			"🌟  Full Setup       (All Profiles: Core + Mobile + Infra + AI)",
+			"⚡️  Core Only        (Workstation default: Shell, Neovim, Ghostty, Brew, Web)",
+			"🤖  AI & Agents      (Pi, Claude Code, Codex, and Ollama local runtime)",
 			"📱  Mobile Dev       (React Native, OpenJDK 17, CocoaPods, Fastlane)",
 			"🛠️   Custom Selection (Pick and choose individual apps with checkboxes)",
 		}

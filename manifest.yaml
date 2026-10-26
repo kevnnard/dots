@@ -23,7 +23,7 @@ apps:
                 command: brew bundle --file=Brewfile
     claude:
         description: Claude Code CLI settings, MCP servers, agents, and instructions
-        profile: core
+        profile: core,ai
         paths:
             - src: ~/.claude/settings.json
               dest: configs/claude/settings.json
@@ -50,7 +50,7 @@ apps:
             - .DS_Store
     codex:
         description: Codex CLI configurations, hooks, agents, and rules
-        profile: core
+        profile: core,ai
         paths:
             - src: ~/.codex/config.toml
               dest: configs/codex/config.toml
@@ -179,7 +179,7 @@ apps:
                 package: neovim
     pi:
         description: Pi coding agent harness settings, models, MCP servers, skills, and agents
-        profile: core
+        profile: core,ai
         paths:
             - src: ~/.pi/agent/settings.json
               dest: configs/pi/settings.json
@@ -216,6 +216,26 @@ apps:
             - auth.json
             - mcp-auth.json
             - mcp.json
+    ollama:
+        description: Ollama local AI runtime and models runner
+        profile: ai
+        optional: true
+        paths:
+            - src: ~/.ollama
+              dest: configs/ollama
+        exclude:
+            - models/**
+            - blobs/**
+            - manifests/**
+            - '*.bin'
+            - '*.gguf'
+        install:
+            darwin:
+                manager: brew
+                cask: ollama
+            linux:
+                manager: script
+                command: curl -fsSL https://ollama.com/install.sh | sh
     pnpm:
         description: Fast, disk space efficient package manager
         paths: []
@@ -228,7 +248,7 @@ apps:
                 command: curl -fsSL https://get.pnpm.io/install.sh | sh -
     skills:
         description: Agent skills catalog in ~/.agents/skills
-        profile: core
+        profile: core,ai
         paths:
             - src: ~/.agents/skills
               dest: configs/agents/skills

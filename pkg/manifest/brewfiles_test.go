@@ -24,6 +24,7 @@ func TestWriteDefaultBrewfiles(t *testing.T) {
 		{"Brewfile.mobile", "cocoapods"},
 		{"Brewfile.infra", "caddy"},
 		{"Brewfile.infra", "mkcert"},
+		{"Brewfile.ai", "ollama"},
 	}
 
 	for _, ef := range expectedFiles {

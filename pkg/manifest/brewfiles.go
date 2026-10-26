@@ -78,12 +78,17 @@ brew "mkcert"
 brew "act"
 `
 
+const DefaultAIBrewfile = `# Brewfile.ai (AI Agents & Local Models Runtime)
+cask "ollama"
+`
+
 // WriteDefaultBrewfiles writes the curated Brewfiles if they do not exist.
 func WriteDefaultBrewfiles(repoDir string) error {
 	files := map[string]string{
 		"Brewfile":        DefaultCoreBrewfile,
 		"Brewfile.mobile": DefaultMobileBrewfile,
 		"Brewfile.infra":  DefaultInfraBrewfile,
+		"Brewfile.ai":     DefaultAIBrewfile,
 	}
 
 	for filename, content := range files {
