@@ -1,0 +1,11 @@
+[user]
+	name = Kevnnard MackBookPro
+	email = kevnnard.labs@gmail.com
+	signingkey = 2E743206B31593A1
+[commit]
+	gpgsign = true
+[gpg]
+	program = gpg
+	format = openpgp
+[init]
+	defaultBranch = main

@@ -1,0 +1,44 @@
+{
+  "providers": {
+    "minimax": {
+      "modelOverrides": {
+        "MiniMax-M3": {
+          "contextWindow": 204800
+        },
+        "MiniMax-M3.1-Flash": {
+          "contextWindow": 204800
+        }
+      }
+    },
+    "anthropic": {
+      "modelOverrides": {
+        "claude-haiku-5-5": {
+          "contextWindow": 204800
+        }
+      }
+    },
+    "antigravity": {
+      "modelOverrides": {
+        "gemini-3.8-flash": {
+          "contextWindow": 204800
+        },
+        "claude-sonnet-5-5": {
+          "contextWindow": 204800
+        },
+        "claude-opus-5-5": {
+          "contextWindow": 204800
+        }
+      }
+    },
+    "openai-codex": {
+      "modelOverrides": {
+        "gpt-6-luna": {
+          "contextWindow": 204800
+        },
+        "gpt-6.1-sol": {
+          "contextWindow": 204800
+        }
+      }
+    }
+  }
+}

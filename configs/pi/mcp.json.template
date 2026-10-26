@@ -1,0 +1,61 @@
+{
+  "mcpServers": {
+    "codegraph": {
+      "args": [
+        "serve",
+        "--mcp"
+      ],
+      "command": "codegraph"
+    },
+    "context7": {
+      "args": [
+        "-y",
+        "--package=@upstash/context7-mcp@2.2.5",
+        "--",
+        "context7-mcp"
+      ],
+      "command": "npx"
+    },
+    "engram": {
+      "args": [
+        "-e",
+        "const { spawn } = require('node:child_process'); const bin = process.env.ENGRAM_BIN?.trim() ? process.env.ENGRAM_BIN : 'engram'; const child = spawn(bin, ['mcp', '--tools=agent'], { stdio: 'inherit' }); child.on('error', () =\u003e process.exit(127)); child.on('exit', (code, signal) =\u003e { if (typeof code === 'number') process.exit(code); process.kill(process.pid, signal || 'SIGTERM'); });"
+      ],
+      "command": "node",
+      "directTools": false,
+      "enabled": true,
+      "lifecycle": "lazy"
+    },
+    "linear": {
+      "disabled": false,
+      "headers": {
+        "Authorization": "YOUR_AUTHORIZATION_HERE"
+      },
+      "url": "https://mcp.linear.app/mcp"
+    },
+    "neon": {
+      "url": "https://mcp.neon.tech/mcp"
+    },
+    "postgres": {
+      "args": [
+        "-y",
+        "@microsoft/postgres-mcp",
+        "run"
+      ],
+      "command": "npx",
+      "env": {
+        "PGSQL_MCP_CONNECTION_STRING": "YOUR_PGSQL_MCP_CONNECTION_STRING_HERE"
+      }
+    },
+    "stitch": {
+      "headers": {
+        "X-Goog-Api-Key": "YOUR_X_GOOG_API_KEY_HERE"
+      },
+      "url": "https://stitch.googleapis.com/mcp"
+    },
+    "supabase": {
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp?features=docs,account,database,debugging,development,functions,branching"
+    }
+  }
+}

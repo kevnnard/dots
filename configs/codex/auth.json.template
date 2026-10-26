@@ -1,0 +1,11 @@
+{
+  "OPENAI_API_KEY": null,
+  "auth_mode": "YOUR_AUTH_MODE_HERE",
+  "last_refresh": "YOUR_LAST_REFRESH_HERE",
+  "tokens": {
+    "access_token": "YOUR_ACCESS_TOKEN_HERE",
+    "account_id": "YOUR_ACCOUNT_ID_HERE",
+    "id_token": "YOUR_ID_TOKEN_HERE",
+    "refresh_token": "YOUR_REFRESH_TOKEN_HERE"
+  }
+}

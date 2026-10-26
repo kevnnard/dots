@@ -1,0 +1,38 @@
+{
+  "anthropic": {
+    "access": "YOUR_ACCESS_HERE",
+    "expires": 1792992162876,
+    "refresh": "YOUR_REFRESH_HERE",
+    "type": "oauth"
+  },
+  "antigravity": {
+    "access": "YOUR_ACCESS_HERE",
+    "email": "kevnnard.labs@gmail.com",
+    "expires": 1792979221469,
+    "projectId": "aicode-consumers",
+    "refresh": "YOUR_REFRESH_HERE",
+    "type": "oauth"
+  },
+  "openai": {
+    "access": "YOUR_ACCESS_HERE",
+    "clientId": "oaiapp_NQpt40f5bOiSTZXwn47OmTAI",
+    "expires": 1792977017326,
+    "refresh": "YOUR_REFRESH_HERE",
+    "scopes": [
+      "chatgpt.tokens.use.direct",
+      "email",
+      "offline_access",
+      "openid",
+      "profile",
+      "resource.invoke"
+    ],
+    "type": "oauth"
+  },
+  "openai-codex": {
+    "access": "YOUR_ACCESS_HERE",
+    "accountId": "9dff40f7-fa78-476b-9567-844b8b0c381e",
+    "expires": 1793630512061,
+    "refresh": "YOUR_REFRESH_HERE",
+    "type": "oauth"
+  }
+}

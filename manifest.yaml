@@ -1,0 +1,286 @@
+version: 1.0.0
+dotfiles_dir: ~/.dotfiles
+apps:
+    atuin:
+        description: Atuin shell history sync configuration
+        profile: core
+        paths:
+            - src: ~/.config/atuin/config.toml
+              dest: configs/atuin/config.toml
+        install:
+            darwin:
+                manager: brew
+                package: atuin
+    brew:
+        description: Core Homebrew bundle (CLI tools, fonts, GUIs)
+        profile: core
+        paths:
+            - src: Brewfile
+              dest: Brewfile
+        install:
+            darwin:
+                manager: script
+                command: brew bundle --file=Brewfile
+    claude:
+        description: Claude Code CLI settings, MCP servers, agents, and instructions
+        profile: core
+        paths:
+            - src: ~/.claude/settings.json
+              dest: configs/claude/settings.json
+            - src: ~/.claude/mcp.json
+              dest: configs/claude/mcp.json
+            - src: ~/.claude/CLAUDE.md
+              dest: configs/claude/CLAUDE.md
+            - src: ~/.claude/skills
+              dest: configs/claude/skills
+            - src: ~/.claude/agents
+              dest: configs/claude/agents
+        secrets:
+            - mcp.json
+        exclude:
+            - session-env/**
+            - sessions/**
+            - history.jsonl
+            - file-history/**
+            - daemon.log
+            - cache/**
+            - backups/**
+            - '*.tmp.*'
+            - '*.backup'
+            - .DS_Store
+    codex:
+        description: Codex CLI configurations, hooks, agents, and rules
+        profile: core
+        paths:
+            - src: ~/.codex/config.toml
+              dest: configs/codex/config.toml
+            - src: ~/.codex/hooks.json
+              dest: configs/codex/hooks.json
+            - src: ~/.codex/AGENTS.md
+              dest: configs/codex/AGENTS.md
+            - src: ~/.codex/rules
+              dest: configs/codex/rules
+            - src: ~/.codex/skills
+              dest: configs/codex/skills
+            - src: ~/.codex/auth.json
+              dest: configs/codex/auth.json
+        exclude:
+            - '*.sqlite*'
+            - cache/**
+            - sessions/**
+            - archived_sessions/**
+            - history.jsonl
+            - models_cache.json
+            - log/**
+            - .tmp/**
+            - .DS_Store
+        secrets:
+            - auth.json
+    flashspace:
+        description: Flashspace macOS workspace manager settings and profiles
+        profile: core
+        paths:
+            - src: ~/.config/flashspace
+              dest: configs/flashspace
+        exclude:
+            - .DS_Store
+    gh:
+        description: GitHub CLI configuration and preferences
+        profile: core
+        paths:
+            - src: ~/.config/gh/config.yml
+              dest: configs/gh/config.yml
+            - src: ~/.config/gh/hosts.yml
+              dest: configs/gh/hosts.yml
+        secrets:
+            - hosts.yml
+        install:
+            darwin:
+                manager: brew
+                package: gh
+    ghostty:
+        description: Ghostty terminal emulator
+        paths:
+            - src: ~/.config/ghostty
+              dest: configs/ghostty
+        exclude:
+            - .DS_Store
+        install:
+            arch:
+                manager: yay
+                package: ghostty
+            darwin:
+                manager: brew
+                cask: ghostty
+    git:
+        description: Git global configuration
+        paths:
+            - src: ~/.gitconfig
+              dest: configs/git/.gitconfig
+            - src: ~/.config/git
+              dest: configs/git/config_dir
+        exclude:
+            - .DS_Store
+        install:
+            arch:
+                manager: pacman
+                package: git
+            darwin:
+                manager: brew
+                package: git
+            debian:
+                manager: apt
+                package: git
+            ubuntu:
+                manager: apt
+                package: git
+    infra:
+        description: Local infrastructure & Actions testing (Caddy, mkcert, act)
+        profile: infra
+        paths:
+            - src: Brewfile.infra
+              dest: Brewfile.infra
+        install:
+            darwin:
+                manager: script
+                command: brew bundle --file=Brewfile.infra
+    mobile:
+        description: React Native & Mobile Build Toolchain (OpenJDK 17, CocoaPods, Fastlane)
+        profile: mobile
+        paths:
+            - src: Brewfile.mobile
+              dest: Brewfile.mobile
+        install:
+            darwin:
+                manager: script
+                command: brew bundle --file=Brewfile.mobile
+    nvim:
+        description: Neovim editor and plugins
+        paths:
+            - src: ~/.config/nvim
+              dest: configs/nvim
+        exclude:
+            - .git/**
+            - .DS_Store
+            - lazy-lock.json.backup
+            - undo/**
+        install:
+            arch:
+                manager: pacman
+                package: neovim
+            darwin:
+                manager: brew
+                package: neovim
+            debian:
+                manager: apt
+                package: neovim
+            ubuntu:
+                manager: apt
+                package: neovim
+    pi:
+        description: Pi coding agent harness settings, models, MCP servers, skills, and agents
+        profile: core
+        paths:
+            - src: ~/.pi/agent/settings.json
+              dest: configs/pi/settings.json
+            - src: ~/.pi/agent/models.json
+              dest: configs/pi/models.json
+            - src: ~/.pi/agent/mcp.json
+              dest: configs/pi/mcp.json
+            - src: ~/.pi/agent/trust.json
+              dest: configs/pi/trust.json
+            - src: ~/.pi/agent/skills
+              dest: configs/pi/skills
+            - src: ~/.pi/agent/agents
+              dest: configs/pi/agents
+            - src: ~/.pi/agent/chains
+              dest: configs/pi/chains
+            - src: ~/.pi/agent/auth.json
+              dest: configs/pi/auth.json
+            - src: ~/.pi/agent/mcp-auth.json
+              dest: configs/pi/mcp-auth.json
+        exclude:
+            - sessions/**
+            - web-search-cache/**
+            - cc-cli-logs/**
+            - '*.log'
+            - '*.tmp.*'
+            - '*.cache.json'
+            - crashes.json
+            - npm/**
+            - bin/**
+            - node_modules/**
+            - .git/**
+            - .DS_Store
+        secrets:
+            - auth.json
+            - mcp-auth.json
+            - mcp.json
+    pnpm:
+        description: Fast, disk space efficient package manager
+        paths: []
+        install:
+            darwin:
+                manager: brew
+                package: pnpm
+            linux:
+                manager: script
+                command: curl -fsSL https://get.pnpm.io/install.sh | sh -
+    skills:
+        description: Agent skills catalog in ~/.agents/skills
+        profile: core
+        paths:
+            - src: ~/.agents/skills
+              dest: configs/agents/skills
+        exclude:
+            - .git/**
+            - .DS_Store
+    ssh:
+        description: SSH host aliases and configuration (excludes private keys)
+        profile: core
+        paths:
+            - src: ~/.ssh/config
+              dest: configs/ssh/config
+        secrets:
+            - config
+        exclude:
+            - id_*
+            - '*.pub'
+            - known_hosts*
+            - digitalocean*
+    zed:
+        description: Zed Editor configurations, keymaps, and themes
+        profile: core
+        paths:
+            - src: ~/.config/zed
+              dest: configs/zed
+        exclude:
+            - .DS_Store
+        install:
+            darwin:
+                manager: brew
+                cask: zed
+    zsh:
+        description: Zsh shell configuration and Powerlevel10k theme
+        profile: core
+        paths:
+            - src: ~/.zshrc
+              dest: configs/zsh/.zshrc
+            - src: ~/.p10k.zsh
+              dest: configs/zsh/.p10k.zsh
+        exclude:
+            - .zsh_history
+            - .zsh_sessions/**
+        install:
+            arch:
+                manager: pacman
+                package: zsh
+            darwin:
+                manager: brew
+                package: zsh
+            debian:
+                manager: apt
+                package: zsh
+            ubuntu:
+                manager: apt
+                package: zsh

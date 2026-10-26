@@ -1,0 +1,87 @@
+{
+  "mcp__linear|https://mcp.linear.app/mcp": {
+    "clientInformation": {
+      "client_id": "zN8j-jP310p2du9w",
+      "client_id_issued_at": 1791498979,
+      "client_name": "pi",
+      "grant_types": [
+        "authorization_code",
+        "refresh_token"
+      ],
+      "redirect_uris": [
+        "http://127.0.0.1:49224/callback"
+      ],
+      "response_types": [
+        "code"
+      ],
+      "token_endpoint_auth_method": "YOUR_TOKEN_ENDPOINT_AUTH_METHOD_HERE"
+    },
+    "codeVerifier": "-JYtsEEpEaebogyCfba-OjToEDxpitiXnzjUqWSH0pc",
+    "discovery": {
+      "authorizationServerMetadata": {
+        "authorization_endpoint": "YOUR_AUTHORIZATION_ENDPOINT_HERE",
+        "authorization_grant_profiles_supported": [
+          "YOUR_AUTHORIZATION_GRANT_PROFILES_SUPPORTED_HERE"
+        ],
+        "authorization_response_iss_parameter_supported": true,
+        "client_id_metadata_document_supported": true,
+        "code_challenge_methods_supported": [
+          "S256"
+        ],
+        "grant_types_supported": [
+          "authorization_code",
+          "refresh_token",
+          "urn:ietf:params:oauth:grant-type:jwt-bearer"
+        ],
+        "issuer": "https://mcp.linear.app",
+        "registration_endpoint": "https://mcp.linear.app/register",
+        "resource": "https://mcp.linear.app/mcp",
+        "resource_metadata": "https://mcp.linear.app/.well-known/oauth-protected-resource/mcp",
+        "response_modes_supported": [
+          "query"
+        ],
+        "response_types_supported": [
+          "code"
+        ],
+        "revocation_endpoint": "https://mcp.linear.app/token",
+        "scopes_supported": [
+          "read",
+          "write",
+          "openid",
+          "email"
+        ],
+        "token_endpoint": "YOUR_TOKEN_ENDPOINT_HERE",
+        "token_endpoint_auth_methods_supported": [
+          "YOUR_TOKEN_ENDPOINT_AUTH_METHODS_SUPPORTED_HERE",
+          "YOUR_TOKEN_ENDPOINT_AUTH_METHODS_SUPPORTED_HERE",
+          "YOUR_TOKEN_ENDPOINT_AUTH_METHODS_SUPPORTED_HERE"
+        ]
+      },
+      "authorizationServerUrl": "YOUR_AUTHORIZATIONSERVERURL_HERE",
+      "resourceMetadata": {
+        "authorization_servers": [
+          "YOUR_AUTHORIZATION_SERVERS_HERE"
+        ],
+        "bearer_methods_supported": [
+          "header"
+        ],
+        "resource": "https://mcp.linear.app/mcp",
+        "scopes_supported": [
+          "read",
+          "write"
+        ]
+      },
+      "resourceMetadataUrl": "https://mcp.linear.app/.well-known/oauth-protected-resource/mcp"
+    },
+    "oauthState": "YOUR_OAUTHSTATE_HERE",
+    "serverUrl": "https://mcp.linear.app/mcp",
+    "tokens": {
+      "access_token": "YOUR_ACCESS_TOKEN_HERE",
+      "expires_in": 86100,
+      "refresh_token": "YOUR_REFRESH_TOKEN_HERE",
+      "scope": "read write",
+      "token_type": "YOUR_TOKEN_TYPE_HERE"
+    },
+    "tokensExpireAt": 1791656023395
+  }
+}

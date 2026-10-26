@@ -1,0 +1,83 @@
+{
+  "compaction": {
+    "enabled": true
+  },
+  "defaultModel": "gemini-3.8-flash",
+  "defaultProvider": "antigravity",
+  "defaultThinkingLevel": "medium",
+  "editorPaddingX": 1,
+  "fullscreenCopyOnSelect": true,
+  "fullscreenExitOutput": "transcript",
+  "fullscreenScrollbar": "auto",
+  "hideThinkingBlock": false,
+  "lastChangelogVersion": "1.4.0",
+  "packages": [
+    "npm:gentle-pi",
+    {
+      "source": "npm:gentle-engram",
+      "extensions": [
+        "+index.ts"
+      ]
+    },
+    "npm:pi-web-access",
+    "npm:pi-btw",
+    "npm:pi-antigravity",
+    "npm:pi-codemcp",
+    "npm:pi-claude-bridge",
+    "npm:gentle-engram@0.3.0"
+  ],
+  "showHardwareCursor": true,
+  "terminal": {
+    "showTerminalProgress": true
+  },
+  "theme": "Gentleman-Sexy",
+  "tuiMode": "fullscreen",
+  "warnings": {
+    "anthropicExtraUsage": false
+  },
+  "skills": [
+    "+skills/_shared/engram-convention.md"
+  ],
+  "extensions": [
+    "+builtin:mcp",
+    "+builtin:tool-search",
+    "-builtin:codemode"
+  ],
+  "enabledModels": [
+    "minimax/MiniMax-M2.7",
+    "minimax/MiniMax-M2.7-highspeed",
+    "minimax/MiniMax-M3",
+    "openai-codex/gpt-5.3-codex-spark",
+    "openai-codex/gpt-5.5",
+    "openai-codex/gpt-5.6-luna",
+    "openai-codex/gpt-5.6-sol",
+    "openai-codex/gpt-5.6-terra",
+    "openai-codex/gpt-6-astra",
+    "openai-codex/gpt-6-luna",
+    "openai-codex/gpt-6-sol",
+    "openai-codex/gpt-6.1-sol",
+    "antigravity/gemini-3.8-flash",
+    "antigravity/gemini-3.7-flash",
+    "antigravity/gemini-3.6-flash",
+    "antigravity/claude-opus-5-5",
+    "antigravity/claude-sonnet-5-5",
+    "antigravity/gemini-3.1-pro",
+    "antigravity/gpt-oss-120b",
+    "claude-bridge/claude-fable-5-1",
+    "claude-bridge/claude-fable-5",
+    "claude-bridge/claude-opus-5-5",
+    "claude-bridge/claude-opus-5",
+    "claude-bridge/claude-opus-4-8",
+    "claude-bridge/claude-opus-4-7",
+    "claude-bridge/claude-opus-4-6",
+    "claude-bridge/claude-opus-4-5",
+    "claude-bridge/claude-sonnet-5-5",
+    "claude-bridge/claude-sonnet-5",
+    "claude-bridge/claude-sonnet-4-6",
+    "claude-bridge/claude-sonnet-4-5",
+    "claude-bridge/claude-haiku-5-5",
+    "claude-bridge/claude-haiku-4-5",
+    "minimax/MiniMax-M3.1-Flash"
+  ],
+  "deviceId": "04ebb8de-6e4e-4fa8-a6f0-8fbd0bf50b16"
+}

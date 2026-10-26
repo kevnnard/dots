@@ -115,6 +115,7 @@ func DefaultManifest() *Manifest {
 				Secrets: []string{
 					"auth.json",
 					"mcp-auth.json",
+					"mcp.json",
 				},
 			},
 			"skills": {
@@ -129,9 +130,11 @@ func DefaultManifest() *Manifest {
 				},
 			},
 			"zsh": {
-				Description: "Zsh shell configuration",
+				Description: "Zsh shell configuration and Powerlevel10k theme",
+				Profile:     "core",
 				Paths: []PathMapping{
 					{Src: "~/.zshrc", Dest: "configs/zsh/.zshrc"},
+					{Src: "~/.p10k.zsh", Dest: "configs/zsh/.p10k.zsh"},
 				},
 				Exclude: []string{
 					".zsh_history",
@@ -142,6 +145,117 @@ func DefaultManifest() *Manifest {
 					"debian": {Manager: "apt", Package: "zsh"},
 					"ubuntu": {Manager: "apt", Package: "zsh"},
 					"arch":   {Manager: "pacman", Package: "zsh"},
+				},
+			},
+			"claude": {
+				Description: "Claude Code CLI settings, MCP servers, agents, and instructions",
+				Profile:     "core",
+				Paths: []PathMapping{
+					{Src: "~/.claude/settings.json", Dest: "configs/claude/settings.json"},
+					{Src: "~/.claude/mcp.json", Dest: "configs/claude/mcp.json"},
+					{Src: "~/.claude/CLAUDE.md", Dest: "configs/claude/CLAUDE.md"},
+					{Src: "~/.claude/skills", Dest: "configs/claude/skills"},
+					{Src: "~/.claude/agents", Dest: "configs/claude/agents"},
+				},
+				Secrets: []string{
+					"mcp.json",
+				},
+				Exclude: []string{
+					"session-env/**",
+					"sessions/**",
+					"history.jsonl",
+					"file-history/**",
+					"daemon.log",
+					"cache/**",
+					"backups/**",
+					"*.tmp.*",
+					"*.backup",
+					".DS_Store",
+				},
+			},
+			"codex": {
+				Description: "Codex CLI configurations, hooks, agents, and rules",
+				Profile:     "core",
+				Paths: []PathMapping{
+					{Src: "~/.codex/config.toml", Dest: "configs/codex/config.toml"},
+					{Src: "~/.codex/hooks.json", Dest: "configs/codex/hooks.json"},
+					{Src: "~/.codex/AGENTS.md", Dest: "configs/codex/AGENTS.md"},
+					{Src: "~/.codex/rules", Dest: "configs/codex/rules"},
+					{Src: "~/.codex/skills", Dest: "configs/codex/skills"},
+					{Src: "~/.codex/auth.json", Dest: "configs/codex/auth.json"},
+				},
+				Exclude: []string{
+					"*.sqlite*",
+					"cache/**",
+					"sessions/**",
+					"archived_sessions/**",
+					"history.jsonl",
+					"models_cache.json",
+					"log/**",
+					".tmp/**",
+					".DS_Store",
+				},
+				Secrets: []string{
+					"auth.json",
+				},
+			},
+			"zed": {
+				Description: "Zed Editor configurations, keymaps, and themes",
+				Profile:     "core",
+				Paths: []PathMapping{
+					{Src: "~/.config/zed", Dest: "configs/zed"},
+				},
+				Exclude: []string{".DS_Store"},
+				Install: map[string]InstallRecipe{
+					"darwin": {Manager: "brew", Cask: "zed"},
+				},
+			},
+			"atuin": {
+				Description: "Atuin shell history sync configuration",
+				Profile:     "core",
+				Paths: []PathMapping{
+					{Src: "~/.config/atuin/config.toml", Dest: "configs/atuin/config.toml"},
+				},
+				Install: map[string]InstallRecipe{
+					"darwin": {Manager: "brew", Package: "atuin"},
+				},
+			},
+			"flashspace": {
+				Description: "Flashspace macOS workspace manager settings and profiles",
+				Profile:     "core",
+				Paths: []PathMapping{
+					{Src: "~/.config/flashspace", Dest: "configs/flashspace"},
+				},
+				Exclude: []string{".DS_Store"},
+			},
+			"gh": {
+				Description: "GitHub CLI configuration and preferences",
+				Profile:     "core",
+				Paths: []PathMapping{
+					{Src: "~/.config/gh/config.yml", Dest: "configs/gh/config.yml"},
+					{Src: "~/.config/gh/hosts.yml", Dest: "configs/gh/hosts.yml"},
+				},
+				Secrets: []string{
+					"hosts.yml",
+				},
+				Install: map[string]InstallRecipe{
+					"darwin": {Manager: "brew", Package: "gh"},
+				},
+			},
+			"ssh": {
+				Description: "SSH host aliases and configuration (excludes private keys)",
+				Profile:     "core",
+				Paths: []PathMapping{
+					{Src: "~/.ssh/config", Dest: "configs/ssh/config"},
+				},
+				Secrets: []string{
+					"config",
+				},
+				Exclude: []string{
+					"id_*",
+					"*.pub",
+					"known_hosts*",
+					"digitalocean*",
 				},
 			},
 			"git": {

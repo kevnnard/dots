@@ -1,0 +1,66 @@
+// Zed settings
+//
+// For information on how to configure Zed, see the Zed
+// documentation: https://zed.dev/docs/configuring-zed
+//
+// To see all of Zed's default settings without changing your
+// custom settings, run `zed: open default settings` from the
+// command palette (cmd-shift-p / ctrl-shift-p)
+{
+  "diff_view_style": "split",
+  "tabs": {
+    "close_position": "right"
+  },
+  "title_bar": {
+    "button_layout": "platform_default"
+  },
+  "status_bar": {
+    "active_language_button": true
+  },
+  "project_panel": {
+    "entry_spacing": "comfortable",
+    "dock": "left",
+    "button": true
+  },
+  "edit_predictions": {
+    "provider": "copilot"
+  },
+  "session": {
+    "trust_all_worktrees": true
+  },
+  "vim_mode": true,
+  "agent_servers": {
+    "opencode": {
+      "default_config_options": {
+        "effort": "none",
+        "model": "openai/gpt-5.6-luna"
+      },
+      "type": "registry"
+    },
+    "claude-acp": {
+      "type": "registry"
+    },
+    "github-copilot-cli": {
+      "type": "registry"
+    },
+    "codex-acp": {
+      "default_config_options": {
+        "model": "gpt-5.6-luna"
+      },
+      "type": "registry"
+    }
+  },
+  "icon_theme": {
+    "mode": "dark",
+    "light": "Zed (Default)",
+    "dark": "Material Icon Theme"
+  },
+  "base_keymap": "Cursor",
+  "ui_font_size": 16,
+  "buffer_font_size": 15,
+  "theme": {
+    "mode": "dark",
+    "light": "Gruvbox Light",
+    "dark": "Ayu Dark",
+  },
+}

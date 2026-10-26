@@ -1,0 +1,24 @@
+# redacted: Include /Users/kevnnard/.colima/ssh_config
+
+# GitHub
+Host github.com
+  HostName github.com
+  User git
+  IdentityFile ~/.ssh/id_ed25519_github
+  AddKeysToAgent yes
+  UseKeychain yes
+
+# OCMI Database
+Host ocmi-db
+  HostName YOUR_SERVER_HOST_OR_IP
+  User YOUR_SSH_USER
+  IdentityFile ~/.ssh/id_ocmi_db
+
+# Digital Ocean Server
+Host digitalocean
+  HostName YOUR_SERVER_HOST_OR_IP
+  User YOUR_SSH_USER
+  Port 22
+  IdentityFile ~/.ssh/id_digitalocean
+  ServerAliveInterval 60
+  ServerAliveCountMax 3

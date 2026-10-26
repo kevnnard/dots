@@ -1,0 +1,200 @@
+{
+  "profiles" : [
+    {
+      "id" : "25684DEC-82BD-4435-9F0B-0C60B78BF737",
+      "name" : "Default",
+      "workspaces" : [
+        {
+          "apps" : [
+            {
+              "autoOpen" : true,
+              "bundleIdentifier" : "com.spotify.client",
+              "iconPath" : "/Applications/Spotify.app/Contents/Resources/AppIcon.icns",
+              "name" : "Spotify"
+            },
+            {
+              "autoOpen" : true,
+              "bundleIdentifier" : "com.bitwarden.desktop",
+              "iconPath" : "/Applications/Bitwarden.app/Contents/Resources/icon.icns",
+              "name" : "Bitwarden"
+            },
+            {
+              "bundleIdentifier" : "com.apple.mail",
+              "iconPath" : "/System/Applications/Mail.app/Contents/Resources/ApplicationIcon.icns",
+              "name" : "Mail"
+            },
+            {
+              "bundleIdentifier" : "com.apple.finder",
+              "iconPath" : "/System/Library/CoreServices/Finder.app/Contents/Resources/Finder.icns",
+              "name" : "Finder"
+            },
+            {
+              "bundleIdentifier" : "com.electron.dockerdesktop",
+              "iconPath" : "/Applications/Docker.app/Contents/MacOS/Docker Desktop.app/Contents/Resources/icon.icns",
+              "name" : "Docker Desktop"
+            },
+            {
+              "bundleIdentifier" : "com.apple.ActivityMonitor",
+              "iconPath" : "/System/Applications/Utilities/Activity Monitor.app/Contents/Resources/AppIcon.icns",
+              "name" : "Activity Monitor"
+            },
+            {
+              "bundleIdentifier" : "org.jkiss.dbeaver.core.product",
+              "iconPath" : "/Applications/DBeaver.app/Contents/Resources/dbeaver.icns",
+              "name" : "DBeaver Community"
+            },
+            {
+              "bundleIdentifier" : "com.google.antigravity",
+              "iconPath" : "/Applications/Antigravity.app/Contents/Resources/icon.icns",
+              "name" : "Antigravity"
+            },
+            {
+              "bundleIdentifier" : "com.openai.codex",
+              "iconPath" : "/Applications/ChatGPT.app/Contents/Resources/electron.icns",
+              "name" : "ChatGPT"
+            },
+            {
+              "bundleIdentifier" : "com.apple.iCal",
+              "iconPath" : "/System/Applications/Calendar.app/Contents/Resources/AppIcon.icns",
+              "name" : "Calendar"
+            },
+            {
+              "bundleIdentifier" : "com.apple.Preview",
+              "iconPath" : "/System/Applications/Preview.app/Contents/Resources/AppIcon.icns",
+              "name" : "Preview"
+            },
+            {
+              "bundleIdentifier" : "com.adobe.acc.AdobeCreativeCloud",
+              "iconPath" : "/Applications/Utilities/Adobe Creative Cloud/ACC/Creative Cloud.app/Contents/Resources/CreativeCloudApp.icns",
+              "name" : "Creative Cloud"
+            },
+            {
+              "bundleIdentifier" : "com.apple.systempreferences",
+              "iconPath" : "/System/Applications/System Settings.app/Contents/Resources/Settings.icns",
+              "name" : "System Settings"
+            },
+            {
+              "bundleIdentifier" : "dev.zed.Zed",
+              "iconPath" : "/Applications/Zed.app/Contents/Resources/Zed.icns",
+              "name" : "Zed"
+            },
+            {
+              "bundleIdentifier" : "com.kevinlondono.smartfinance",
+              "iconPath" : "/var/folders/2g/jq6gkdpj6kx_k4qvt9c4x1580000gn/X/E2AFA65B-41C3-51DF-A6C5-FEB3CE4297AE/d/Wrapper/SmartFinance.app/Contents/Resources/AppIcon.icns",
+              "name" : "Smart Finance"
+            },
+            {
+              "bundleIdentifier" : "com.apple.Safari",
+              "iconPath" : "/System/Volumes/Preboot/Cryptexes/App/System/Applications/Safari.app/Contents/Resources/AppIconUpdated.icns",
+              "name" : "Safari"
+            },
+            {
+              "bundleIdentifier" : "com.mitchellh.ghostty",
+              "iconPath" : "/Applications/Ghostty.app/Contents/Resources/Ghostty.icns",
+              "name" : "Ghostty"
+            },
+            {
+              "bundleIdentifier" : "com.usebruno.app",
+              "iconPath" : "/Applications/Bruno.app/Contents/Resources/icon.icns",
+              "name" : "Bruno"
+            },
+            {
+              "bundleIdentifier" : "company.thebrowser.dia",
+              "iconPath" : "/Applications/Dia.app/Contents/Resources/AppIcon.icns",
+              "name" : "Dia"
+            }
+          ],
+          "display" : "Built-in Retina Display",
+          "id" : "FDA8AB8E-C472-4CB6-BA24-C2976DCA44F5",
+          "name" : "Working",
+          "openAppsOnActivation" : true,
+          "shortcut" : "ctrl+1",
+          "symbolIconName" : "duffle.bag.fill"
+        },
+        {
+          "apps" : [
+
+          ],
+          "display" : "LG ULTRAWIDE",
+          "id" : "11D38D14-4CA8-4DBA-BBD3-965AF50C1E95",
+          "name" : "Personal",
+          "openAppsOnActivation" : true,
+          "shortcut" : "ctrl+2",
+          "symbolIconName" : "house.fill"
+        }
+      ]
+    },
+    {
+      "id" : "0CB4ADB4-86BC-437F-8E16-38E4AA7BC0A4",
+      "name" : "Work",
+      "workspaces" : [
+        {
+          "apps" : [
+            {
+              "autoOpen" : true,
+              "bundleIdentifier" : "com.spotify.client",
+              "iconPath" : "/Applications/Spotify.app/Contents/Resources/AppIcon.icns",
+              "name" : "Spotify"
+            },
+            {
+              "autoOpen" : true,
+              "bundleIdentifier" : "com.bitwarden.desktop",
+              "iconPath" : "/Applications/Bitwarden.app/Contents/Resources/icon.icns",
+              "name" : "Bitwarden"
+            },
+            {
+              "autoOpen" : true,
+              "bundleIdentifier" : "company.thebrowser.dia",
+              "iconPath" : "/Applications/Dia.app/Contents/Resources/AppIcon.icns",
+              "name" : "Dia"
+            },
+            {
+              "autoOpen" : true,
+              "bundleIdentifier" : "com.mitchellh.ghostty",
+              "iconPath" : "/Applications/Ghostty.app/Contents/Resources/Ghostty.icns",
+              "name" : "Ghostty"
+            },
+            {
+              "bundleIdentifier" : "com.apple.mail",
+              "iconPath" : "/System/Applications/Mail.app/Contents/Resources/ApplicationIcon.icns",
+              "name" : "Mail"
+            },
+            {
+              "autoOpen" : true,
+              "bundleIdentifier" : "com.usebruno.app",
+              "iconPath" : "/Applications/Bruno.app/Contents/Resources/icon.icns",
+              "name" : "Bruno"
+            }
+          ],
+          "display" : "Built-in Retina Display",
+          "id" : "2470FE50-29AF-40B8-A42C-A4323764F2A5",
+          "name" : "Working",
+          "openAppsOnActivation" : true,
+          "shortcut" : "ctrl+1",
+          "symbolIconName" : "duffle.bag.fill"
+        },
+        {
+          "apps" : [
+            {
+              "autoOpen" : true,
+              "bundleIdentifier" : "company.thebrowser.dia",
+              "iconPath" : "/Applications/Dia.app/Contents/Resources/AppIcon.icns",
+              "name" : "Dia"
+            },
+            {
+              "bundleIdentifier" : "com.apple.finder",
+              "iconPath" : "/System/Library/CoreServices/Finder.app/Contents/Resources/Finder.icns",
+              "name" : "Finder"
+            }
+          ],
+          "display" : "LG ULTRAWIDE",
+          "id" : "11E0189A-A4EC-46BC-A4BC-4F215D641875",
+          "name" : "Personal",
+          "openAppsOnActivation" : true,
+          "shortcut" : "ctrl+2",
+          "symbolIconName" : "house.fill"
+        }
+      ]
+    }
+  ]
+}

@@ -286,6 +286,35 @@ func sanitizeSecretFile(src, destTemplate string) error {
 			continue
 		}
 
+		if strings.HasPrefix(trimmed, "HostName ") {
+			target := strings.TrimSpace(strings.TrimPrefix(trimmed, "HostName "))
+			if target == "github.com" || target == "gitlab.com" {
+				writer.WriteString(line + "\n")
+			} else {
+				writer.WriteString("  HostName YOUR_SERVER_HOST_OR_IP\n")
+			}
+			continue
+		}
+		if strings.HasPrefix(trimmed, "User ") {
+			u := strings.TrimSpace(strings.TrimPrefix(trimmed, "User "))
+			if u == "git" {
+				writer.WriteString(line + "\n")
+			} else {
+				writer.WriteString("  User YOUR_SSH_USER\n")
+			}
+			continue
+		}
+		if strings.HasPrefix(trimmed, "Host ") ||
+			strings.HasPrefix(trimmed, "Port ") ||
+			strings.HasPrefix(trimmed, "IdentityFile ") ||
+			strings.HasPrefix(trimmed, "AddKeysToAgent ") ||
+			strings.HasPrefix(trimmed, "UseKeychain ") ||
+			strings.HasPrefix(trimmed, "ServerAliveInterval ") ||
+			strings.HasPrefix(trimmed, "ServerAliveCountMax ") {
+			writer.WriteString(line + "\n")
+			continue
+		}
+
 		if strings.Contains(line, "=") {
 			parts := strings.SplitN(line, "=", 2)
 			key := parts[0]
@@ -318,8 +347,29 @@ func maskJSONValues(val any, keyName string) any {
 		}
 		return res
 	case string:
-		cleanKey := strings.ToUpper(strings.ReplaceAll(keyName, "-", "_"))
-		return fmt.Sprintf("YOUR_%s_HERE", cleanKey)
+		lowerKey := strings.ToLower(keyName)
+		isSecret := strings.Contains(lowerKey, "key") ||
+			strings.Contains(lowerKey, "token") ||
+			strings.Contains(lowerKey, "secret") ||
+			strings.Contains(lowerKey, "auth") ||
+			strings.Contains(lowerKey, "pass") ||
+			strings.Contains(lowerKey, "access") ||
+			strings.Contains(lowerKey, "refresh") ||
+			strings.Contains(lowerKey, "connection_string") ||
+			strings.HasPrefix(v, "Bearer ") ||
+			strings.HasPrefix(v, "lin_api_") ||
+			strings.HasPrefix(v, "sk-") ||
+			strings.HasPrefix(v, "AQ.") ||
+			strings.HasPrefix(v, "postgresql://") ||
+			strings.HasPrefix(v, "postgres://") ||
+			strings.HasPrefix(v, "ghp_") ||
+			strings.HasPrefix(v, "gho_")
+
+		if isSecret {
+			cleanKey := strings.ToUpper(strings.ReplaceAll(keyName, "-", "_"))
+			return fmt.Sprintf("YOUR_%s_HERE", cleanKey)
+		}
+		return v
 	default:
 		return v
 	}

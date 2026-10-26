@@ -1,0 +1,33 @@
+{
+  "mcpServers": {
+    "context7": {
+      "type": "sse",
+      "url": "https://mcp.context7.com/mcp"
+    },
+    "engram": {
+      "args": [
+        "mcp",
+        "--tools=agent"
+      ],
+      "command": "engram",
+      "type": "stdio"
+    },
+    "notion": {
+      "timeout": 5000,
+      "type": "sse",
+      "url": "https://mcp.notion.com/mcp"
+    },
+    "pencil": {
+      "args": [
+        "--app",
+        "desktop"
+      ],
+      "command": "/Applications/Pencil.app/Contents/Resources/app.asar.unpacked/out/mcp-server-darwin-arm64",
+      "type": "stdio"
+    },
+    "supabase": {
+      "type": "sse",
+      "url": "http://127.0.0.1:54321/mcp"
+    }
+  }
+}
