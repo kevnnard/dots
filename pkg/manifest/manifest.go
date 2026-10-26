@@ -402,6 +402,35 @@ func DefaultManifest() *Manifest {
 					"darwin": {Manager: "script", Command: "xcode-select -p &>/dev/null || xcode-select --install"},
 				},
 			},
+			"tailscale": {
+				Description: "Mesh VPN based on WireGuard for secure cross-device networking",
+				Profile:     "core",
+				Install: map[string]InstallRecipe{
+					"darwin": {Manager: "brew", Cask: "tailscale"},
+					"ubuntu": {Manager: "script", Command: "curl -fsSL https://tailscale.com/install.sh | sh"},
+					"debian": {Manager: "script", Command: "curl -fsSL https://tailscale.com/install.sh | sh"},
+					"arch":   {Manager: "pacman", Package: "tailscale"},
+				},
+			},
+			"mongodb-compass": {
+				Description: "Interactive GUI tool for querying and analyzing MongoDB data",
+				Profile:     "core",
+				Optional:    true,
+				Install: map[string]InstallRecipe{
+					"darwin": {Manager: "brew", Cask: "mongodb-compass"},
+					"arch":   {Manager: "yay", Package: "mongodb-compass"},
+				},
+			},
+			"postman": {
+				Description: "Postman API testing platform (optional alternative to Bruno)",
+				Profile:     "core",
+				Optional:    true,
+				Install: map[string]InstallRecipe{
+					"darwin": {Manager: "brew", Cask: "postman"},
+					"ubuntu": {Manager: "script", Command: "sudo snap install postman"},
+					"arch":   {Manager: "yay", Package: "postman-bin"},
+				},
+			},
 			"infra": {
 				Description: "Local infrastructure & Actions testing (Caddy, mkcert, act)",
 				Profile:     "infra",

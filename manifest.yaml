@@ -232,6 +232,47 @@ apps:
             darwin:
                 manager: script
                 command: xcode-select -p &>/dev/null || xcode-select --install
+    tailscale:
+        description: Mesh VPN based on WireGuard for secure cross-device networking
+        profile: core
+        install:
+            darwin:
+                manager: brew
+                cask: tailscale
+            ubuntu:
+                manager: script
+                command: curl -fsSL https://tailscale.com/install.sh | sh
+            debian:
+                manager: script
+                command: curl -fsSL https://tailscale.com/install.sh | sh
+            arch:
+                manager: pacman
+                package: tailscale
+    mongodb-compass:
+        description: Interactive GUI tool for querying and analyzing MongoDB data
+        profile: core
+        optional: true
+        install:
+            darwin:
+                manager: brew
+                cask: mongodb-compass
+            arch:
+                manager: yay
+                package: mongodb-compass
+    postman:
+        description: Postman API testing platform (optional alternative to Bruno)
+        profile: core
+        optional: true
+        install:
+            darwin:
+                manager: brew
+                cask: postman
+            ubuntu:
+                manager: script
+                command: sudo snap install postman
+            arch:
+                manager: yay
+                package: postman-bin
     nvim:
         description: Neovim editor and plugins
         paths:

@@ -107,6 +107,8 @@ cask "ghostty"
 cask "ngrok/ngrok/ngrok"
 # Polybar-style macOS top bar with numbered window tabs
 cask "kevnnard/tap/smartwindow"
+# Mesh VPN based on WireGuard for secure cross-device networking
+cask "tailscale"
 # Multiplayer code editor
 cask "zed"
 npm "@colbymchenry/codegraph"
