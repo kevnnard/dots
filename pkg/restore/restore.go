@@ -240,6 +240,14 @@ func buildInstallCommand(recipe manifest.InstallRecipe, sys *detector.SystemInfo
 		if recipe.Package != "" {
 			return fmt.Sprintf("pnpm add -g %s", recipe.Package)
 		}
+	case "npm":
+		if recipe.Package != "" {
+			// Prefer pnpm if available on the system
+			if sys != nil && sys.HasManager(detector.ManagerPnpm) {
+				return fmt.Sprintf("pnpm add -g %s", recipe.Package)
+			}
+			return fmt.Sprintf("npm install -g %s", recipe.Package)
+		}
 	}
 
 	return ""

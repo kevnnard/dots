@@ -68,6 +68,19 @@ func Detect() *SystemInfo {
 	return info
 }
 
+// HasManager returns true if the specified package manager is available on the system.
+func (s *SystemInfo) HasManager(pm PackageManager) bool {
+	if s == nil {
+		return false
+	}
+	for _, m := range s.Managers {
+		if m == pm {
+			return true
+		}
+	}
+	return false
+}
+
 // IsInstalled returns true if the command binary exists in PATH.
 func IsInstalled(cmdName string) bool {
 	return hasCommand(cmdName)
