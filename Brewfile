@@ -95,6 +95,8 @@ cask "codex"
 cask "steipete/tap/codexbar", trusted: true
 # Universal database tool and SQL client
 cask "dbeaver-community"
+# Docker Desktop application (GUI and daemon for macOS)
+cask "docker-desktop"
 # Developer platform
 cask "dotnet-sdk"
 cask "font-caskaydia-cove-nerd-font"
