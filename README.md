@@ -119,5 +119,6 @@ When restoring on a new machine, `.template` files are copied only if the target
 ---
 
 ## License
-MIT
+[PolyForm Noncommercial License 1.0.0](LICENSE) — Free for personal and non-commercial use. Selling or commercial distribution is strictly prohibited.
+
 
