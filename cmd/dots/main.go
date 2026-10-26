@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/kevnnard/dots/pkg/detector"
+	"github.com/kevnnard/dots/pkg/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -14,9 +16,24 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:     "dots",
-	Short:   "dots - Cross-platform dotfiles and workstation setup manager",
-	Long:    `dots is a compiled Go CLI to backup, manage, and restore dotfiles and software packages across macOS and Linux machines.`,
+	Aliases: []string{"kevnnard-dots"},
+	Short:   "kevnnard-dots - Interactive terminal workstation and dotfiles manager",
+	Long:    `kevnnard-dots is an interactive Go TUI and CLI to backup, manage, and restore dotfiles and software packages across macOS and Linux machines.`,
 	Version: version,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		repoDir, err := resolveDotfilesDir()
+		if err != nil {
+			return err
+		}
+
+		m, err := loadOrInitManifest(repoDir)
+		if err != nil {
+			return err
+		}
+
+		sys := detector.Detect()
+		return ui.RunTUI(m, sys, repoDir)
+	},
 }
 
 func Execute() {
