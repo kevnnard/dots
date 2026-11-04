@@ -11,6 +11,12 @@ apps:
             darwin:
                 manager: brew
                 package: atuin
+            brew:
+                manager: brew
+                package: atuin
+            pacman:
+                manager: pacman
+                package: atuin
     brew:
         description: Core Homebrew bundle (CLI tools, fonts, GUIs)
         profile: core
@@ -48,6 +54,12 @@ apps:
             - '*.tmp.*'
             - '*.backup'
             - .DS_Store
+        requires:
+            - node
+        install:
+            default:
+                manager: npm
+                package: "@anthropic-ai/claude-code"
     codex:
         description: Codex CLI configurations, hooks, agents, and rules
         profile: core,ai
@@ -76,6 +88,12 @@ apps:
             - .DS_Store
         secrets:
             - auth.json
+        requires:
+            - node
+        install:
+            default:
+                manager: npm
+                package: "@openai/codex"
     engram:
         description: Persistent cross-session memory engine for AI coding agents
         profile: core,ai
@@ -88,6 +106,9 @@ apps:
             - .instance-id*
         install:
             darwin:
+                manager: brew
+                package: gentleman-programming/tap/engram
+            brew:
                 manager: brew
                 package: gentleman-programming/tap/engram
     gentle-ai:
@@ -106,6 +127,9 @@ apps:
             darwin:
                 manager: brew
                 package: gentleman-programming/tap/gentle-ai
+            brew:
+                manager: brew
+                package: gentleman-programming/tap/gentle-ai
     herdr:
         description: Herdr terminal workspace and agent process manager
         profile: core,ai
@@ -120,6 +144,9 @@ apps:
             - .DS_Store
         install:
             darwin:
+                manager: brew
+                package: herdr
+            brew:
                 manager: brew
                 package: herdr
     orca:
@@ -153,6 +180,24 @@ apps:
             darwin:
                 manager: brew
                 package: gh
+            brew:
+                manager: brew
+                package: gh
+            pacman:
+                manager: pacman
+                package: github-cli
+            apt:
+                manager: apt
+                package: gh
+            dnf:
+                manager: dnf
+                package: gh
+            winget:
+                manager: winget
+                package: GitHub.cli
+            scoop:
+                manager: scoop
+                package: gh
     ghostty:
         description: Ghostty terminal emulator
         paths:
@@ -167,6 +212,9 @@ apps:
             darwin:
                 manager: brew
                 cask: ghostty
+            pacman:
+                manager: pacman
+                package: ghostty
     git:
         description: Git global configuration
         paths:
@@ -188,6 +236,21 @@ apps:
                 package: git
             ubuntu:
                 manager: apt
+                package: git
+            brew:
+                manager: brew
+                package: git
+            dnf:
+                manager: dnf
+                package: git
+            zypper:
+                manager: zypper
+                package: git
+            winget:
+                manager: winget
+                package: Git.Git
+            scoop:
+                manager: scoop
                 package: git
     infra:
         description: Local infrastructure & Actions testing (Caddy, mkcert, act)
@@ -248,6 +311,12 @@ apps:
             arch:
                 manager: pacman
                 package: tailscale
+            winget:
+                manager: winget
+                package: Tailscale.Tailscale
+            linux:
+                manager: script
+                command: curl -fsSL https://tailscale.com/install.sh | sh
     mongodb-compass:
         description: Interactive GUI tool for querying and analyzing MongoDB data
         profile: core
@@ -296,6 +365,21 @@ apps:
             ubuntu:
                 manager: apt
                 package: neovim
+            brew:
+                manager: brew
+                package: neovim
+            dnf:
+                manager: dnf
+                package: neovim
+            zypper:
+                manager: zypper
+                package: neovim
+            winget:
+                manager: winget
+                package: Neovim.Neovim
+            scoop:
+                manager: scoop
+                package: neovim
     pi:
         description: Pi coding agent harness settings, models, MCP servers, skills, and agents
         profile: core,ai
@@ -335,6 +419,12 @@ apps:
             - auth.json
             - mcp-auth.json
             - mcp.json
+        requires:
+            - node
+        install:
+            default:
+                manager: npm
+                package: "@earendil-works/pi-coding-agent"
     ollama:
         description: Ollama local AI runtime and models runner
         profile: ai
@@ -355,6 +445,12 @@ apps:
             linux:
                 manager: script
                 command: curl -fsSL https://ollama.com/install.sh | sh
+            pacman:
+                manager: pacman
+                package: ollama
+            winget:
+                manager: winget
+                package: Ollama.Ollama
     pnpm:
         description: Fast, disk space efficient package manager
         paths: []
@@ -365,6 +461,18 @@ apps:
             linux:
                 manager: script
                 command: curl -fsSL https://get.pnpm.io/install.sh | sh -
+            brew:
+                manager: brew
+                package: pnpm
+            pacman:
+                manager: pacman
+                package: pnpm
+            winget:
+                manager: winget
+                package: pnpm.pnpm
+            scoop:
+                manager: scoop
+                package: pnpm
     skills:
         description: Agent skills catalog in ~/.agents/skills
         profile: core,ai
@@ -399,6 +507,9 @@ apps:
             darwin:
                 manager: brew
                 cask: zed
+            pacman:
+                manager: pacman
+                package: zed
     zsh:
         description: Zsh shell configuration and Powerlevel10k theme
         profile: core
@@ -423,3 +534,35 @@ apps:
             ubuntu:
                 manager: apt
                 package: zsh
+            brew:
+                manager: brew
+                package: zsh
+            dnf:
+                manager: dnf
+                package: zsh
+            zypper:
+                manager: zypper
+                package: zsh
+    node:
+        description: Node.js runtime (required by npm-based tools such as pi, claude and codex)
+        profile: core,ai,mobile,infra
+        paths: []
+        install:
+            brew:
+                manager: brew
+                package: node
+            pacman:
+                manager: pacman
+                package: nodejs npm
+            apt:
+                manager: apt
+                package: nodejs npm
+            dnf:
+                manager: dnf
+                package: nodejs npm
+            winget:
+                manager: winget
+                package: OpenJS.NodeJS.LTS
+            scoop:
+                manager: scoop
+                package: nodejs-lts
