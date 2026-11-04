@@ -1,4 +1,4 @@
-# redacted: Include /Users/kevnnard/.colima/ssh_config
+# redacted: Include __HOME__/.colima/ssh_config
 
 # GitHub
 Host github.com

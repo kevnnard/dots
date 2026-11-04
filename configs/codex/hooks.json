@@ -68,7 +68,7 @@
       {
         "hooks": [
           {
-            "command": "bash '/Users/kevnnard/.codex/herdr-agent-state.sh' session",
+            "command": "bash '__HOME__/.codex/herdr-agent-state.sh' session",
             "timeout": 10,
             "type": "command"
           }
