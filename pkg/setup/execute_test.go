@@ -8,16 +8,20 @@ import (
 
 // fakeEnv records interactive runs and answers reads from maps. Nothing real runs.
 type fakeEnv struct {
-	user    string
-	home    string
-	files   map[string]string
-	outputs map[string]string
-	ran     []string
-	failRun map[string]bool
+	shellAfterChsh string
+	user           string
+	home           string
+	files          map[string]string
+	outputs        map[string]string
+	ran            []string
+	failRun        map[string]bool
 }
 
 func (f *fakeEnv) Run(argv []string) error {
 	f.ran = append(f.ran, strings.Join(argv, " "))
+	if f.shellAfterChsh != "" && len(argv) > 0 && argv[0] == "chsh" && !f.failRun[strings.Join(argv, " ")] {
+		f.outputs["getent passwd "+f.user] = f.shellAfterChsh
+	}
 	if f.failRun[strings.Join(argv, " ")] {
 		return errors.New("exit 1")
 	}
@@ -52,9 +56,10 @@ func (f *fakeEnv) Home() string { return f.home }
 // account database shows that shell.
 func TestShellStepPassesOnlyWhenPasswdShowsChosenShell(t *testing.T) {
 	env := &fakeEnv{
-		user:    "kevnnard",
-		files:   map[string]string{"/etc/shells": "/bin/bash\n/bin/zsh\n"},
-		outputs: map[string]string{"getent passwd kevnnard": "kevnnard:x:1000:1000::/home/kevnnard:/bin/zsh"},
+		user:           "kevnnard",
+		files:          map[string]string{"/etc/shells": "/bin/bash\n/bin/zsh\n"},
+		outputs:        map[string]string{"getent passwd kevnnard": "kevnnard:x:1000:1000::/home/kevnnard:/bin/bash"},
+		shellAfterChsh: "kevnnard:x:1000:1000::/home/kevnnard:/bin/zsh",
 	}
 	res := Execute(env, Plan()[0], "zsh")
 	if res.Status != StatusDone {
@@ -115,5 +120,25 @@ func TestRunContinuesAfterFailedStep(t *testing.T) {
 	}, nil)
 	if len(results) != 2 || results[0].Status != StatusFailed || results[1].Status != StatusManual {
 		t.Errorf("results = %+v", results)
+	}
+}
+
+// If the account already has the chosen shell, chsh must not run again:
+// a rerun that errors must not turn a finished change into a failure.
+func TestShellStepSkipsChshWhenShellAlreadySet(t *testing.T) {
+	env := &fakeEnv{
+		user:    "kevnnard",
+		files:   map[string]string{"/etc/shells": "/bin/bash\n/bin/zsh\n"},
+		outputs: map[string]string{"getent passwd kevnnard": "kevnnard:x:1000:1000::/home/kevnnard:/bin/zsh"},
+		failRun: map[string]bool{"chsh -s /bin/zsh": true},
+	}
+	res := Execute(env, Plan()[0], "zsh")
+	if res.Status != StatusDone {
+		t.Errorf("already-set shell must be done, got %+v", res)
+	}
+	for _, r := range env.ran {
+		if strings.HasPrefix(r, "chsh") {
+			t.Errorf("chsh must not run when the shell is already set, ran %q", r)
+		}
 	}
 }

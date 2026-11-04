@@ -95,17 +95,24 @@ func shellStep(env Env, choice string, res Result) Result {
 		res.Status, res.Detail = StatusFailed, fmt.Sprintf("%q is not listed in /etc/shells", choice)
 		return res
 	}
-	if err := env.Run([]string{"chsh", "-s", shellPath}); err != nil {
-		res.Status, res.Detail = StatusFailed, "chsh did not finish"
+	current, err := env.Output([]string{"getent", "passwd", env.User()})
+	if err != nil {
+		res.Status, res.Detail = StatusFailed, "could not read the account database"
 		return res
+	}
+	// Already set: skip chsh so a rerun cannot fail on a finished change.
+	if shellField(current) != shellPath {
+		if err := env.Run([]string{"chsh", "-s", shellPath}); err != nil {
+			res.Status, res.Detail = StatusFailed, "chsh did not finish"
+			return res
+		}
 	}
 	entry, err := env.Output([]string{"getent", "passwd", env.User()})
 	if err != nil {
 		res.Status, res.Detail = StatusFailed, "could not read the account database"
 		return res
 	}
-	fields := strings.Split(strings.TrimSpace(entry), ":")
-	if len(fields) < 7 || fields[6] != shellPath {
+	if shellField(entry) != shellPath {
 		res.Status, res.Detail = StatusFailed, "account still lists another shell"
 		return res
 	}
@@ -144,4 +151,13 @@ func (OSEnv) User() string {
 func (OSEnv) Home() string {
 	h, _ := os.UserHomeDir()
 	return h
+}
+
+// shellField returns the login shell from a getent passwd line, or "" if absent.
+func shellField(entry string) string {
+	fields := strings.Split(strings.TrimSpace(entry), ":")
+	if len(fields) < 7 {
+		return ""
+	}
+	return fields[6]
 }
