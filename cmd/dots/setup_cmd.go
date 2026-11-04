@@ -54,7 +54,7 @@ func stepKind(s setup.Step) string {
 
 // askShell offers zsh and bash for now; Enter keeps zsh.
 func askShell(in io.Reader, out io.Writer) (string, error) {
-	fmt.Fprintln(out, "Default shell: 1) zsh (Enter)  2) bash")
+	fmt.Fprintln(out, "Default shell  "+renderShellChoice("zsh")+"  (Enter keeps zsh, 2 for bash)")
 	line, _ := bufio.NewReader(in).ReadString('\n')
 	switch strings.TrimSpace(line) {
 	case "", "1":
@@ -66,16 +66,15 @@ func askShell(in io.Reader, out io.Writer) (string, error) {
 }
 
 func printSetupResults(out io.Writer, results []setup.Result) error {
-	counts := map[setup.Status]int{}
-	fmt.Fprintln(out, "\n🧭 Setup results:")
+	fmt.Fprint(out, renderChecklist(results, len(results)))
+	failed := 0
 	for _, r := range results {
-		counts[r.Status]++
-		icon := map[setup.Status]string{setup.StatusDone: "✓", setup.StatusFailed: "✗", setup.StatusManual: "◇"}[r.Status]
-		fmt.Fprintf(out, "  %s %-30s %s\n", icon, r.Title, r.Detail)
+		if r.Status == setup.StatusFailed {
+			failed++
+		}
 	}
-	fmt.Fprintf(out, "\n📊 Done: %d · Manual: %d · Failed: %d\n", counts[setup.StatusDone], counts[setup.StatusManual], counts[setup.StatusFailed])
-	if counts[setup.StatusFailed] > 0 {
-		return fmt.Errorf("setup finished with %d failed step(s)", counts[setup.StatusFailed])
+	if failed > 0 {
+		return fmt.Errorf("setup finished with %d failed step(s)", failed)
 	}
 	return nil
 }

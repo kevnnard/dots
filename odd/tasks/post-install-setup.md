@@ -19,7 +19,9 @@ T3. Default shell step, zsh or bash, with chsh and getent verification (S7). Rou
 T3b. zsh + powerlevel10k step, no token (S2). Route: inline. Commit: pending.
 T4. Login steps with interactive run and status check, starting with claude and copilot (S3, S4, S5). Route: inline. Commit: pending.
 T5. Docs for `dots setup` and the success summary. Route: inline. Commit: pending.
+T6. Terminal checklist UI from design/dots-setup/02-terminal-checklist.html (S2, S7): header with progress, glyph per step, shell choice with the selected shell marked. Route: inline. Commit: pending.
 
 ## Log
 L1. Original request (Spanish, verbatim): "dale entonces crea eso de una y me avisas" with the prior requirements in S1 to S6, and "se corre en la misma interactiva osea la ocrres tu y bueno ahi saldra si requiere passrwod etc y que el link y abrirlo etc".
 L2. Clarification: dots only offers the exact login command, the user runs it, and the credential stays in the system, not in dots.
+L3. Handoff: design/dots-setup/02-terminal-checklist.html (chosen artboard of design/dots-setup) implemented as T6 with the existing pkg/ui styles in cmd/dots/setup_view.go. Differences from the artboard: the shell choice keeps line input (1/2/Enter), not arrow keys, and the header counts only done steps, as the artboard does. The other artboards (01, 03) are alternatives.
