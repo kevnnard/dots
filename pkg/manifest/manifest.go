@@ -26,6 +26,7 @@ type AppConfig struct {
 	Description string                   `yaml:"description,omitempty"`
 	Profile     string                   `yaml:"profile,omitempty"` // core (default), mobile, infra, ai, optional
 	Optional    bool                     `yaml:"optional,omitempty"`
+	Requires    []string                 `yaml:"requires,omitempty"` // apps that must be installed first
 	Paths       []PathMapping            `yaml:"paths"`
 	Exclude     []string                 `yaml:"exclude,omitempty"`
 	Secrets     []string                 `yaml:"secrets,omitempty"`

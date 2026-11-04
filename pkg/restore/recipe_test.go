@@ -127,3 +127,53 @@ func TestShellInvocation(t *testing.T) {
 		t.Errorf("linux: got %s %v", name, args)
 	}
 }
+
+func planNames(plans []*AppPlan) []string {
+	var out []string
+	for _, p := range plans {
+		out = append(out, p.AppName)
+	}
+	return out
+}
+
+func indexOf(list []string, name string) int {
+	for i, n := range list {
+		if n == name {
+			return i
+		}
+	}
+	return -1
+}
+
+func TestPlanAllOrdersDependenciesFirst(t *testing.T) {
+	m := &manifest.Manifest{Apps: map[string]manifest.AppConfig{
+		"pi":   {Requires: []string{"pnpm"}},
+		"pnpm": {Requires: []string{"node"}},
+		"node": {},
+		"aaa":  {},
+		"zzz":  {Requires: []string{"ghost"}}, // unknown dependency is ignored
+	}}
+	names := planNames(PlanAll(m, omarchy()))
+	if len(names) != 5 {
+		t.Fatalf("expected 5 plans, got %v", names)
+	}
+	if !(indexOf(names, "node") < indexOf(names, "pnpm") && indexOf(names, "pnpm") < indexOf(names, "pi")) {
+		t.Errorf("dependencies must come first: %v", names)
+	}
+	again := planNames(PlanAll(m, omarchy()))
+	for i := range names {
+		if names[i] != again[i] {
+			t.Fatalf("order is not deterministic: %v vs %v", names, again)
+		}
+	}
+}
+
+func TestPlanAllSurvivesDependencyCycle(t *testing.T) {
+	m := &manifest.Manifest{Apps: map[string]manifest.AppConfig{
+		"a": {Requires: []string{"b"}},
+		"b": {Requires: []string{"a"}},
+	}}
+	if got := planNames(PlanAll(m, omarchy())); len(got) != 2 {
+		t.Errorf("expected both apps planned, got %v", got)
+	}
+}

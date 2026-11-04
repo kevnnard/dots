@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
@@ -50,11 +51,35 @@ func PlanApp(appName string, app manifest.AppConfig, sys *detector.SystemInfo) *
 	return plan
 }
 
-// PlanAll builds installation plans for all apps in the manifest.
+// PlanAll builds installation plans for all apps in the manifest. Plans are
+// deterministic (sorted by name) and ordered so that every app comes after the
+// apps it requires. Unknown dependencies are ignored and cycles are broken.
 func PlanAll(m *manifest.Manifest, sys *detector.SystemInfo) []*AppPlan {
+	names := make([]string, 0, len(m.Apps))
+	for name := range m.Apps {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
 	var plans []*AppPlan
-	for name, app := range m.Apps {
+	visited := make(map[string]bool, len(names))
+	var visit func(name string)
+	visit = func(name string) {
+		if visited[name] {
+			return
+		}
+		visited[name] = true
+		app, ok := m.Apps[name]
+		if !ok {
+			return
+		}
+		for _, dep := range app.Requires {
+			visit(dep)
+		}
 		plans = append(plans, PlanApp(name, app, sys))
+	}
+	for _, name := range names {
+		visit(name)
 	}
 	return plans
 }
