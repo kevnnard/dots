@@ -176,6 +176,8 @@ func press(m tea.Model, keys ...string) tea.Model {
 			msg = tea.KeyMsg{Type: tea.KeyDown}
 		case "space":
 			msg = tea.KeyMsg{Type: tea.KeySpace}
+		case "esc":
+			msg = tea.KeyMsg{Type: tea.KeyEscape}
 		default:
 			msg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(k)}
 		}

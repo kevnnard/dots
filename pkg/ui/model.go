@@ -3,12 +3,14 @@ package ui
 import (
 	"fmt"
 	"io"
+	"os"
 	"sort"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/kevnnard/dots/pkg/backup"
+	"github.com/kevnnard/dots/pkg/clean"
 	"github.com/kevnnard/dots/pkg/detector"
 	"github.com/kevnnard/dots/pkg/manifest"
 	"github.com/kevnnard/dots/pkg/restore"
@@ -24,6 +26,9 @@ const (
 	viewStatus
 	viewExecuting
 	viewFinished
+	viewCleanMode
+	viewCleanApps
+	viewCleanPreview
 )
 
 type MainOption int
@@ -71,6 +76,16 @@ type Model struct {
 	LastRun *restore.RunResult
 	// explicit marks a custom selection of named apps.
 	explicit bool
+	// CleanExec runs the cleaner's package queries and removals; CleanHome
+	// and CleanPresence locate configs and presence signals. Tests inject
+	// fakes so no package manager or real home is touched.
+	CleanExec     clean.Executor
+	CleanHome     func() (string, error)
+	CleanPresence func(home string) func(string, manifest.AppConfig) bool
+	clean         cleanState
+	// cleanGen identifies the latest preview request, so a stale probe
+	// result can never become the confirmed plan.
+	cleanGen int
 }
 
 func NewModel(m *manifest.Manifest, sys *detector.SystemInfo, repoDir string) Model {
@@ -99,6 +114,10 @@ func NewModel(m *manifest.Manifest, sys *detector.SystemInfo, repoDir string) Mo
 		Probe:    restore.CommandProbe,
 		Exec:     restore.ShellExecutor,
 		Suspend:  tea.Exec,
+
+		CleanExec:     clean.OSExecutor{},
+		CleanHome:     os.UserHomeDir,
+		CleanPresence: clean.PathPresence,
 	}
 }
 
@@ -129,6 +148,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case restoreDoneMsg:
 		return m.finishRestore(msg), nil
 
+	case cleanPreviewMsg:
+		if msg.gen == m.cleanGen && m.State == viewCleanPreview {
+			m.clean.preview, m.clean.err = msg.preview, msg.err
+		}
+		return m, nil
+
+	case cleanDoneMsg:
+		return m.finishClean(msg), nil
+
 	case tea.KeyMsg:
 		if m.State == viewExecuting {
 			// Input is handed to the install commands until they finish.
@@ -148,6 +176,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateCustomApps(msg)
 		case viewStatus:
 			return m.updateStatus(msg)
+		case viewCleanMode:
+			return m.updateCleanMode(msg)
+		case viewCleanApps:
+			return m.updateCleanApps(msg)
+		case viewCleanPreview:
+			return m.updateCleanPreview(msg)
 		case viewFinished:
 			if msg.String() == "enter" || msg.String() == "esc" || msg.String() == "q" {
 				m.State = viewMain
@@ -168,7 +202,7 @@ func (m Model) updateMain(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.Cursor--
 		}
 	case "down", "j":
-		if m.Cursor < 3 {
+		if m.Cursor < 4 {
 			m.Cursor++
 		}
 	case "enter":
@@ -187,7 +221,9 @@ func (m Model) updateMain(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.Cursor = 0
 		case 2: // Status & Drift
 			m.State = viewStatus
-		case 3: // Quit
+		case 3: // Clean
+			return m.openClean(), nil
+		case 4: // Quit
 			return m, tea.Quit
 		}
 	case "q":
@@ -455,6 +491,7 @@ func (m Model) View() string {
 			"🚀  Restore / Install Setup    (Deploy configs & install packages)",
 			"📦  Backup Current Machine     (Snapshot local configs to repo)",
 			"📊  Status & Drift Detection   (Inspect sync state vs local machine)",
+			"🧹  Clean Up Apps              (Uninstall packages / quarantine configs, after a preview)",
 			"❌  Quit",
 		}
 		for i, opt := range options {
@@ -546,7 +583,16 @@ func (m Model) View() string {
 		}
 		s.WriteString("\n" + StyleMuted.Render("Back: Esc / Enter / q"))
 
+	case viewCleanMode, viewCleanApps, viewCleanPreview:
+		s.WriteString(m.cleanView())
+
 	case viewExecuting:
+		if m.Action == "clean" {
+			s.WriteString(StyleSubtitle.Render("Cleaning...") + "\n\n")
+			s.WriteString(StyleNormal.Render("The terminal is handed to the confirmed cleanup (sudo may ask for your password).") + "\n")
+			s.WriteString(StyleMuted.Render("The summary appears here when it finishes."))
+			break
+		}
 		s.WriteString(StyleSubtitle.Render("Installing...") + "\n\n")
 		s.WriteString(StyleNormal.Render("The terminal is handed to the install commands (sudo may ask for your password).") + "\n")
 		s.WriteString(StyleMuted.Render("The summary appears here when they finish."))
