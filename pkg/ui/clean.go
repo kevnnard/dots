@@ -19,6 +19,7 @@ import (
 // Clean entry is opened, so nothing carries over from an earlier run.
 type cleanState struct {
 	packages, configs bool // independent scopes, both off by default
+	backups           bool // move older restore backups; off by default
 	items             []CheckItem
 	notice            string
 	typed             string // the confirmation typed so far
@@ -32,8 +33,11 @@ type cleanPreview struct {
 	plan                     *clean.Plan
 	pkgs                     clean.PackageRunner
 	configs                  clean.ConfigRunner
+	backups                  clean.BackupRunner
 	pkgSummary, cfgSummary   string
+	bkSummary                string
 	removals, moves, skipped int
+	bkMoves                  int
 }
 
 type cleanPreviewMsg struct {
@@ -50,11 +54,12 @@ type cleanDoneMsg struct {
 
 // cleanResult is what the confirmed run did.
 type cleanResult struct {
-	quarantine string
-	moved      int
-	items      []clean.ItemResult
-	failures   []string
-	err        error
+	quarantine   string
+	bkQuarantine string
+	moved        int
+	items        []clean.ItemResult
+	failures     []string
+	err          error
 }
 
 const dryRunLine = "Dry run: nothing was changed.\n"
@@ -79,12 +84,14 @@ func (m Model) updateCleanMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.clean.packages = !m.clean.packages
 	case "c":
 		m.clean.configs = !m.clean.configs
+	case "b":
+		m.clean.backups = !m.clean.backups
 	case "esc":
 		m.State, m.Cursor, m.clean = viewMain, 0, cleanState{}
 	case "enter":
 		switch {
-		case !m.clean.packages && !m.clean.configs:
-			m.clean.notice = "nothing selected: turn on packages (p), configurations (c) or both"
+		case !m.clean.packages && !m.clean.configs && !m.clean.backups:
+			m.clean.notice = "nothing selected: turn on packages (p), configurations (c), old backups (b) or any combination"
 		case m.Cursor == 0:
 			return m.requestPreview(clean.Candidates(m.Manifest))
 		default:
@@ -164,9 +171,11 @@ func (m Model) buildCleanPreview(names []string) (*cleanPreview, error) {
 	}
 	p := &cleanPreview{plan: plan,
 		pkgs:    clean.PackageRunner{Manifest: m.Manifest, Sys: m.SysInfo, Exec: m.CleanExec, Recheck: probe.Probe},
-		configs: clean.ConfigRunner{Manifest: m.Manifest, Home: home}}
+		configs: clean.ConfigRunner{Manifest: m.Manifest, Home: home},
+		backups: clean.BackupRunner{Manifest: m.Manifest, Home: home, Apps: names}}
 	if _, err := os.Stat(m.RepoDir); err == nil {
 		p.configs.Repo = m.RepoDir // nothing inside the repository ever moves
+		p.backups.Repo = m.RepoDir
 	}
 	ctx := context.Background()
 	if m.clean.packages {
@@ -209,6 +218,24 @@ func (m Model) buildCleanPreview(names []string) (*cleanPreview, error) {
 			}
 		}
 	}
+	if m.clean.backups {
+		var b bytes.Buffer
+		r := p.backups
+		r.DryRun, r.Out = true, &b
+		rep, err := r.Run(ctx)
+		if err != nil {
+			return nil, err
+		}
+		p.bkSummary = strings.TrimSuffix(b.String(), dryRunLine)
+		for _, c := range rep.Candidates {
+			switch c.Status {
+			case clean.CandidateQuarantine:
+				p.bkMoves++
+			case clean.CandidateBlocked:
+				p.skipped++
+			}
+		}
+	}
 	return p, nil
 }
 
@@ -228,7 +255,7 @@ func (m Model) updateCleanPreview(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case tea.KeyEnter:
 		p, typed := m.clean.preview, m.clean.typed
 		m.clean.typed = ""
-		if p != nil && p.removals+p.moves > 0 && typed == "yes" {
+		if p != nil && p.removals+p.moves+p.bkMoves > 0 && typed == "yes" {
 			return m.startClean(p)
 		}
 	}
@@ -256,8 +283,8 @@ func (c *cleanRun) Run() error {
 	return nil
 }
 
-// apply runs configurations first, because their quarantine can be undone,
-// and packages only when every confirmed file moved. Each runner accepts
+// apply runs configurations and then old backups first, because their
+// quarantine can be undone, and packages only when every confirmed file moved. Each runner accepts
 // the confirmation only for exactly the summary that was previewed.
 func (p *cleanPreview) apply(ctx context.Context, out io.Writer) cleanResult {
 	var r cleanResult
@@ -275,6 +302,23 @@ func (p *cleanPreview) apply(ctx context.Context, out io.Writer) cleanResult {
 			return r
 		case rep.Cancelled || len(rep.Moved) != p.moves:
 			r.err = errors.New("configurations changed after confirmation; nothing was changed and no package was removed")
+			return r
+		}
+	}
+	if p.bkMoves > 0 {
+		bk := p.backups
+		bk.Out = out
+		bk.Confirm = func(s string) bool { return s == p.bkSummary }
+		rep, err := bk.Run(ctx)
+		if rep != nil {
+			r.bkQuarantine, r.moved, r.failures = rep.Quarantine, r.moved+len(rep.Moved), append(r.failures, rep.Failures...)
+		}
+		switch {
+		case err != nil:
+			r.err = fmt.Errorf("%w; no package was removed", err)
+			return r
+		case rep.Cancelled || len(rep.Moved) != p.bkMoves:
+			r.err = errors.New("old backups changed after confirmation; no backup was moved and no package was removed")
 			return r
 		}
 	}
@@ -336,11 +380,13 @@ func (m Model) finishClean(msg cleanDoneMsg) Model {
 	if res.err != nil {
 		log(StyleError, "✗ "+res.err.Error())
 	}
-	if res.quarantine != "" && res.moved > 0 {
-		if res.err != nil {
-			log(StyleWarning, fmt.Sprintf("%d file(s) stay quarantined; undo with: dots clean recover %s", res.moved, res.quarantine))
-		} else {
-			log(StyleSelected, "Undo configurations with: dots clean recover "+res.quarantine)
+	for _, q := range []struct{ name, dir string }{{"configurations", res.quarantine}, {"old backups", res.bkQuarantine}} {
+		switch {
+		case q.dir == "" || res.moved == 0:
+		case res.err != nil:
+			log(StyleWarning, fmt.Sprintf("Moved %s stay quarantined; undo with: dots clean recover %s", q.name, q.dir))
+		default:
+			log(StyleSelected, fmt.Sprintf("Undo %s with: dots clean recover %s", q.name, q.dir))
 		}
 	}
 	if res.err == nil {
@@ -377,7 +423,8 @@ func (m Model) cleanView() string {
 		s.WriteString("\n")
 		scope("p", "Packages", "uninstall with the native package manager", m.clean.packages)
 		scope("c", "Configurations", "move config files into a recoverable quarantine", m.clean.configs)
-		s.WriteString("\n" + StyleMuted.Render("Navigate: ↑/↓ · Packages: p · Configurations: c · Preview: Enter · Back: Esc"))
+		scope("b", "Old backups", "quarantine older restore backups (*.bk); the newest of each file always stays", m.clean.backups)
+		s.WriteString("\n" + StyleMuted.Render("Navigate: ↑/↓ · Packages: p · Configurations: c · Old backups: b · Preview: Enter · Back: Esc"))
 	case viewCleanApps:
 		s.WriteString(StyleSubtitle.Render("Select Apps to Clean:") + "\n\n")
 		for i, it := range m.clean.items {
@@ -417,6 +464,7 @@ func (m Model) previewView() string {
 	}{
 		{m.clean.packages, "Packages", p.pkgSummary},
 		{m.clean.configs, "Configurations", p.cfgSummary},
+		{m.clean.backups, "Old backups", p.bkSummary},
 	} {
 		if !part.on {
 			s.WriteString(StyleMuted.Render(part.name+": not selected") + "\n")
@@ -424,11 +472,11 @@ func (m Model) previewView() string {
 		}
 		s.WriteString(StyleNormal.Render(escape(part.text)) + "\n")
 	}
-	if p.removals+p.moves == 0 {
+	if p.removals+p.moves+p.bkMoves == 0 {
 		s.WriteString("\n" + StyleWarning.Render(fmt.Sprintf("Nothing to change (%d item(s) blocked or unsupported). Back: Esc", p.skipped)))
 		return s.String()
 	}
-	s.WriteString("\n" + StyleWarning.Render(fmt.Sprintf("Remove %d package(s) and quarantine %d file(s); %d item(s) stay untouched.", p.removals, p.moves, p.skipped)))
+	s.WriteString("\n" + StyleWarning.Render(fmt.Sprintf("Remove %d package(s) and quarantine %d file(s); %d item(s) stay untouched.", p.removals, p.moves+p.bkMoves, p.skipped)))
 	s.WriteString("\n" + StyleSelected.Render("Type yes and press Enter to apply · Esc cancels: "+escape(m.clean.typed)))
 	return s.String()
 }

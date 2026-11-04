@@ -17,6 +17,7 @@ var (
 	cleanAllFlag      bool
 	cleanPackagesFlag bool
 	cleanConfigsFlag  bool
+	cleanBackupsFlag  bool
 	cleanDryRunFlag   bool
 
 	// External effects of clean, replaced by tests.
@@ -36,7 +37,10 @@ and applies it only after you type "yes" once for the whole plan.
 
 Packages and configurations are chosen separately: --packages uninstalls the
 apps' packages, --configs moves their config files into a recoverable
-quarantine. Without either flag nothing is planned or changed.
+quarantine. --backups moves older restore backups (<file>.<timestamp>.bk) of
+the apps' mapped files into the same quarantine; the most recent backup of
+every file always stays, and so does any backup whose age is not certain.
+Without any of these flags nothing is planned or changed.
 
 --all means every app declared in the manifest, optional ones included; it never
 means every package installed on this machine. Dependencies are never added.
@@ -61,15 +65,16 @@ between the last check and the change can still win the race.
 Confirmation needs an interactive terminal; there is no flag to skip it.`,
 	Example: `  dots clean zsh --configs --dry-run
   dots clean herdr fzf --packages
-  dots clean --all --packages --configs`,
+  dots clean --all --packages --configs
+  dots clean --all --backups --dry-run`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		switch {
 		case cleanAllFlag && len(args) > 0:
 			return fmt.Errorf("name apps or use --all, not both")
 		case !cleanAllFlag && len(args) == 0:
 			return fmt.Errorf("name the apps to clean or use --all")
-		case !cleanPackagesFlag && !cleanConfigsFlag:
-			return fmt.Errorf("nothing selected: add --packages, --configs or both (nothing was changed)")
+		case !cleanPackagesFlag && !cleanConfigsFlag && !cleanBackupsFlag:
+			return fmt.Errorf("nothing selected: add --packages, --configs, --backups or any combination (nothing was changed)")
 		}
 		cmd.SilenceUsage = true
 		out := cmd.OutOrStdout()
@@ -110,18 +115,21 @@ Confirmation needs an interactive terminal; there is no flag to skip it.`,
 
 		pkgs := clean.PackageRunner{Manifest: m, Sys: sys, Exec: cleanExecutor, Recheck: probe.Probe}
 		configs := clean.ConfigRunner{Manifest: m, Home: home}
+		backups := clean.BackupRunner{Manifest: m, Home: home, Apps: names}
 		if fileExists(repoDir) {
 			configs.Repo = repoDir // nothing inside the repository ever moves
+			backups.Repo = repoDir
 		}
 		if cleanDryRunFlag {
-			return dryRunClean(out, plan, pkgs, configs)
+			return dryRunClean(out, plan, pkgs, configs, backups)
 		}
-		return applyClean(cmd, plan, pkgs, configs)
+		return applyClean(cmd, plan, pkgs, configs, backups)
 	},
 }
 
-func dryRunClean(out io.Writer, plan *clean.Plan, pkgs clean.PackageRunner, configs clean.ConfigRunner) error {
+func dryRunClean(out io.Writer, plan *clean.Plan, pkgs clean.PackageRunner, configs clean.ConfigRunner, backups clean.BackupRunner) error {
 	pkgs.DryRun, pkgs.Out, configs.DryRun, configs.Out = true, out, true, out
+	backups.DryRun, backups.Out = true, out
 	if !cleanPackagesFlag {
 		fmt.Fprintln(out, "Packages: not selected (add --packages).")
 	} else if _, err := pkgs.Run(context.Background(), plan); err != nil {
@@ -132,19 +140,24 @@ func dryRunClean(out io.Writer, plan *clean.Plan, pkgs clean.PackageRunner, conf
 	} else if _, err := configs.Run(context.Background(), plan); err != nil {
 		return err
 	}
+	if cleanBackupsFlag {
+		if _, err := backups.Run(context.Background()); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 // applyClean previews both scopes, asks once and only then runs them. Each
 // runner asks again for its own summary; that answer is the cached one, and
-// only for exactly the summary the user confirmed. Configurations run first
-// because their quarantine can be undone; packages never run after a config
-// failure or a config preview that changed.
-func applyClean(cmd *cobra.Command, plan *clean.Plan, pkgs clean.PackageRunner, configs clean.ConfigRunner) error {
+// only for exactly the summary the user confirmed. Configurations and old
+// backups run first because their quarantine can be undone; packages never
+// run after a failure or a preview that changed.
+func applyClean(cmd *cobra.Command, plan *clean.Plan, pkgs clean.PackageRunner, configs clean.ConfigRunner, backups clean.BackupRunner) error {
 	out := cmd.OutOrStdout()
 	ctx := context.Background()
-	var pkgSummary, cfgSummary string
-	removals, moves, skipped := 0, 0, 0
+	var pkgSummary, cfgSummary, bkSummary string
+	removals, moves, bkMoves, skipped := 0, 0, 0, 0
 	if cleanPackagesFlag {
 		var b bytes.Buffer
 		pkgs.DryRun, pkgs.Out = true, &b
@@ -189,14 +202,32 @@ func applyClean(cmd *cobra.Command, plan *clean.Plan, pkgs clean.PackageRunner, 
 	} else {
 		fmt.Fprintln(out, "Configurations: not selected (add --configs).")
 	}
-	if removals+moves == 0 {
+	if cleanBackupsFlag {
+		var b bytes.Buffer
+		backups.DryRun, backups.Out = true, &b
+		rep, err := backups.Run(ctx)
+		if err != nil {
+			return err
+		}
+		bkSummary = strings.TrimSuffix(b.String(), dryRunLine)
+		for _, c := range rep.Candidates {
+			switch c.Status {
+			case clean.CandidateQuarantine:
+				bkMoves++
+			case clean.CandidateBlocked:
+				skipped++
+			}
+		}
+		fmt.Fprint(out, bkSummary)
+	}
+	if removals+moves+bkMoves == 0 {
 		fmt.Fprintf(out, "Nothing to change (%d item(s) blocked or unsupported).\n", skipped)
 		return nil
 	}
 	if !cleanInteractive(cmd.InOrStdin()) {
 		return fmt.Errorf("confirmation needs an interactive terminal; nothing was changed")
 	}
-	fmt.Fprintf(out, "Remove %d package(s) and quarantine %d file(s)? Type yes to continue: ", removals, moves)
+	fmt.Fprintf(out, "Remove %d package(s) and quarantine %d file(s)? Type yes to continue: ", removals, moves+bkMoves)
 	if !confirmed(cmd.InOrStdin()) {
 		fmt.Fprintln(out, "Cancelled: nothing was changed.")
 		return nil
@@ -216,6 +247,22 @@ func applyClean(cmd *cobra.Command, plan *clean.Plan, pkgs clean.PackageRunner, 
 		}
 		quarantine = rep.Quarantine
 	}
+	var bkQuarantine string
+	if bkMoves > 0 {
+		backups.DryRun, backups.Out = false, &previewed{w: out, skip: bkSummary}
+		backups.Confirm = func(s string) bool { return s == bkSummary }
+		rep, err := backups.Run(ctx)
+		if err == nil && (rep.Cancelled || len(rep.Moved) != bkMoves) {
+			err = fmt.Errorf("old backups changed after confirmation; no backup was moved")
+		}
+		if err != nil {
+			if quarantine != "" {
+				fmt.Fprintf(out, "Configurations stay quarantined; undo with: dots clean recover %s\n", quarantine)
+			}
+			return fmt.Errorf("%w; no package was removed", err)
+		}
+		bkQuarantine = rep.Quarantine
+	}
 	if removals > 0 {
 		pkgs.DryRun, pkgs.Out = false, &previewed{w: out, skip: pkgSummary}
 		pkgs.Confirm = func(s string) bool { return s == pkgSummary }
@@ -227,13 +274,19 @@ func applyClean(cmd *cobra.Command, plan *clean.Plan, pkgs clean.PackageRunner, 
 			if quarantine != "" {
 				fmt.Fprintf(out, "Configurations stay quarantined; undo with: dots clean recover %s\n", quarantine)
 			}
+			if bkQuarantine != "" {
+				fmt.Fprintf(out, "Old backups stay quarantined; undo with: dots clean recover %s\n", bkQuarantine)
+			}
 			return err
 		}
 	}
 	if quarantine != "" {
 		fmt.Fprintf(out, "Undo configurations with: dots clean recover %s\n", quarantine)
 	}
-	fmt.Fprintf(out, "Applied: %d package(s) removed, %d file(s) quarantined; %d item(s) left untouched (blocked or unsupported).\n", removals, moves, skipped)
+	if bkQuarantine != "" {
+		fmt.Fprintf(out, "Undo old backups with: dots clean recover %s\n", bkQuarantine)
+	}
+	fmt.Fprintf(out, "Applied: %d package(s) removed, %d file(s) quarantined; %d item(s) left untouched (blocked or unsupported).\n", removals, moves+bkMoves, skipped)
 	return nil
 }
 
@@ -315,6 +368,7 @@ func init() {
 	cleanCmd.Flags().BoolVarP(&cleanAllFlag, "all", "a", false, "Clean every app declared in the manifest, optional ones included")
 	cleanCmd.Flags().BoolVar(&cleanPackagesFlag, "packages", false, "Uninstall the apps' packages")
 	cleanCmd.Flags().BoolVar(&cleanConfigsFlag, "configs", false, "Move the apps' config files into a recoverable quarantine")
+	cleanCmd.Flags().BoolVar(&cleanBackupsFlag, "backups", false, "Move older restore backups (*.bk) into the quarantine; the newest of each file always stays")
 	cleanCmd.PersistentFlags().BoolVarP(&cleanDryRunFlag, "dry-run", "n", false, "Show the plan without changing anything")
 	cleanCmd.AddCommand(cleanRecoverCmd)
 	rootCmd.AddCommand(cleanCmd)

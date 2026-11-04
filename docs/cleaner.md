@@ -3,15 +3,18 @@
 ## Command line
 
 ```
-dots clean <app>... | --all  [--packages] [--configs] [--dry-run]
+dots clean <app>... | --all  [--packages] [--configs] [--backups] [--dry-run]
 dots clean recover <~/.dots-quarantine/clean-*> [--dry-run]
 ```
 
 - Name apps exactly or pass `--all`. `--all` means every app declared in the
   manifest, optional ones included; never every package on the machine.
-- `--packages` and `--configs` are independent. With neither, nothing is
-  planned and the command fails without changing anything. A scope that is
-  not selected is reported as `not selected`.
+- `--packages`, `--configs` and `--backups` are independent. With none of
+  them, nothing is planned and the command fails without changing anything.
+  An unselected packages or configurations scope is reported as
+  `not selected`; without `--backups` no backup is listed or touched.
+- `--backups` (off by default) moves older restore backups of the selected
+  apps' files into the quarantine; see [Old backups](#old-backups).
 - The manifest is read without cloning or writing anything (`--dir` selects
   the repository; without a `manifest.yaml` the built-in inventory is used).
 - Both plans print first. `--dry-run` stops there. Otherwise one prompt asks
@@ -19,7 +22,8 @@ dots clean recover <~/.dots-quarantine/clean-*> [--dry-run]
   interactive terminal the command fails without changing anything; there is
   no flag to skip the prompt. With nothing removable or movable it does not
   ask.
-- After `yes`, configurations run first (they can be undone), then packages.
+- After `yes`, configurations run first, then old backups (both can be
+  undone), then packages.
   Each runner only accepts the confirmation for exactly the summary that was
   shown: if the configuration preview changed, nothing moves and no package
   is removed. Ownership is still rechecked before every removal, and every
@@ -42,14 +46,16 @@ a file holds no credentials, and TOCTOU limits below apply.
 1. Choose **All declared apps** (every manifest app, optional ones included;
    never every package on the machine) or **Custom Selection** (checkboxes,
    all unchecked).
-2. Toggle the scopes independently: `p` packages, `c` configurations. Both
-   start off; with neither, or with no app checked, nothing is planned.
+2. Toggle the scopes independently: `p` packages, `c` configurations, `b` old
+   backups. All start off; with none, or with no app checked, nothing is
+   planned. With `b` off no backup is listed or touched.
 3. The preview shows both plans (read-only ownership queries only). With
    nothing removable or movable there is nothing to confirm. Otherwise type
    `yes` and press Enter; any other answer clears the input and changes
    nothing, and Esc goes back without changes.
 4. After `yes`, the TUI hands the terminal to the run (`tea.Exec`) so `sudo`
-   can prompt. The same rules as the CLI apply: configurations first, packages
+   can prompt. The same rules as the CLI apply: configurations and old backups
+   first, packages
    only when every confirmed file moved, and each runner accepts only exactly
    the previewed summary.
 5. The summary lists every removal outcome (`removed`, `failed`, `not-run`),
@@ -217,6 +223,39 @@ between the last check and a rename (TOCTOU) can still win the race; the
 identity check narrows that window but does not close it. The runner assumes a
 home owned by the user and gives no security guarantee against a hostile
 filesystem or a concurrent attacker.
+
+## Old backups
+
+`dots restore` keeps every file it replaces beside the original as
+`<file>.<YYYYMMDD_HHMMSS>[.<n>].bk`. `clean.BackupRunner` (`--backups`, TUI
+`b`) finds these backups for the selected apps' mapped paths: beside a mapped
+file, or anywhere below a mapped directory (symlinked directories, the
+quarantine and the repository are not entered). Backups are grouped by the
+file they back up and decided per group, newest first:
+
+| Line | Meaning |
+|---|---|
+| `keep ...: most recent backup of <file>` | The newest backup. It always stays. |
+| `keep ...: only backup of <file>` | A file with a single backup. It always stays. |
+| `keep ...: same timestamp as another backup of <file>` | Its age is not certain; every backup sharing that second stays. |
+| `keep ...: unrecognized backup name` | A `.bk` whose name does not carry a valid timestamp; it stays. |
+| `quarantine ...: older backup of <file>` | Strictly older than a kept backup of the same file; it moves. |
+| `blocked ...` | An older backup that is a symlink, a backup of a `secrets`/`exclude` file, or has a sensitive name (same rules as configurations); it stays. |
+
+Guarantees:
+
+- Off by default. Without the option nothing is scanned, listed or moved.
+- The last remaining backup of a file is never moved, even with the option
+  on: only backups strictly older than a kept one of the same file can move.
+- Nothing is deleted. Older backups move into the same
+  `~/.dots-quarantine/clean-*` mechanism as configurations (own record, same
+  identity recheck and rollback) and come back with `dots clean recover <dir>`.
+- The same single `yes` covers the whole plan, and the runner only accepts
+  exactly the previewed summary: if any backup appeared, vanished or changed
+  status, nothing moves and no package is removed.
+
+Ordering uses the timestamp in the name, never the file's mtime. The limits of
+the configuration runner (TOCTOU, trusted home) apply.
 
 ## Recovery
 

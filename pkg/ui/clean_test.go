@@ -288,3 +288,76 @@ func TestTUICleanReportsHandoffFailure(t *testing.T) {
 	}
 	f.untouched(t)
 }
+
+// oldBackups places two restore backups of ~/.zshrc; the newer must always stay.
+func (f *cleanFixture) oldBackups(t *testing.T) (older, newer string) {
+	t.Helper()
+	older, newer = f.zshrc+".20250101_000000.bk", f.zshrc+".20250102_000000.bk"
+	for _, p := range []string{older, newer} {
+		if err := os.WriteFile(p, []byte("# old\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return older, newer
+}
+
+func TestTUICleanOldBackupsOffByDefaultMovesNothing(t *testing.T) {
+	f := newCleanFixture(t)
+	older, newer := f.oldBackups(t)
+	mode := f.open()
+	if v := mode.View(); !strings.Contains(v, "[b]") || !strings.Contains(v, "Old backups: off") {
+		t.Errorf("the old backups toggle must start off:\n%s", v)
+	}
+	preview := press(mode, "c", "enter").(Model)
+	if v := preview.View(); strings.Contains(v, ".bk") || !strings.Contains(v, "Old backups: not selected") {
+		t.Errorf("backups must not be planned when off:\n%s", v)
+	}
+	press(preview, "yes", "enter")
+	for _, p := range []string{older, newer} {
+		if _, err := os.Lstat(p); err != nil {
+			t.Errorf("%s moved with the option off: %v", p, err)
+		}
+	}
+}
+
+func TestTUICleanOldBackupsKeepsNewest(t *testing.T) {
+	f := newCleanFixture(t)
+	older, newer := f.oldBackups(t)
+	preview := press(f.open(), "b", "enter").(Model)
+	v := preview.View()
+	for _, want := range []string{"keep zsh: ~/.zshrc.20250102_000000.bk: most recent backup of ~/.zshrc",
+		"quarantine zsh: ~/.zshrc.20250101_000000.bk: older backup of ~/.zshrc", "Packages: not selected", "Type yes"} {
+		if !strings.Contains(v, want) {
+			t.Errorf("preview misses %q:\n%s", want, v)
+		}
+	}
+	done := press(preview, "yes", "enter").(Model)
+	if len(f.effects) != 0 {
+		t.Errorf("packages touched: %v", f.effects)
+	}
+	if _, err := os.Lstat(older); !os.IsNotExist(err) {
+		t.Errorf("older backup still in place: %v", err)
+	}
+	if _, err := os.Lstat(newer); err != nil {
+		t.Errorf("newest backup moved: %v", err)
+	}
+	if data, _ := os.ReadFile(f.zshrc); string(data) != "# mine\n" {
+		t.Errorf("~/.zshrc changed: %q", data)
+	}
+	recs, _ := filepath.Glob(filepath.Join(f.home, clean.QuarantineDir, "clean-*"))
+	if v := done.View(); len(recs) != 1 || !strings.Contains(v, "Undo old backups with: dots clean recover "+recs[0]) ||
+		!strings.Contains(v, "0 package(s) removed, 1 file(s) quarantined") {
+		t.Errorf("summary must report the move and how to undo it (records %v):\n%s", recs, v)
+	}
+}
+
+func TestTUICleanOldBackupsSingleBackupCannotConfirm(t *testing.T) {
+	f := newCleanFixture(t)
+	older, _ := f.oldBackups(t)
+	os.Remove(older)
+	preview := press(f.open(), "b", "enter", "yes", "enter").(Model)
+	if v := preview.View(); preview.State != viewCleanPreview || !strings.Contains(v, "only backup of ~/.zshrc") || !strings.Contains(v, "Nothing to change") {
+		t.Errorf("a single backup must stay and leave nothing to confirm:\n%s", v)
+	}
+	f.untouched(t)
+}

@@ -92,7 +92,7 @@ func newCleanFixture(t *testing.T) *cleanFixture {
 // and stdin.
 func runClean(t *testing.T, stdin string, args ...string) (string, string, error) {
 	t.Helper()
-	cleanAllFlag, cleanPackagesFlag, cleanConfigsFlag, cleanDryRunFlag, dotfilesDirFlag = false, false, false, false, ""
+	cleanAllFlag, cleanPackagesFlag, cleanConfigsFlag, cleanBackupsFlag, cleanDryRunFlag, dotfilesDirFlag = false, false, false, false, false, ""
 	var out, errb bytes.Buffer
 	rootCmd.SetOut(&out)
 	rootCmd.SetErr(&errb)
@@ -139,8 +139,8 @@ func TestCleanRejectsMissingSelectionOrScope(t *testing.T) {
 	for _, tc := range []struct{ args, err string }{
 		{"--packages", "name the apps to clean or use --all"},
 		{"zsh --all --packages", "name apps or use --all, not both"},
-		{"zsh", "nothing selected: add --packages, --configs or both (nothing was changed)"},
-		{"--all", "nothing selected: add --packages, --configs or both (nothing was changed)"},
+		{"zsh", "nothing selected: add --packages, --configs, --backups or any combination (nothing was changed)"},
+		{"--all", "nothing selected: add --packages, --configs, --backups or any combination (nothing was changed)"},
 		{"ghost --configs", `unknown app "ghost"`},
 	} {
 		out, _, err := runClean(t, "yes\n", append(strings.Fields(tc.args), "--dir", f.repo)...)
@@ -316,5 +316,75 @@ func TestCleanRecoverNeverOverwritesAndNeedsConfirmation(t *testing.T) {
 	}
 	if data, _ := os.ReadFile(f.rc); string(data) != "# local\n" {
 		t.Fatalf("restored %q", data)
+	}
+}
+
+// oldBackups places two restore backups of ~/.zshrc; the newer must always stay.
+func (f *cleanFixture) oldBackups(t *testing.T) (older, newer string) {
+	t.Helper()
+	older, newer = f.rc+".20250101_000000.bk", f.rc+".20250102_000000.bk"
+	for _, p := range []string{older, newer} {
+		if err := os.WriteFile(p, []byte("# old\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return older, newer
+}
+
+func TestCleanWithoutBackupsFlagLeavesBackupsAlone(t *testing.T) {
+	f := newCleanFixture(t)
+	older, newer := f.oldBackups(t)
+	out, _, err := runClean(t, "yes\n", "zsh", "--configs", "--dir", f.repo)
+	if err != nil || strings.Contains(out, ".bk") || strings.Contains(out, "backup") {
+		t.Fatalf("err %v, output\n%s", err, out)
+	}
+	for _, p := range []string{older, newer} {
+		if _, err := os.Lstat(p); err != nil {
+			t.Fatalf("%s moved without --backups: %v", p, err)
+		}
+	}
+}
+
+func TestCleanBackupsKeepsNewestAfterConfirmation(t *testing.T) {
+	f := newCleanFixture(t)
+	older, newer := f.oldBackups(t)
+	plan := `Old backup cleanup plan (the most recent backup of every file always stays):
+  keep zsh: ~/.zshrc.20250102_000000.bk: most recent backup of ~/.zshrc
+  quarantine zsh: ~/.zshrc.20250101_000000.bk: older backup of ~/.zshrc
+1 to quarantine, 1 kept, 0 blocked
+`
+	out, _, err := runClean(t, "yes\n", "zsh", "--backups", "-n", "--dir", f.repo)
+	if err != nil || !strings.HasSuffix(out, plan+dryRunLine) {
+		t.Fatalf("dry run: err %v, output\n%s", err, out)
+	}
+	if _, err := os.Lstat(older); err != nil {
+		t.Fatalf("dry run moved %s", older)
+	}
+
+	out, _, err = runClean(t, "yes\n", "zsh", "--backups", "--dir", f.repo)
+	if err != nil {
+		t.Fatalf("err %v\n%s", err, out)
+	}
+	matches, _ := filepath.Glob(filepath.Join(f.home, clean.QuarantineDir, "clean-*"))
+	if len(matches) != 1 {
+		t.Fatalf("quarantines = %v", matches)
+	}
+	dir := matches[0]
+	want := "Packages: not selected (add --packages).\nConfigurations: not selected (add --configs).\n" + plan +
+		"Remove 0 package(s) and quarantine 1 file(s)? Type yes to continue: " +
+		"quarantined ~/.zshrc.20250101_000000.bk\nRecover from " + dir + "\n" +
+		"Undo old backups with: dots clean recover " + dir + "\n" +
+		"Applied: 0 package(s) removed, 1 file(s) quarantined; 0 item(s) left untouched (blocked or unsupported).\n"
+	if !strings.HasSuffix(out, want) {
+		t.Fatalf("output\n%s\nwant suffix\n%s", out, want)
+	}
+	if _, err := os.Lstat(older); !os.IsNotExist(err) {
+		t.Fatalf("older backup still in place: %v", err)
+	}
+	if _, err := os.Lstat(newer); err != nil {
+		t.Fatalf("newest backup moved: %v", err)
+	}
+	if data, err := os.ReadFile(f.rc); err != nil || string(data) != "# local\n" {
+		t.Fatalf("~/.zshrc changed: %q, %v", data, err)
 	}
 }
