@@ -17,29 +17,51 @@ if [[ $- == *i* ]]; then
 fi
 
 export LS_COLORS="di=38;5;67:ow=48;5;60:ex=38;5;132:ln=38;5;144:*.tar=38;5;180:*.zip=38;5;180:*.jpg=38;5;175:*.png=38;5;175:*.mp3=38;5;175:*.wav=38;5;175:*.txt=38;5;223:*.sh=38;5;132"
+# Colored ls: GNU ls on Linux, gls (coreutils) on macOS when available
 if [[ "$(uname)" == "Darwin" ]]; then
+  (( $+commands[gls] )) && alias ls='gls --color=auto'
+else
   alias ls='ls --color=auto'
-else
-  alias ls='gls --color=auto'
 fi
 
-if [[ "$(uname)" == "Darwin" ]]; then
-    # macOS
-    BREW_BIN="/opt/homebrew/bin"
-else
-    # Linux
-    BREW_BIN="/home/linuxbrew/.linuxbrew/bin"
-fi
+# Homebrew (optional: only if installed)
+for _brew in /opt/homebrew/bin/brew /usr/local/bin/brew /home/linuxbrew/.linuxbrew/bin/brew "$HOME/.linuxbrew/bin/brew"; do
+  if [[ -x "$_brew" ]]; then
+    eval "$("$_brew" shellenv)"
+    break
+  fi
+done
+unset _brew
+BREW_PREFIX="${HOMEBREW_PREFIX:-}"
 
-# Usar la variable BREW_BIN donde se necesite
-eval "$($BREW_BIN/brew shellenv)"
+# Source a zsh plugin from brew prefix or common system locations
+_source_plugin() {
+  local f
+  for f in "$@"; do
+    [[ -r "$f" ]] && { source "$f"; return 0; }
+  done
+  return 1
+}
+_source_plugin \
+  "$BREW_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" \
+  /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh \
+  /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+_source_plugin \
+  "$BREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh" \
+  /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh \
+  /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
+_source_plugin \
+  "$BREW_PREFIX/share/powerlevel10k/powerlevel10k.zsh-theme" \
+  "$HOME/powerlevel10k/powerlevel10k.zsh-theme" \
+  /usr/share/powerlevel10k/powerlevel10k.zsh-theme
+unset -f _source_plugin
 
 # source $(dirname $BREW_BIN)/share/zsh-autocomplete/zsh-autocomplete.plugin.zsh
 source $(dirname $BREW_BIN)/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 source $(dirname $BREW_BIN)/share/zsh-autosuggestions/zsh-autosuggestions.zsh
 source $(dirname $BREW_BIN)/share/powerlevel10k/powerlevel10k.zsh-theme
 
-export PROJECT_PATHS="/home/alanbuscaglia/work"
+export PROJECT_PATHS="$HOME/Repositories"
 export FZF_DEFAULT_COMMAND="fd --hidden --strip-cwd-prefix --exclude .git"
 export FZF_DEFAULT_T_COMMAND="$FZF_DEFAULT_COMMAND"
 export FZF_ALT_COMMAND="fd --type=d --hidden --strip-cwd-prefix --exclude .git"
@@ -55,15 +77,15 @@ plugins=(
   command-not-found docker docker-compose brew 
 )
 
-source $ZSH/oh-my-zsh.sh
+[[ -r "$ZSH/oh-my-zsh.sh" ]] && source "$ZSH/oh-my-zsh.sh"
 
 export CARAPACE_BRIDGES='zsh,fish,bash,inshellisense'
 zstyle ':completion:*' format $'\e[2;37mCompleting %d\e[m'
-source <(carapace _carapace)
+(( $+commands[carapace] )) && source <(carapace _carapace)
 
-eval "$(fzf --zsh)"
-eval "$(atuin init zsh)"
-eval "$(zoxide init zsh)"
+(( $+commands[fzf] ))    && eval "$(fzf --zsh)"
+(( $+commands[atuin] ))  && eval "$(atuin init zsh)"
+(( $+commands[zoxide] )) && eval "$(zoxide init zsh)"
 
 function share() {
   domain="epizoutically-unfomented-lucas.ngrok-free.dev"
@@ -84,20 +106,25 @@ function share() {
 
 
 # pnpm
-export PNPM_HOME="/Users/kevnnard/Library/pnpm"
+if [[ "$(uname)" == "Darwin" ]]; then
+  export PNPM_HOME="$HOME/Library/pnpm"
+else
+  export PNPM_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/pnpm"
+fi
 case ":$PATH:" in
-  *":$PNPM_HOME/bin:"*) ;;
-  *) export PATH="$PNPM_HOME/bin:$PATH" ;;
+  *":$PNPM_HOME:"*) ;;
+  *) export PATH="$PNPM_HOME:$PATH" ;;
 esac
 # pnpm end
 
 # Android SDK
-export ANDROID_HOME="$HOME/Library/Android/sdk"
+if [[ "$(uname)" == "Darwin" ]]; then
+  export ANDROID_HOME="$HOME/Library/Android/sdk"
+else
+  export ANDROID_HOME="$HOME/Android/Sdk"
+fi
 export PATH="$ANDROID_HOME/platform-tools:$PATH"
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
-
-# Added by Antigravity CLI installer
-export PATH="/Users/kevnnard/.local/bin:$PATH"
