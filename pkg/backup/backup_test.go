@@ -245,3 +245,52 @@ func TestBackupTokenizesHomePaths(t *testing.T) {
 		t.Errorf("got %q, want %q", data, want)
 	}
 }
+
+// A skill directory symlinked into the tree must be stored as a symlink, not
+// followed: restore recreates links, and a copied directory cannot be told
+// apart from a real local install later.
+func TestBackupStoresDirectorySymlinkAsSymlink(t *testing.T) {
+	tmpDir := t.TempDir()
+	skillsDir := filepath.Join(tmpDir, "skills")
+	realSkill := filepath.Join(tmpDir, "agents", "find-skills")
+	if err := os.MkdirAll(realSkill, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(realSkill, "SKILL.md"), []byte("# find\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(skillsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(skillsDir, "find-skills")
+	if err := os.Symlink(realSkill, link); err != nil {
+		t.Fatal(err)
+	}
+
+	destDir := filepath.Join(tmpDir, "dotfiles")
+	app := manifest.AppConfig{
+		Paths: []manifest.PathMapping{
+			{Src: skillsDir, Dest: "configs/pi/skills"},
+		},
+	}
+
+	if _, err := BackupApp("pi", app, destDir); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	stored := filepath.Join(destDir, "configs", "pi", "skills", "find-skills")
+	info, err := os.Lstat(stored)
+	if err != nil {
+		t.Fatalf("missing stored entry: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("stored entry is a %v, want a symlink", info.Mode().Type())
+	}
+	target, err := os.Readlink(stored)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if target != realSkill {
+		t.Fatalf("link target = %q, want %q", target, realSkill)
+	}
+}
