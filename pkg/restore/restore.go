@@ -323,6 +323,10 @@ func buildInstallCommand(recipe manifest.InstallRecipe, sys *detector.SystemInfo
 			if sys != nil && sys.HasManager(detector.ManagerPnpm) {
 				return fmt.Sprintf("pnpm add -g %s", recipe.Package)
 			}
+			// A user-level prefix avoids EACCES with system-wide Node on Linux/macOS.
+			if sys != nil && sys.OS != "windows" {
+				return fmt.Sprintf("npm install -g --prefix \"$HOME/.local\" %s", recipe.Package)
+			}
 			return fmt.Sprintf("npm install -g %s", recipe.Package)
 		}
 	}

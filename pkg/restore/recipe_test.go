@@ -177,3 +177,27 @@ func TestPlanAllSurvivesDependencyCycle(t *testing.T) {
 		t.Errorf("expected both apps planned, got %v", got)
 	}
 }
+
+func TestNpmRecipeAvoidsRootGlobalInstall(t *testing.T) {
+	recipe := manifest.InstallRecipe{Manager: "npm", Package: "@scope/tool"}
+
+	linux := &detector.SystemInfo{OS: "linux"}
+	if got := buildInstallCommand(recipe, linux); got != `npm install -g --prefix "$HOME/.local" @scope/tool` {
+		t.Errorf("linux: got %q", got)
+	}
+
+	darwin := &detector.SystemInfo{OS: "darwin"}
+	if got := buildInstallCommand(recipe, darwin); got != `npm install -g --prefix "$HOME/.local" @scope/tool` {
+		t.Errorf("darwin: got %q", got)
+	}
+
+	windows := &detector.SystemInfo{OS: "windows"}
+	if got := buildInstallCommand(recipe, windows); got != "npm install -g @scope/tool" {
+		t.Errorf("windows: got %q", got)
+	}
+
+	withPnpm := &detector.SystemInfo{OS: "linux", Managers: []detector.PackageManager{detector.ManagerPnpm}}
+	if got := buildInstallCommand(recipe, withPnpm); got != "pnpm add -g @scope/tool" {
+		t.Errorf("pnpm preferred: got %q", got)
+	}
+}
