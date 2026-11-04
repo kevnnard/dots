@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kevnnard/dots/pkg/homepath"
 	"github.com/kevnnard/dots/pkg/manifest"
 )
 
@@ -176,25 +176,10 @@ func copyDirectory(srcDir, destDir string, excludes, secrets []string, res *Resu
 	})
 }
 
+// copyFile copies a file into the dotfiles repository, replacing the user's
+// home directory with a portable placeholder.
 func copyFile(src, dest string) error {
-	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
-		return err
-	}
-
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-
-	out, err := os.OpenFile(dest, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	_, err = io.Copy(out, in)
-	return err
+	return homepath.CopyTokenized(src, dest)
 }
 
 func isExcluded(relPath string, patterns []string) bool {

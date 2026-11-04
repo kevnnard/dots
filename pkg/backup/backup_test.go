@@ -215,3 +215,33 @@ func TestCreateGitSnapshot(t *testing.T) {
 		t.Error("expected clean repo not to create duplicate commit")
 	}
 }
+
+func TestBackupTokenizesHomePaths(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+
+	srcFile := filepath.Join(home, ".tool", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(srcFile), 0755); err != nil {
+		t.Fatal(err)
+	}
+	content := `{"hook":"bash '` + home + `/.tool/hook.sh'"}`
+	if err := os.WriteFile(srcFile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	app := manifest.AppConfig{Paths: []manifest.PathMapping{{Src: srcFile, Dest: "configs/tool/settings.json"}}}
+	repo := t.TempDir()
+	if _, err := BackupApp("tool", app, repo); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(repo, "configs/tool/settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `{"hook":"bash '__HOME__/.tool/hook.sh'"}`
+	if string(data) != want {
+		t.Errorf("got %q, want %q", data, want)
+	}
+}

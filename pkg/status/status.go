@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/kevnnard/dots/pkg/detector"
+	"github.com/kevnnard/dots/pkg/homepath"
 	"github.com/kevnnard/dots/pkg/manifest"
 )
 
@@ -28,10 +29,10 @@ type PathStatus struct {
 }
 
 type AppStatus struct {
-	AppName     string       `json:"app_name"`
-	Installed   bool         `json:"installed"`
-	Paths       []PathStatus `json:"paths"`
-	HasDrift    bool         `json:"has_drift"`
+	AppName   string       `json:"app_name"`
+	Installed bool         `json:"installed"`
+	Paths     []PathStatus `json:"paths"`
+	HasDrift  bool         `json:"has_drift"`
 }
 
 type OverallStatus struct {
@@ -149,6 +150,14 @@ func fileOrDirExists(path string) bool {
 	return err == nil
 }
 
+// sameContent compares file contents ignoring the machine-specific home path.
+func sameContent(a, b []byte) bool {
+	if home, err := homepath.Current(); err == nil {
+		return homepath.Equivalent(a, b, home)
+	}
+	return bytes.Equal(a, b)
+}
+
 func areContentsIdentical(path1, path2 string) bool {
 	info1, err1 := os.Stat(path1)
 	info2, err2 := os.Stat(path2)
@@ -161,15 +170,12 @@ func areContentsIdentical(path1, path2 string) bool {
 	}
 
 	if !info1.IsDir() {
-		if info1.Size() != info2.Size() {
-			return false
-		}
 		data1, err1 := os.ReadFile(path1)
 		data2, err2 := os.ReadFile(path2)
 		if err1 != nil || err2 != nil {
 			return false
 		}
-		return bytes.Equal(data1, data2)
+		return sameContent(data1, data2)
 	}
 
 	// For directories, do a shallow or deep check
@@ -189,13 +195,9 @@ func areContentsIdentical(path1, path2 string) bool {
 			return nil
 		}
 		if !info.IsDir() {
-			if info.Size() != i2.Size() {
-				identical = false
-				return nil
-			}
 			b1, _ := os.ReadFile(p)
 			b2, _ := os.ReadFile(p2)
-			if !bytes.Equal(b1, b2) {
+			if !sameContent(b1, b2) {
 				identical = false
 			}
 		}

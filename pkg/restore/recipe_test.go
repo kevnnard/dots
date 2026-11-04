@@ -1,6 +1,8 @@
 package restore
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/kevnnard/dots/pkg/detector"
@@ -199,5 +201,44 @@ func TestNpmRecipeAvoidsRootGlobalInstall(t *testing.T) {
 	withPnpm := &detector.SystemInfo{OS: "linux", Managers: []detector.PackageManager{detector.ManagerPnpm}}
 	if got := buildInstallCommand(recipe, withPnpm); got != "pnpm add -g @scope/tool" {
 		t.Errorf("pnpm preferred: got %q", got)
+	}
+}
+
+func TestRestoreExpandsHomePlaceholder(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+
+	repo := t.TempDir()
+	repoFile := filepath.Join(repo, "configs/tool/settings.json")
+	if err := os.MkdirAll(filepath.Dir(repoFile), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(repoFile, []byte(`{"hook":"__HOME__/.tool/hook.sh"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	target := filepath.Join(home, ".tool", "settings.json")
+	app := manifest.AppConfig{Paths: []manifest.PathMapping{{Src: target, Dest: "configs/tool/settings.json"}}}
+	if _, err := ApplyAppFiles("tool", app, repo, false); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `{"hook":"` + home + `/.tool/hook.sh"}`
+	if string(data) != want {
+		t.Errorf("got %q, want %q", data, want)
+	}
+
+	// Restoring again must not create a safety backup: contents are equivalent.
+	res, err := ApplyAppFiles("tool", app, repo, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.LocalBackups) != 0 {
+		t.Errorf("expected no safety backup for identical content, got %v", res.LocalBackups)
 	}
 }

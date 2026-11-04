@@ -1,9 +1,7 @@
 package restore
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,6 +11,7 @@ import (
 	"time"
 
 	"github.com/kevnnard/dots/pkg/detector"
+	"github.com/kevnnard/dots/pkg/homepath"
 	"github.com/kevnnard/dots/pkg/manifest"
 )
 
@@ -334,25 +333,10 @@ func buildInstallCommand(recipe manifest.InstallRecipe, sys *detector.SystemInfo
 	return ""
 }
 
+// copyFile restores a file from the dotfiles repository, expanding the home
+// placeholder for the current machine.
 func copyFile(src, dest string) error {
-	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
-		return err
-	}
-
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-
-	out, err := os.OpenFile(dest, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	_, err = io.Copy(out, in)
-	return err
+	return homepath.CopyExpanded(src, dest)
 }
 
 func makeSafetyBackup(targetPath, repoSourcePath string) (string, error) {
@@ -371,14 +355,14 @@ func makeSafetyBackup(targetPath, repoSourcePath string) (string, error) {
 	targetBytes, err := os.ReadFile(targetPath)
 	if err == nil {
 		sourceBytes, err := os.ReadFile(repoSourcePath)
-		if err == nil && bytes.Equal(targetBytes, sourceBytes) {
+		if home, herr := homepath.Current(); err == nil && herr == nil && homepath.Equivalent(targetBytes, sourceBytes, home) {
 			return "", nil
 		}
 	}
 
 	ts := time.Now().Format("20060102_150405")
 	backupPath := fmt.Sprintf("%s.%s.bk", targetPath, ts)
-	if err := copyFile(targetPath, backupPath); err != nil {
+	if err := homepath.CopyRaw(targetPath, backupPath); err != nil {
 		return "", err
 	}
 	return backupPath, nil

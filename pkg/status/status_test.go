@@ -65,3 +65,23 @@ func TestAddAppPath(t *testing.T) {
 		t.Errorf("expected src to match, got %s", app.Paths[0].Src)
 	}
 }
+
+func TestStatusTreatsHomePlaceholderAsSynced(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	repoDir := t.TempDir()
+
+	local := filepath.Join(home, ".tool", "settings.json")
+	repoFile := filepath.Join(repoDir, "configs", "settings.json")
+	os.MkdirAll(filepath.Dir(local), 0755)
+	os.MkdirAll(filepath.Dir(repoFile), 0755)
+	os.WriteFile(local, []byte(`{"hook":"`+home+`/x.sh"}`), 0644)
+	os.WriteFile(repoFile, []byte(`{"hook":"__HOME__/x.sh"}`), 0644)
+
+	app := manifest.AppConfig{Paths: []manifest.PathMapping{{Src: local, Dest: "configs/settings.json"}}}
+	st := CheckAppStatus("tool", app, repoDir)
+	if len(st.Paths) != 1 || st.Paths[0].State != StateSynced {
+		t.Errorf("expected synced, got %+v", st.Paths)
+	}
+}
