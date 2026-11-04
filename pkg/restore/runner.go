@@ -441,11 +441,29 @@ func (r *RunResult) summaryLines() []string {
 		lines = append(lines, "🔍 Dry run complete: no commands executed, no files written.")
 	} else {
 		lines = append(lines, "✨ Finished without problems.")
+		lines = append(lines, r.successCounts())
 	}
 	if n := r.Readiness.Count(); n > 0 {
 		lines = append(lines, fmt.Sprintf("🔑 %d readiness item(s) above need your action before those apps are fully usable.", n))
 	}
 	return lines
+}
+
+// successCounts reports what a clean real run did, so the outcome fits one line.
+func (r *RunResult) successCounts() string {
+	installed, present, configured := 0, 0, 0
+	for _, s := range r.Steps {
+		switch s.Install {
+		case OutcomeInstalled:
+			installed++
+		case OutcomeAlreadyInstalled:
+			present++
+		}
+		if s.Config == ConfigDeployed {
+			configured++
+		}
+	}
+	return fmt.Sprintf("📊 Installed: %d · Already present: %d · Configured: %d", installed, present, configured)
 }
 
 func installIcon(o InstallOutcome) string {
