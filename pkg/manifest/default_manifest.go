@@ -8,6 +8,12 @@ const defaultManifestYAML = `
 version: 1.0.0
 dotfiles_dir: ~/.dotfiles
 apps:
+    antigravity-cli:
+        description: Google Antigravity CLI (agy) for agent orchestration in the terminal
+        profile: core,ai
+        check: [agy]
+        install:
+            darwin: {manager: brew, cask: antigravity-cli}
     atuin:
         description: Atuin shell history sync configuration
         profile: core
