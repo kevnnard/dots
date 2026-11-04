@@ -67,6 +67,47 @@ If the safety backup cannot be written, the file is not replaced and the run
 reports a failure. Nothing is deleted in bulk. Secret `.template` files are
 only created where no file exists.
 
+## Known legacy configuration repairs
+
+Restore adapts two recognized legacy configurations, including old backup copies:
+
+| File | Repair |
+|:---|:---|
+| `~/.zshrc` | Exact legacy initialization and plugin-loading lines gain availability checks; Powerlevel10k tries Homebrew and Arch system locations. Unknown shell statements stay unchanged. |
+| `~/.pi/agent/settings.json` | Remove the obsolete `npm:gentle-engram@0.3.0` string only when its single companion is the canonical `npm:gentle-engram` object with `extensions: ["+index.ts"]`. Other settings are preserved. |
+
+Source content is repaired before comparison and deployment. Existing different
+local files are still preserved by default; the summary says **repair not
+applied**, rather than claiming success. Replacement still swaps the whole
+local file for the backed-up source, after a safety backup; it does not merge
+custom local settings.
+
+For the known conflicting **local Pi settings**, `--with-config
+--replace-existing` additionally authorizes a narrow local repair **before any
+installer runs**, even if Pi is already installed. It backs up the original,
+removes only that obsolete duplicate, preserves permissions and unrelated
+settings, and checks the result before allowing installation. If an installer
+later fails, the repaired file and its backup remain; the summary names the
+backup to copy back for recovery. Without those flags, the conflict is reported
+and Pi installation is blocked. Dry runs never change it.
+
+Preview first, using the intended backup repository:
+
+```sh
+dots --dir /path/to/backup restore pi --install-packages --with-config --replace-existing --dry-run
+```
+
+After checking the preview, remove `--dry-run` only if replacing the declared
+Pi configurations from that backup is intended. In the TUI, enable both config
+restoration (`c`) and replacement (`r`); these authorize the same flow.
+
+This is **not** a general corrupt-file cleaner, a shell validator or a settings
+migration engine. Unrecognized package conflicts remain blocked; invalid JSON
+and unavailable files are not automatically repaired. Skill-directory versus
+symlink collisions remain refused. No external `gentle-ai` preflight, real login
+or installer validation is implied by the local tests. Existing filesystem
+check/write race limitations still apply.
+
 ## Results and exit code
 
 Both front ends print the same summary from `restore.RunResult`. The CLI exits

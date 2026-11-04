@@ -451,3 +451,36 @@ func TestTUIFinishedViewEscapesControlsFromManifestAndErrors(t *testing.T) {
 		t.Errorf("finished view must show the escaped app name")
 	}
 }
+
+// The finished view shows the shared repair report: a kept stale zsh file is
+// a problem, an authorized replacement reports the repair.
+func TestTUIReportsKnownZshRepairThroughSharedSummary(t *testing.T) {
+	f := newTUIFixture(t)
+	legacy := "source $(dirname $BREW_BIN)/share/powerlevel10k/powerlevel10k.zsh-theme\n"
+	t.Setenv("HOME", filepath.Dir(f.target))
+	os.MkdirAll(filepath.Dir(f.target), 0755)
+	os.WriteFile(f.target, []byte(legacy), 0644)
+	os.WriteFile(filepath.Join(f.model.RepoDir, "configs", "zsh", ".zshrc"), []byte(legacy), 0644)
+
+	kept := press(f.model, "enter", "c", "enter").(Model)
+	view := kept.View()
+	if strings.Contains(view, "without problems") || !strings.Contains(view, "problem") ||
+		!strings.Contains(view, "repair not applied: "+f.target+": existing local file kept") || strings.Contains(view, "🩹") {
+		t.Errorf("kept stale file must be reported as not repaired:\n%s", view)
+	}
+	if data, _ := os.ReadFile(f.target); string(data) != legacy {
+		t.Errorf("local file changed without the replace toggle: %q", data)
+	}
+
+	replaced := press(f.model, "enter", "c", "r", "enter").(Model)
+	view = replaced.View()
+	if !strings.Contains(view, "🩹 repaired backup content: "+f.target) || !strings.Contains(view, "Finished without problems") {
+		t.Errorf("authorized replacement must report the repair:\n%s", view)
+	}
+	if data, _ := os.ReadFile(f.target); strings.Contains(string(data), legacy) {
+		t.Errorf("deployed config not repaired: %q", data)
+	}
+	if backups, _ := filepath.Glob(f.target + ".*.bk"); len(backups) != 1 {
+		t.Errorf("safety backups = %v", backups)
+	}
+}

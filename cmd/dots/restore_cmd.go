@@ -36,6 +36,12 @@ installed. Existing local files that differ are kept unless --replace-existing
 is also given, in which case each one gets a timestamped .bk safety backup
 before it is replaced.
 
+Known legacy .zshrc plugin lines and the obsolete duplicate Pi Engram declaration
+are repaired in backup content before deployment. Other content is not repaired.
+With --with-config --replace-existing, the exact known local Pi Engram conflict
+is backed up and repaired before installers run. Otherwise that conflict blocks
+Pi installation; dry runs never repair files. Unknown conflicts are preserved.
+
 The summary ends with a readiness report per app: missing keys (placeholder
 fields and unset environment variables, by name only), pending logins and
 missing MCP commands found in the apps' declared files in your home. Values
