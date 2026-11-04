@@ -8,17 +8,23 @@ import (
 
 // fakeEnv records interactive runs and answers reads from maps. Nothing real runs.
 type fakeEnv struct {
-	shellAfterChsh string
-	user           string
-	home           string
-	files          map[string]string
-	outputs        map[string]string
-	ran            []string
-	failRun        map[string]bool
+	// outputsAfterRun maps a command to {status command, output}: the status
+	// appears once that command ran, like a login that creates a session.
+	outputsAfterRun map[string][2]string
+	shellAfterChsh  string
+	user            string
+	home            string
+	files           map[string]string
+	outputs         map[string]string
+	ran             []string
+	failRun         map[string]bool
 }
 
 func (f *fakeEnv) Run(argv []string) error {
 	f.ran = append(f.ran, strings.Join(argv, " "))
+	if out, ok := f.outputsAfterRun[strings.Join(argv, " ")]; ok {
+		f.outputs[out[0]] = out[1]
+	}
 	if f.shellAfterChsh != "" && len(argv) > 0 && argv[0] == "chsh" && !f.failRun[strings.Join(argv, " ")] {
 		f.outputs["getent passwd "+f.user] = f.shellAfterChsh
 	}
@@ -80,7 +86,7 @@ func TestShellStepRejectsShellNotListedInEtcShells(t *testing.T) {
 
 // gh has a status command, so dots can verify the login itself.
 func TestGHLoginIsVerifiedWithGHAuthStatus(t *testing.T) {
-	env := &fakeEnv{outputs: map[string]string{"gh auth status": "Logged in to github.com"}}
+	env := &fakeEnv{outputs: map[string]string{}, outputsAfterRun: map[string][2]string{"gh auth login": {"gh auth status", "Logged in to github.com"}}}
 	res := Execute(env, Step{ID: "gh", Title: "GitHub CLI login", Login: true, Command: []string{"gh", "auth", "login"}, Verify: []string{"gh", "auth", "status"}}, "")
 	if res.Status != StatusDone {
 		t.Errorf("status = %q, detail %q", res.Status, res.Detail)
@@ -140,5 +146,36 @@ func TestShellStepSkipsChshWhenShellAlreadySet(t *testing.T) {
 		if strings.HasPrefix(r, "chsh") {
 			t.Errorf("chsh must not run when the shell is already set, ran %q", r)
 		}
+	}
+}
+
+// The account may use a different path to the same shell than the first
+// /etc/shells entry (for example /bin/zsh vs the brew path). Matching by name
+// must count it as already set, so chsh does not run again.
+func TestShellStepTreatsSameNamedShellAsAlreadySet(t *testing.T) {
+	env := &fakeEnv{
+		user:    "kevnnard",
+		files:   map[string]string{"/etc/shells": "/bin/zsh\n/home/linuxbrew/.linuxbrew/bin/zsh\n"},
+		outputs: map[string]string{"getent passwd kevnnard": "kevnnard:x:1000:1000::/home/kevnnard:/home/linuxbrew/.linuxbrew/bin/zsh"},
+	}
+	res := Execute(env, Plan()[0], "zsh")
+	if res.Status != StatusDone {
+		t.Errorf("same-named shell must be done, got %+v", res)
+	}
+	if len(env.ran) != 0 {
+		t.Errorf("chsh must not run, ran %v", env.ran)
+	}
+}
+
+// A login whose status command already passes must not run its login command
+// again: the session is already on this machine.
+func TestLoginSkipsLoginWhenStatusAlreadyPasses(t *testing.T) {
+	env := &fakeEnv{outputs: map[string]string{"gh auth status": "Logged in to github.com"}}
+	res := Execute(env, Step{ID: "gh", Title: "GitHub CLI login", Login: true, Command: []string{"gh", "auth", "login"}, Verify: []string{"gh", "auth", "status"}}, "")
+	if res.Status != StatusDone {
+		t.Errorf("already logged in must be done, got %+v", res)
+	}
+	if len(env.ran) != 0 {
+		t.Errorf("gh auth login must not run, ran %v", env.ran)
 	}
 }

@@ -52,6 +52,14 @@ func Execute(env Env, step Step, choice string) Result {
 		}
 		return res
 	}
+	// A status command that already passes means the session exists: do not
+	// run the login again.
+	if len(step.Verify) > 0 {
+		if _, err := env.Output(step.Verify); err == nil {
+			res.Status, res.Detail = StatusDone, "already signed in: verified with "+strings.Join(step.Verify, " ")
+			return res
+		}
+	}
 	if len(step.Command) > 0 {
 		if err := env.Run(step.Command); err != nil {
 			res.Status, res.Detail = StatusFailed, "command ended with an error: "+strings.Join(step.Command, " ")
@@ -100,8 +108,11 @@ func shellStep(env Env, choice string, res Result) Result {
 		res.Status, res.Detail = StatusFailed, "could not read the account database"
 		return res
 	}
-	// Already set: skip chsh so a rerun cannot fail on a finished change.
-	if shellField(current) != shellPath {
+	// Already set under any path with the same name: skip chsh so a rerun
+	// cannot fail on a finished change (the account may use another path).
+	if path.Base(shellField(current)) == choice {
+		shellPath = shellField(current)
+	} else {
 		if err := env.Run([]string{"chsh", "-s", shellPath}); err != nil {
 			res.Status, res.Detail = StatusFailed, "chsh did not finish"
 			return res
