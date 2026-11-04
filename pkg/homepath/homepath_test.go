@@ -1,6 +1,10 @@
 package homepath
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 func TestTokenize(t *testing.T) {
 	cases := []struct {
@@ -55,5 +59,39 @@ func TestRoundTripAcrossMachines(t *testing.T) {
 	want := `{"cmd":"bash '/home/dev/.claude/hooks/x.sh'"}`
 	if string(got) != want {
 		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestCopyNewNeverTouchesExistingDestination(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src")
+	victim := filepath.Join(dir, "victim")
+	if err := os.WriteFile(src, []byte("new"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(victim, []byte("keep"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(dir, "link")
+	if err := os.Symlink(victim, link); err != nil {
+		t.Fatal(err)
+	}
+	for _, dest := range []string{victim, link} {
+		if err := CopyRawNew(src, dest, 0600); !os.IsExist(err) {
+			t.Errorf("CopyRawNew(%s) = %v, want exists error", dest, err)
+		}
+		if err := CopyExpandedNew(src, dest, 0600); !os.IsExist(err) {
+			t.Errorf("CopyExpandedNew(%s) = %v, want exists error", dest, err)
+		}
+	}
+	if data, _ := os.ReadFile(victim); string(data) != "keep" {
+		t.Errorf("existing file changed: %q", data)
+	}
+	fresh := filepath.Join(dir, "fresh")
+	if err := CopyRawNew(src, fresh, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if info, err := os.Stat(fresh); err != nil || info.Mode().Perm() != 0600 {
+		t.Errorf("fresh copy mode = %v %v", info, err)
 	}
 }

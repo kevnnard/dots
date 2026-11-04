@@ -3,6 +3,7 @@ package manifest
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -25,6 +26,28 @@ func TestDefaultManifest(t *testing.T) {
 	}
 	if nvim.Install["darwin"].Package != "neovim" {
 		t.Errorf("expected nvim darwin package to be neovim, got %s", nvim.Install["darwin"].Package)
+	}
+}
+
+func TestDefaultManifestMatchesRepositoryManifest(t *testing.T) {
+	want, err := Load("../../manifest.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(DefaultManifest(), want) {
+		t.Error("DefaultManifest() drifted from manifest.yaml; regenerate default_manifest.go")
+	}
+}
+
+func TestEmbeddedBrewfilesMatchRepository(t *testing.T) {
+	for name, content := range defaultBrewfiles() {
+		data, err := os.ReadFile(filepath.Join("../..", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(data) != content {
+			t.Errorf("embedded %s drifted from the repository copy", name)
+		}
 	}
 }
 

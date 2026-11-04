@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/kevnnard/dots/pkg/detector"
+	"github.com/kevnnard/dots/pkg/manifest"
 	"github.com/kevnnard/dots/pkg/restore"
 	"github.com/spf13/cobra"
 )
@@ -13,19 +14,52 @@ var (
 	installPackagesFlag bool
 	profileFlag         string
 	allProfilesFlag     bool
+	withConfigFlag      bool
+	replaceExistingFlag bool
+
+	// External effects of restore, replaced by tests.
+	detectSystem                           = detector.Detect
+	installProbe    restore.InstalledProbe = restore.CommandProbe
+	installExecutor restore.Executor       = restore.ShellExecutor
 )
 
 var restoreCmd = &cobra.Command{
 	Use:   "restore [app-name]",
-	Short: "Restore configs and provision packages on this machine",
-	Long:  `Detects the current operating system, packages manager, installs missing dependencies, and restores configuration files from the dotfiles repository to their target locations.`,
+	Short: "Install packages and, on request, restore backed-up configs on this machine",
+	Long: `Detects the current operating system and package managers, plans the selected
+apps with their dependencies in order, skips apps that are already installed and,
+with --install-packages, runs the install commands from the dotfiles repository.
+
+By default apps keep their stock configuration: configs in the repository are
+only deployed with --with-config, after every package the config needs is
+installed. Existing local files that differ are kept unless --replace-existing
+is also given, in which case each one gets a timestamped .bk safety backup
+before it is replaced.
+
+The summary ends with a readiness report per app: missing keys (placeholder
+fields and unset environment variables, by name only), pending logins and
+missing MCP commands found in the apps' declared files in your home. Values
+are never printed. The check is offline: no key, token or session is
+validated, so anything dots cannot prove is reported as "not-verified" with
+the command to check it.`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if replaceExistingFlag && !withConfigFlag {
+			return fmt.Errorf("--replace-existing only applies together with --with-config")
+		}
 		repoDir, err := resolveDotfilesDir()
 		if err != nil {
 			return err
 		}
+		out := cmd.OutOrStdout()
 
-		m, err := loadOrInitManifest(repoDir)
+		var m *manifest.Manifest
+		if dryRunFlag {
+			// A dry run never clones the repository or writes a manifest.
+			m, err = loadManifestReadOnly(out, repoDir)
+		} else {
+			m, err = loadOrInitManifest(repoDir)
+		}
 		if err != nil {
 			return err
 		}
@@ -37,87 +71,65 @@ var restoreCmd = &cobra.Command{
 		if targetProfile == "" {
 			targetProfile = "core"
 		}
+		selected := restore.Select(m, targetProfile)
+		if len(args) > 0 {
+			selected = args
+		}
 
-		sys := detector.Detect()
-		fmt.Printf("🎯 Target System: %s (%s, %s) | Profile: %s\n", sys.OS, sys.Arch, sys.PrimaryManager, targetProfile)
+		sys := detectSystem()
+		fmt.Fprintf(out, "🎯 Target System: %s (%s, %s) | Profile: %s\n", sys.OS, sys.Arch, sys.PrimaryManager, targetProfile)
 		if dryRunFlag {
-			fmt.Println("🔍 DRY RUN MODE: No files will be modified or commands executed.")
-			fmt.Println()
-		} else {
-			fmt.Println()
+			fmt.Fprintln(out, "🔍 DRY RUN MODE: No files will be modified or commands executed.")
+		}
+		if withConfigFlag {
+			mode := "differing local files are kept"
+			if replaceExistingFlag {
+				mode = "differing local files are replaced after a .bk safety backup"
+			}
+			fmt.Fprintf(out, "📁 Restoring backed-up configs from %s (%s)\n", repoDir, mode)
+		}
+		fmt.Fprintln(out)
+
+		cmd.SilenceUsage = true
+		res, err := restore.Run(m, selected, sys, restore.RunOptions{
+			RepoDir:         repoDir,
+			WithConfig:      withConfigFlag,
+			ReplaceExisting: replaceExistingFlag,
+			InstallPackages: installPackagesFlag,
+			DryRun:          dryRunFlag,
+			Explicit:        len(args) > 0,
+			Probe:           installProbe,
+			Exec: func(req restore.ExecRequest) error {
+				fmt.Fprintf(out, "▶ [%s] %s\n", req.AppName, req.Command)
+				return installExecutor(req)
+			},
+		})
+		if err != nil {
+			return err
 		}
 
-		// 1. Package Installation Planning & Execution
-		plans := restore.PlanAll(m, sys)
-		fmt.Println("📦 Software Provisioning Plan:")
-		for _, p := range plans {
-			if len(args) > 0 && args[0] != p.AppName {
-				continue
-			}
-			app := m.Apps[p.AppName]
-			if len(args) == 0 && !app.MatchesProfile(targetProfile) {
-				continue
-			}
-			if p.InstallCmd != "" {
-				fmt.Printf("  • %-10s : %s\n", p.AppName, p.InstallCmd)
-				if installPackagesFlag && !dryRunFlag {
-					fmt.Printf("    ▶ Executing: %s\n", p.InstallCmd)
-					if err := restore.ExecuteInstallCommand(p.InstallCmd); err != nil {
-						fmt.Printf("    ⚠️  Failed: %v\n", err)
-					}
-				}
-			} else {
-				fmt.Printf("  • %-10s : (no package recipe needed or defined)\n", p.AppName)
-			}
+		for _, line := range res.Summary() {
+			fmt.Fprintln(out, line)
 		}
-
 		if !installPackagesFlag && !dryRunFlag {
-			fmt.Println("\n💡 Tip: Run with --install-packages (-i) to automatically execute package installations.")
+			fmt.Fprintln(out, "\n💡 Tip: run with --install-packages (-i) to execute the planned installs.")
 		}
-
-		// 2. Deploy Configuration Files
-		fmt.Println("\n📁 Deploying Configurations:")
-		for name, app := range m.Apps {
-			if len(args) > 0 && args[0] != name {
-				continue
-			}
-			if len(args) == 0 && !app.MatchesProfile(targetProfile) {
-				continue
-			}
-
-			res, err := restore.ApplyAppFiles(name, app, repoDir, dryRunFlag)
-			if err != nil {
-				fmt.Printf("  ⚠️  Error restoring %s: %v\n", name, err)
-				continue
-			}
-
-			fmt.Printf("[%s]\n", name)
-			for _, bk := range res.LocalBackups {
-				fmt.Printf("  🛡️  Safety backup created: %s\n", bk)
-			}
-			for _, r := range res.Restored {
-				fmt.Printf("  ✓ Restored: %s\n", r)
-			}
-			for _, t := range res.TemplatesInit {
-				fmt.Printf("  🔒 Secret template deployed: %s (please fill with real secrets!)\n", t)
-			}
-			for _, s := range res.Skipped {
-				fmt.Printf("  - Skipped: %s\n", s)
-			}
-			for _, w := range res.Warnings {
-				fmt.Printf("  ⚠️  %s\n", w)
-			}
+		if !withConfigFlag {
+			fmt.Fprintln(out, "💡 Tip: run with --with-config to deploy the configs backed up in the repository.")
 		}
-
-		fmt.Println("\n✨ Restore operation complete!")
+		if problems := res.Problems(); len(problems) > 0 {
+			return fmt.Errorf("restore finished with %d problem(s)", len(problems))
+		}
 		return nil
 	},
 }
 
 func init() {
-	restoreCmd.Flags().BoolVarP(&dryRunFlag, "dry-run", "n", false, "Simulate restore without modifying files or running commands")
+	restoreCmd.Flags().BoolVarP(&dryRunFlag, "dry-run", "n", false, "Simulate restore without cloning, modifying files or running commands")
 	restoreCmd.Flags().BoolVarP(&installPackagesFlag, "install-packages", "i", false, "Execute package manager commands to install apps")
-	restoreCmd.Flags().StringVarP(&profileFlag, "profile", "p", "core", "Target profile: core (default), mobile, infra, or all")
-	restoreCmd.Flags().BoolVarP(&allProfilesFlag, "all", "a", false, "Restore all profiles")
+	restoreCmd.Flags().StringVarP(&profileFlag, "profile", "p", "core", "Target profile: core (default), ai, mobile, infra, or all")
+	restoreCmd.Flags().BoolVarP(&allProfilesFlag, "all", "a", false, "Restore all profiles (optional apps still need to be named)")
+	restoreCmd.Flags().BoolVar(&withConfigFlag, "with-config", false, "Deploy configs backed up in the dotfiles repo (default: keep stock configs)")
+	restoreCmd.Flags().BoolVar(&replaceExistingFlag, "replace-existing", false, "With --with-config, replace differing local files after a .bk safety backup")
 	rootCmd.AddCommand(restoreCmd)
 }

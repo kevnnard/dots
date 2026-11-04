@@ -114,14 +114,18 @@ dots
 
   Select Installation Mode:
 
-  ❯ 🌟  Full Setup       (All Profiles: Core + Mobile + Infra + AI)
+  ❯ 🌟  Full Setup       (All Profiles: Core + Mobile + Infra + AI; optional apps via Custom)
     ⚡️  Core Only        (Workstation default: Shell, Neovim, Ghostty, Brew, Web)
     🤖  AI & Agents      (Pi, Claude Code, Codex, and Ollama local runtime)
     📱  Mobile Dev       (React Native, OpenJDK 17, CocoaPods, Fastlane)
     🛠️   Custom Selection (Pick and choose individual apps with checkboxes)
 
-  Navigate: ↑/↓ · Select: Enter · Back: Esc
+  [c] Restore backed-up configs: off — apps keep their stock configuration; local files are untouched
+
+  Navigate: ↑/↓ · Select: Enter · Configs: c · Replace local files: r · Back: Esc
 ```
+
+Installing suspends the dashboard: install commands get the real terminal, so their output and `sudo` prompts show up normally, and the dashboard returns with the run summary when they finish.
 
 ### Keyboard Shortcuts
 
@@ -131,8 +135,9 @@ dots
 | `Enter` | Select action, confirm installation preset, or view status |
 | `Space` | Toggle individual application in Custom Selection |
 | `a` | Toggle select all / unselect all in Custom Selection |
+| `c` | On the installation mode screen: toggle restoring the configs backed up in the repository (off by default) |
+| `r` | On the installation mode screen, with `c` on: allow replacing differing local files after a `.bk` safety backup |
 | `b` | Trigger immediate Backup from main menu |
-| `r` | Trigger Restore wizard from main menu |
 | `d` | Trigger Dry-run simulation (preview without writing) |
 | `Esc` | Return to previous view |
 | `q` or `Ctrl+C` | Quit |
@@ -169,7 +174,8 @@ Local Machine Config                       Dotfiles Repository (Public Safe)
 1. **AST-Level JSON Sanitization**: Detects and redacts Bearer tokens, OpenAI/Anthropic/Linear/GCP API keys, and connection strings while preserving JSON hierarchy and server arguments.
 2. **SSH Config Anonymization**: Preserves connection options, aliases, and timeouts, while masking private IP addresses and user accounts.
 3. **Template Preservation on Restore**: When running `restore`, existing local files are never overwritten with templates. New machines receive `.template` files as a clean scaffolding for credentials.
-4. **Local Safety Backups**: If a local file has modified content before a restore, `dots` creates `<file>.<YYYYMMDD_HHMMSS>.bk` first. Zero data loss guaranteed.
+4. **Local Files Are Kept**: `restore --with-config` keeps local files whose content differs from the backup and lists them. Only `--replace-existing` (TUI: `r`) replaces them, and each replacement happens only after `<file>.<YYYYMMDD_HHMMSS>.bk` was written successfully.
+5. **Readiness Report, Names Only**: every restore (CLI and TUI) ends with a per-app list of what is still missing: placeholder fields and unset environment variables by name, file and field (`env GH_MCP_TOKEN (mcpServers.github.env.GITHUB_TOKEN in ~/.pi/agent/mcp.json) → export GH_MCP_TOKEN=…`), pending logins (`codex login`, `/login` in `pi`) and missing MCP commands. Values are never printed, and nothing is validated online: what dots cannot prove is marked `not-verified` with the command to check it. See [docs/install-flow.md](docs/install-flow.md#readiness-report).
 
 ---
 
@@ -193,11 +199,20 @@ dots backup
 # Backup a specific app without pushing
 dots backup nvim --push=false
 
-# Dry-run restore simulation for default Core profile
+# Dry-run restore simulation for default Core profile (no clone, writes or commands)
 dots restore --dry-run
 
-# Restore and install packages for Core profile
+# Install Core packages with their stock configuration
 dots restore --install-packages
+
+# Install Core packages and deploy the configs backed up in the repository
+dots restore --install-packages --with-config
+
+# Same, also replacing differing local files (each gets a .bk safety backup first)
+dots restore --install-packages --with-config --replace-existing
+
+# Install one app with the apps it requires (optional apps must be named)
+dots restore lazygit --install-packages
 
 # Restore and install AI & Agent stack (Pi, Claude, Codex, Ollama)
 dots restore --profile ai --install-packages

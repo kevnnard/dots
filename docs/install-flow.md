@@ -1,0 +1,169 @@
+# Install flow
+
+`dots restore` and the TUI's *Restore / Install Setup* run the same code:
+`restore.Select` picks the apps, `restore.BuildPlan` orders them and
+`restore.Run` executes the plan. The app inventory is described in
+[install-inventory.md](install-inventory.md).
+
+## What gets selected
+
+| Selection | CLI | TUI | Optional apps |
+|:---|:---|:---|:---|
+| Profile | `--profile core` (default), `--profile ai`, … | Core / AI / Mobile presets | Excluded |
+| Everything | `--all` | Full Setup | Excluded |
+| Named apps | `dots restore <app>` | Custom Selection | Included when named or checked |
+
+Each selected app brings the apps it `requires`, in order (for example `pi`
+pulls `node` first).
+
+## Packages
+
+For every app in plan order:
+
+1. Already present (`check` commands or paths found): skipped, never reinstalled.
+2. No install recipe needed (config-only app): nothing to run.
+3. No recipe for this platform, or the recipe's package manager is missing:
+   reported as *unsupported* / *manager-missing* and skipped.
+4. A required app failed or is unavailable: reported as *blocked* and skipped.
+5. Otherwise the install command runs (CLI: only with `--install-packages`;
+   TUI: always). Commands run from the dotfiles repository directory.
+
+The TUI suspends itself for the whole run (Bubble Tea `tea.Exec`): it leaves
+the alternate screen and hands the real terminal, including stdin, to the
+install commands, so their output and `sudo` password prompts appear in the
+normal terminal. Each command is announced as `▶ [app] command`. The TUI
+resumes with the summary when the run ends; if the terminal cannot be handed
+off, nothing runs and the TUI says so.
+
+A failed install blocks the apps that require it; unrelated apps continue.
+
+## Configuration
+
+By default nothing is copied from the repository: apps keep the
+configuration they ship with, and local files are untouched.
+
+Configs are deployed only on request: `--with-config` in the CLI, `c` on the
+TUI's installation mode screen. This also pulls each app's `config_requires`
+(for zsh: powerlevel10k, zsh plugins, fzf, fd, bat, zoxide, atuin, carapace).
+Plugins that require their host are installed after it (zsh before its
+plugins).
+
+An app's config is deployed only after the app, its `requires` and its
+`config_requires` are all installed. Otherwise it is reported as
+*incomplete* and nothing is written, even when the app itself installed.
+When the repository has no backup for an app, it keeps its stock
+configuration.
+
+Existing local files:
+
+| Local file | Default | `--replace-existing` (TUI: `r`) |
+|:---|:---|:---|
+| Missing | Created | Created |
+| Same content | Left as is | Left as is |
+| Different content | Kept and listed | Replaced after `<file>.<timestamp>.bk` is written |
+| Directory where a file is expected | Not touched, reported | Not touched, reported |
+
+If the safety backup cannot be written, the file is not replaced and the run
+reports a failure. Nothing is deleted in bulk. Secret `.template` files are
+only created where no file exists.
+
+## Results and exit code
+
+Both front ends print the same summary from `restore.RunResult`. The CLI exits
+nonzero, and the TUI shows the problem list instead of a success line, when:
+
+- an install command failed, or an app was blocked by such a failure;
+- a config is incomplete or failed;
+- an explicitly named app cannot be installed on this platform.
+
+Unsupported apps in a profile run are listed as skips, not failures.
+
+## Readiness report
+
+The summary ends with a readiness report, per app, built by
+`restore.ScanReadiness` and rendered through the same `RunResult.Summary`
+in the CLI and the TUI. It lists what the user still has to do:
+
+| State | Meaning | Evidence |
+|:---|:---|:---|
+| `missing` field | A field still holds a dots placeholder (`YOUR_…_HERE`) | JSON/YAML/TOML field path and file |
+| `missing` env | A referenced variable is not set in the environment dots runs in | `${NAME}`, `{env:NAME}`, `env_key`, `*_env_var`, `env_vars` |
+| `login-pending` | A credentials file still holds the dots template placeholders | Codex `auth.json`, Pi `auth.json` / `mcp-auth.json` (per provider) |
+| `dependency-missing` | An MCP server `command` is not found on `PATH` | `mcpServers.<name>.command`, `[mcp_servers.<name>] command` |
+| `not-verified` | dots cannot tell; the action says how to check | Claude Code session, absent or filled credentials files, GitHub CLI, Copilot in Neovim, unreadable files |
+
+Each item names the variable, field and `~/` file plus the action (edit the
+field, `export NAME=…`, `codex login`, `/login` in `pi` or `claude`,
+`gh auth login`, `:Copilot auth`).
+
+No rule can tell from its shape alone whether a name is a secret, so names
+read from a file or a manifest are printed only under an allow-list policy:
+
+- Field paths print trusted schema keys (`mcpServers`, `headers`, `env`,
+  `command`, `env_key`, …), the MCP server and model provider names dots
+  ships, and allow-listed variable or header names (below) inside
+  `env`/`headers` tables. Any other key is shown as
+  `<key #N>`, its position among the sorted keys of its table; array
+  elements are shown as `[N]`.
+- Variable names (`${NAME}`, `env_key`, `env_vars`, …) and header names are
+  printed only when they are in a fixed allow-list of the services dots
+  ships configs for (`DATABASE_URL`, `LINEAR_API_KEY`,
+  `GITHUB_PERSONAL_ACCESS_TOKEN`, `X-Goog-Api-Key`, `Authorization`, …).
+  The shape of a name is never used: any other name, however conventional
+  it looks, is reported as `<variable>` (or `<key #N>` as a table key) with
+  its field and file and the action "set the variable this field
+  references".
+- A declared file is printed as its `~/` path only when the built-in
+  inventory or the login rules declare it (`~/.pi/agent/mcp.json`, …). Any
+  other file is shown as `path #N of <app>`, its position in that app's
+  `paths` in the manifest.
+- Apps of the built-in inventory are named; any other app in the report is
+  `app #N`, its position in the run.
+- Pi login entries print a known provider (`anthropic`, `openai-codex`, …)
+  or `MCP server <name>` for a shipped server; any other entry is
+  `provider entry #N`.
+- A missing MCP command is reported as `MCP server command` with its field
+  and file; the configured command or path is never printed.
+- Path components of printed files that are not plainly printable are
+  shown as `<unprintable name>`, and every rendered line escapes control,
+  format and invalid characters.
+
+Limits:
+
+- The allow-list is fixed: legitimate custom variables, headers, apps and
+  paths are shown only by their generic or positional label; those items
+  keep their field, file and action.
+- The naming policy covers the readiness report only. The package and
+  configuration lines of the summary print app names, install commands,
+  restored paths and errors from the manifest as they are, with control,
+  format and invalid characters escaped on every summary line in the CLI and
+  the TUI. Output streamed by install commands, and the CLI's `▶ [app]
+  command` line before each command, are not escaped or filtered.
+- Redacted names are positional (`<key #N>`, `path #N of <app>`): the user
+  finds the entry by position in the file or manifest, and the count and
+  position of keys is visible.
+
+- Only files declared in the selected apps' `paths` under the target home
+  are read; symlinks resolving outside it, directories and files over 1 MiB
+  are not scanned.
+- Values, file snippets and decoder errors are never printed; a malformed
+  file is reported as "not valid JSON/YAML; not scanned".
+- It is offline: no key, token or session is validated, no login command or
+  network request runs. A filled credentials file is "present, validity not
+  checked", never "ready"; an absent one is "not verified", never "invalid".
+- Environment variables are checked in the dots process only; a variable
+  exported later in a shell profile shows as missing until dots runs again.
+- Readiness items do not change the exit code.
+- In a dry run the report describes the current files: nothing was deployed.
+
+## Dry run
+
+`--dry-run` resolves the plan and reports what would happen. It never clones
+the repository, writes the manifest or config files, or runs commands. When
+the repository has no manifest it plans with the built-in inventory.
+
+## Not done by the installer
+
+Service enablement, docker group changes, model downloads, credential or
+session validation, encryption and cleanup of previous installs are out of
+scope.

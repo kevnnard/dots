@@ -1,0 +1,921 @@
+// Code generated from manifest.yaml; DO NOT EDIT.
+// TestDefaultManifestMatchesRepositoryManifest keeps it identical to manifest.yaml.
+
+package manifest
+
+// defaultManifestYAML is the canonical inventory used by `dots init`.
+const defaultManifestYAML = `
+version: 1.0.0
+dotfiles_dir: ~/.dotfiles
+apps:
+    atuin:
+        description: Atuin shell history sync configuration
+        profile: core
+        paths:
+            - src: ~/.config/atuin/config.toml
+              dest: configs/atuin/config.toml
+        install:
+            darwin:
+                manager: brew
+                package: atuin
+            brew:
+                manager: brew
+                package: atuin
+            pacman:
+                manager: pacman
+                package: atuin
+            apt:
+                manager: apt
+                package: atuin
+            dnf:
+                manager: dnf
+                package: atuin
+    brew:
+        description: Core Brewfile (packages are installed through their own apps)
+        profile: core
+        paths:
+            - src: Brewfile
+              dest: Brewfile
+    claude:
+        description: Claude Code CLI settings, MCP servers, agents, and instructions
+        profile: core,ai
+        paths:
+            - src: ~/.claude/settings.json
+              dest: configs/claude/settings.json
+            - src: ~/.claude/mcp.json
+              dest: configs/claude/mcp.json
+            - src: ~/.claude/CLAUDE.md
+              dest: configs/claude/CLAUDE.md
+            - src: ~/.claude/skills
+              dest: configs/claude/skills
+            - src: ~/.claude/agents
+              dest: configs/claude/agents
+        secrets:
+            - mcp.json
+        exclude:
+            - session-env/**
+            - sessions/**
+            - history.jsonl
+            - file-history/**
+            - daemon.log
+            - cache/**
+            - backups/**
+            - '*.tmp.*'
+            - '*.backup'
+            - .DS_Store
+        requires:
+            - node
+        install:
+            darwin:
+                manager: brew
+                cask: claude-code
+            default:
+                manager: npm
+                package: "@anthropic-ai/claude-code"
+    codex:
+        description: Codex CLI configurations, hooks, agents, and rules
+        profile: core,ai
+        paths:
+            - src: ~/.codex/config.toml
+              dest: configs/codex/config.toml
+            - src: ~/.codex/hooks.json
+              dest: configs/codex/hooks.json
+            - src: ~/.codex/AGENTS.md
+              dest: configs/codex/AGENTS.md
+            - src: ~/.codex/rules
+              dest: configs/codex/rules
+            - src: ~/.codex/skills
+              dest: configs/codex/skills
+            - src: ~/.codex/auth.json
+              dest: configs/codex/auth.json
+        exclude:
+            - '*.sqlite*'
+            - cache/**
+            - sessions/**
+            - archived_sessions/**
+            - history.jsonl
+            - models_cache.json
+            - log/**
+            - .tmp/**
+            - .DS_Store
+        secrets:
+            - auth.json
+        requires:
+            - node
+        install:
+            darwin:
+                manager: brew
+                cask: codex
+            default:
+                manager: npm
+                package: "@openai/codex"
+    engram:
+        description: Persistent cross-session memory engine for AI coding agents
+        profile: core,ai
+        paths:
+            - src: ~/.engram/protocol-mode.json
+              dest: configs/engram/protocol-mode.json
+        exclude:
+            - '*.db*'
+            - '*.lock'
+            - .instance-id*
+        install:
+            darwin:
+                manager: brew
+                package: gentleman-programming/tap/engram
+            brew:
+                manager: brew
+                package: gentleman-programming/tap/engram
+    gentle-ai:
+        description: Gentle AI development workflow harness (ODD, SDD, 4R Review, Judgment Day)
+        profile: core,ai
+        paths:
+            - src: ~/.gentle-ai/state.json
+              dest: configs/gentle-ai/state.json
+        exclude:
+            - cache/**
+            - backups/**
+            - review-contexts/**
+            - '*.lock'
+            - .DS_Store
+        install:
+            darwin:
+                manager: brew
+                package: gentleman-programming/tap/gentle-ai
+            brew:
+                manager: brew
+                package: gentleman-programming/tap/gentle-ai
+    herdr:
+        description: Herdr terminal workspace and agent process manager
+        profile: core,ai
+        paths:
+            - src: ~/.config/herdr/config.toml
+              dest: configs/herdr/config.toml
+        exclude:
+            - '*.sock*'
+            - '*.log'
+            - session-history.json
+            - session-snapshots/**
+            - .DS_Store
+        install:
+            darwin:
+                manager: brew
+                package: herdr
+            brew:
+                manager: brew
+                package: herdr
+            yay:
+                manager: yay
+                package: herdr-bin
+    orca:
+        description: Orca agent workspace and integration hooks
+        profile: ai
+        paths:
+            - src: ~/.orca/agent-hooks
+              dest: configs/orca/agent-hooks
+        exclude:
+            - '*.installed'
+            - .DS_Store
+    flashspace:
+        description: Flashspace macOS workspace manager settings and profiles
+        profile: core
+        paths:
+            - src: ~/.config/flashspace
+              dest: configs/flashspace
+        exclude:
+            - .DS_Store
+    gh:
+        description: GitHub CLI configuration and preferences
+        profile: core
+        paths:
+            - src: ~/.config/gh/config.yml
+              dest: configs/gh/config.yml
+            - src: ~/.config/gh/hosts.yml
+              dest: configs/gh/hosts.yml
+        secrets:
+            - hosts.yml
+        install:
+            darwin:
+                manager: brew
+                package: gh
+            brew:
+                manager: brew
+                package: gh
+            pacman:
+                manager: pacman
+                package: github-cli
+            apt:
+                manager: apt
+                package: gh
+            dnf:
+                manager: dnf
+                package: gh
+            winget:
+                manager: winget
+                package: GitHub.cli
+            scoop:
+                manager: scoop
+                package: gh
+    ghostty:
+        description: Ghostty terminal emulator
+        check: [ghostty, /Applications/Ghostty.app]
+        paths:
+            - src: ~/.config/ghostty
+              dest: configs/ghostty
+        exclude:
+            - .DS_Store
+        install:
+            arch:
+                manager: yay
+                package: ghostty
+            darwin:
+                manager: brew
+                cask: ghostty
+            pacman:
+                manager: pacman
+                package: ghostty
+    git:
+        description: Git global configuration
+        paths:
+            - src: ~/.gitconfig
+              dest: configs/git/.gitconfig
+            - src: ~/.config/git
+              dest: configs/git/config_dir
+        exclude:
+            - .DS_Store
+        install:
+            arch:
+                manager: pacman
+                package: git
+            darwin:
+                manager: brew
+                package: git
+            debian:
+                manager: apt
+                package: git
+            ubuntu:
+                manager: apt
+                package: git
+            brew:
+                manager: brew
+                package: git
+            dnf:
+                manager: dnf
+                package: git
+            zypper:
+                manager: zypper
+                package: git
+            winget:
+                manager: winget
+                package: Git.Git
+            scoop:
+                manager: scoop
+                package: git
+    infra:
+        description: Brewfile.infra (Caddy, mkcert and act are installed through their own apps)
+        profile: infra
+        paths:
+            - src: Brewfile.infra
+              dest: Brewfile.infra
+    mobile:
+        description: Brewfile.mobile (OpenJDK 17, CocoaPods and Fastlane are installed through their own apps)
+        profile: mobile
+        paths:
+            - src: Brewfile.mobile
+              dest: Brewfile.mobile
+    android-studio:
+        description: Android Studio IDE, SDK tools, and emulator (cross-platform)
+        profile: mobile
+        check: [android-studio, /Applications/Android Studio.app]
+        install:
+            darwin:
+                manager: brew
+                cask: android-studio
+            ubuntu:
+                manager: script
+                command: sudo snap install android-studio --classic
+            debian:
+                manager: script
+                command: sudo snap install android-studio --classic
+            arch:
+                manager: yay
+                package: android-studio
+    xcode:
+        description: Apple Xcode command line developer tools (macOS only)
+        profile: mobile
+        check: [/Library/Developer/CommandLineTools, /Applications/Xcode.app]
+        install:
+            darwin:
+                manager: script
+                command: xcode-select -p &>/dev/null || xcode-select --install
+    tailscale:
+        description: Mesh VPN based on WireGuard for secure cross-device networking
+        profile: core
+        check: [tailscale, /Applications/Tailscale.app]
+        install:
+            darwin:
+                manager: brew
+                cask: tailscale
+            ubuntu:
+                manager: script
+                command: curl -fsSL https://tailscale.com/install.sh | sh
+            debian:
+                manager: script
+                command: curl -fsSL https://tailscale.com/install.sh | sh
+            arch:
+                manager: pacman
+                package: tailscale
+            winget:
+                manager: winget
+                package: Tailscale.Tailscale
+            linux:
+                manager: script
+                command: curl -fsSL https://tailscale.com/install.sh | sh
+    mongodb-compass:
+        description: Interactive GUI tool for querying and analyzing MongoDB data
+        profile: core
+        optional: true
+        check: [mongodb-compass, /Applications/MongoDB Compass.app]
+        install:
+            darwin:
+                manager: brew
+                cask: mongodb-compass
+            arch:
+                manager: yay
+                package: mongodb-compass
+    postman:
+        description: Postman API testing platform (optional alternative to Bruno)
+        profile: core
+        optional: true
+        check: [postman, /Applications/Postman.app]
+        install:
+            darwin:
+                manager: brew
+                cask: postman
+            ubuntu:
+                manager: script
+                command: sudo snap install postman
+            arch:
+                manager: yay
+                package: postman-bin
+    nvim:
+        description: Neovim editor and plugins
+        paths:
+            - src: ~/.config/nvim
+              dest: configs/nvim
+        exclude:
+            - .git/**
+            - .DS_Store
+            - lazy-lock.json.backup
+            - undo/**
+        config_requires: [ripgrep]
+        install:
+            arch:
+                manager: pacman
+                package: neovim
+            darwin:
+                manager: brew
+                package: neovim
+            debian:
+                manager: apt
+                package: neovim
+            ubuntu:
+                manager: apt
+                package: neovim
+            brew:
+                manager: brew
+                package: neovim
+            dnf:
+                manager: dnf
+                package: neovim
+            zypper:
+                manager: zypper
+                package: neovim
+            winget:
+                manager: winget
+                package: Neovim.Neovim
+            scoop:
+                manager: scoop
+                package: neovim
+    pi:
+        description: Pi coding agent harness settings, models, MCP servers, skills, and agents
+        profile: core,ai
+        paths:
+            - src: ~/.pi/agent/settings.json
+              dest: configs/pi/settings.json
+            - src: ~/.pi/agent/models.json
+              dest: configs/pi/models.json
+            - src: ~/.pi/agent/mcp.json
+              dest: configs/pi/mcp.json
+            - src: ~/.pi/agent/trust.json
+              dest: configs/pi/trust.json
+            - src: ~/.pi/agent/skills
+              dest: configs/pi/skills
+            - src: ~/.pi/agent/agents
+              dest: configs/pi/agents
+            - src: ~/.pi/agent/chains
+              dest: configs/pi/chains
+            - src: ~/.pi/agent/auth.json
+              dest: configs/pi/auth.json
+            - src: ~/.pi/agent/mcp-auth.json
+              dest: configs/pi/mcp-auth.json
+        exclude:
+            - sessions/**
+            - web-search-cache/**
+            - cc-cli-logs/**
+            - '*.log'
+            - '*.tmp.*'
+            - '*.cache.json'
+            - crashes.json
+            - npm/**
+            - bin/**
+            - node_modules/**
+            - .git/**
+            - .DS_Store
+        secrets:
+            - auth.json
+            - mcp-auth.json
+            - mcp.json
+        requires:
+            - node
+        install:
+            default:
+                manager: npm
+                package: "@earendil-works/pi-coding-agent"
+    ollama:
+        description: Ollama local AI runtime and models runner
+        profile: ai
+        optional: true
+        check: [ollama, /Applications/Ollama.app]
+        paths:
+            - src: ~/.ollama
+              dest: configs/ollama
+        exclude:
+            - models/**
+            - blobs/**
+            - manifests/**
+            - '*.bin'
+            - '*.gguf'
+        install:
+            darwin:
+                manager: brew
+                cask: ollama
+            linux:
+                manager: script
+                command: curl -fsSL https://ollama.com/install.sh | sh
+            pacman:
+                manager: pacman
+                package: ollama
+            winget:
+                manager: winget
+                package: Ollama.Ollama
+    pnpm:
+        description: Fast, disk space efficient package manager
+        paths: []
+        provides: [pnpm]
+        install:
+            darwin:
+                manager: brew
+                package: pnpm
+            linux:
+                manager: script
+                command: curl -fsSL https://get.pnpm.io/install.sh | sh -
+            brew:
+                manager: brew
+                package: pnpm
+            pacman:
+                manager: pacman
+                package: pnpm
+            winget:
+                manager: winget
+                package: pnpm.pnpm
+            scoop:
+                manager: scoop
+                package: pnpm
+    skills:
+        description: Agent skills catalog in ~/.agents/skills
+        profile: core,ai
+        paths:
+            - src: ~/.agents/skills
+              dest: configs/agents/skills
+        exclude:
+            - .git/**
+            - .DS_Store
+    ssh:
+        description: SSH host aliases and configuration (excludes private keys)
+        profile: core
+        paths:
+            - src: ~/.ssh/config
+              dest: configs/ssh/config
+        secrets:
+            - config
+        exclude:
+            - id_*
+            - '*.pub'
+            - known_hosts*
+            - digitalocean*
+    zed:
+        description: Zed Editor configurations, keymaps, and themes
+        profile: core
+        check: [zed, /Applications/Zed.app]
+        paths:
+            - src: ~/.config/zed
+              dest: configs/zed
+        exclude:
+            - .DS_Store
+        install:
+            darwin:
+                manager: brew
+                cask: zed
+            pacman:
+                manager: pacman
+                package: zed
+    zsh:
+        description: Zsh shell configuration and Powerlevel10k theme
+        profile: core
+        paths:
+            - src: ~/.zshrc
+              dest: configs/zsh/.zshrc
+            - src: ~/.p10k.zsh
+              dest: configs/zsh/.p10k.zsh
+        exclude:
+            - .zsh_history
+            - .zsh_sessions/**
+        config_requires: [powerlevel10k, zsh-autosuggestions, zsh-syntax-highlighting, fzf, fd, bat, zoxide, atuin, carapace]
+        install:
+            arch:
+                manager: pacman
+                package: zsh
+            darwin:
+                manager: brew
+                package: zsh
+            debian:
+                manager: apt
+                package: zsh
+            ubuntu:
+                manager: apt
+                package: zsh
+            brew:
+                manager: brew
+                package: zsh
+            dnf:
+                manager: dnf
+                package: zsh
+            zypper:
+                manager: zypper
+                package: zsh
+    node:
+        description: Node.js runtime (required by npm-based tools such as pi, claude and codex)
+        profile: core,ai,mobile,infra
+        paths: []
+        provides: [npm]
+        install:
+            brew:
+                manager: brew
+                package: node
+            pacman:
+                manager: pacman
+                package: nodejs npm
+            apt:
+                manager: apt
+                package: nodejs npm
+            dnf:
+                manager: dnf
+                package: nodejs npm
+            winget:
+                manager: winget
+                package: OpenJS.NodeJS.LTS
+            scoop:
+                manager: scoop
+                package: nodejs-lts
+    # Package-only inventory: every Brewfile declaration and config prerequisite
+    # has exactly one owning app. See docs/install-inventory.md for sources.
+    act:
+        description: Run GitHub Actions locally
+        profile: core,infra
+        install:
+            brew: {manager: brew, package: act}
+            pacman: {manager: pacman, package: act}
+            winget: {manager: winget, package: nektos.act}
+    bat:
+        description: cat clone with syntax highlighting (fzf previews)
+        check: [bat, batcat]
+        install:
+            brew: {manager: brew, package: bat}
+            pacman: {manager: pacman, package: bat}
+            apt: {manager: apt, package: bat}
+            dnf: {manager: dnf, package: bat}
+            winget: {manager: winget, package: sharkdp.bat}
+    bitwarden:
+        description: Bitwarden desktop password manager
+        check: [bitwarden, /Applications/Bitwarden.app]
+        install:
+            darwin: {manager: brew, cask: bitwarden}
+            pacman: {manager: pacman, package: bitwarden}
+            winget: {manager: winget, package: Bitwarden.Bitwarden}
+    bruno:
+        description: Bruno API client
+        check: [bruno, /Applications/Bruno.app]
+        install:
+            darwin: {manager: brew, cask: bruno}
+            yay: {manager: yay, package: bruno-bin}
+            winget: {manager: winget, package: Bruno.Bruno}
+    caddy:
+        description: Web server with automatic HTTPS
+        profile: core,infra
+        install:
+            brew: {manager: brew, package: caddy}
+            pacman: {manager: pacman, package: caddy}
+            apt: {manager: apt, package: caddy}
+            dnf: {manager: dnf, package: caddy}
+            winget: {manager: winget, package: CaddyServer.Caddy}
+    carapace:
+        description: Multi-shell completion engine
+        install:
+            brew: {manager: brew, package: carapace}
+            yay: {manager: yay, package: carapace-bin}
+            winget: {manager: winget, package: rsteube.Carapace}
+    cliclick:
+        description: macOS mouse and keyboard automation (macOS only)
+        install:
+            darwin: {manager: brew, package: cliclick}
+    cocoapods:
+        description: CocoaPods iOS dependency manager (macOS only)
+        profile: core,mobile
+        check: [pod]
+        install:
+            darwin: {manager: brew, package: cocoapods}
+    codegraph:
+        description: CodeGraph code intelligence CLI
+        profile: core,ai
+        requires: [node]
+        install:
+            default: {manager: npm, package: "@colbymchenry/codegraph"}
+    codexbar:
+        description: Menu bar usage monitor for Codex and Claude (macOS 14+ only)
+        profile: core,ai
+        check: [/Applications/CodexBar.app]
+        install:
+            darwin: {manager: brew, cask: steipete/tap/codexbar}
+    dbeaver:
+        description: DBeaver Community SQL client
+        check: [dbeaver, /Applications/DBeaver.app]
+        install:
+            darwin: {manager: brew, cask: dbeaver-community}
+            pacman: {manager: pacman, package: dbeaver}
+            winget: {manager: winget, package: DBeaver.DBeaver.Community}
+    docker:
+        description: Docker CLI and engine packages (services are never enabled automatically)
+        install:
+            brew: {manager: brew, package: docker}
+            pacman: {manager: pacman, package: docker}
+            apt: {manager: apt, package: docker.io}
+            dnf: {manager: dnf, package: moby-engine}
+    docker-compose:
+        description: Docker Compose
+        requires: [docker]
+        install:
+            brew: {manager: brew, package: docker-compose}
+            pacman: {manager: pacman, package: docker-compose}
+            apt: {manager: apt, package: docker-compose}
+            dnf: {manager: dnf, package: docker-compose}
+    docker-desktop:
+        description: Docker Desktop (macOS and Windows; Linux uses the docker app)
+        check: [/Applications/Docker.app]
+        install:
+            darwin: {manager: brew, cask: docker-desktop}
+            winget: {manager: winget, package: Docker.DockerDesktop}
+    dotnet-sdk:
+        description: .NET SDK
+        check: [dotnet]
+        install:
+            darwin: {manager: brew, cask: dotnet-sdk}
+            pacman: {manager: pacman, package: dotnet-sdk}
+    eas-cli:
+        description: Expo Application Services CLI
+        profile: core,mobile
+        requires: [node]
+        check: [eas]
+        install:
+            default: {manager: npm, package: eas-cli}
+    fastlane:
+        description: Mobile build and release automation
+        profile: core,mobile
+        install:
+            darwin: {manager: brew, package: fastlane}
+    fd:
+        description: Fast file finder (fzf commands)
+        check: [fd, fdfind]
+        install:
+            brew: {manager: brew, package: fd}
+            pacman: {manager: pacman, package: fd}
+            apt: {manager: apt, package: fd-find}
+            dnf: {manager: dnf, package: fd-find}
+            winget: {manager: winget, package: sharkdp.fd}
+    fnm:
+        description: Fast Node.js version manager
+        install:
+            brew: {manager: brew, package: fnm}
+            pacman: {manager: pacman, package: fnm}
+            winget: {manager: winget, package: Schniz.fnm}
+    font-caskaydia-cove:
+        description: CaskaydiaCove Nerd Font
+        # Font file, not a command: the cask's font artifact in the Homebrew font dir.
+        check: [~/Library/Fonts/CaskaydiaCoveNerdFont-Regular.ttf]
+        install:
+            darwin: {manager: brew, cask: font-caskaydia-cove-nerd-font}
+            pacman: {manager: pacman, package: ttf-cascadia-code-nerd}
+    font-iosevka-term:
+        description: IosevkaTerm Nerd Font
+        # Font file, not a command: the cask's font artifact in the Homebrew font dir.
+        check: [~/Library/Fonts/IosevkaTermNerdFont-Regular.ttf]
+        install:
+            darwin: {manager: brew, cask: font-iosevka-term-nerd-font}
+            pacman: {manager: pacman, package: ttf-iosevkaterm-nerd}
+    fzf:
+        description: Command-line fuzzy finder
+        install:
+            brew: {manager: brew, package: fzf}
+            pacman: {manager: pacman, package: fzf}
+            apt: {manager: apt, package: fzf}
+            dnf: {manager: dnf, package: fzf}
+            winget: {manager: winget, package: junegunn.fzf}
+    gemini-cli:
+        description: Google Gemini CLI
+        profile: core,ai
+        requires: [node]
+        check: [gemini]
+        install:
+            default: {manager: npm, package: "@google/gemini-cli"}
+    gentleman-dots:
+        description: Gentleman.Dots interactive installer
+        install:
+            brew: {manager: brew, package: gentleman-programming/tap/gentleman-dots}
+    gga:
+        description: Gentleman Guardian Angel AI code review
+        profile: core,ai
+        install:
+            brew: {manager: brew, package: gentleman-programming/tap/gga}
+    gnupg:
+        description: GNU Privacy Guard
+        check: [gpg]
+        install:
+            brew: {manager: brew, package: gnupg}
+            pacman: {manager: pacman, package: gnupg}
+            apt: {manager: apt, package: gnupg}
+            dnf: {manager: dnf, package: gnupg2}
+            winget: {manager: winget, package: GnuPG.GnuPG}
+    go:
+        description: Go toolchain
+        install:
+            brew: {manager: brew, package: go}
+            pacman: {manager: pacman, package: go}
+            apt: {manager: apt, package: golang-go}
+            dnf: {manager: dnf, package: golang}
+            winget: {manager: winget, package: GoLang.Go}
+    kilocode:
+        description: Kilo Code CLI
+        profile: core,ai
+        requires: [node]
+        install:
+            default: {manager: npm, package: "@kilocode/cli"}
+    lazygit:
+        description: Terminal UI for git
+        install:
+            brew: {manager: brew, package: lazygit}
+            pacman: {manager: pacman, package: lazygit}
+            apt: {manager: apt, package: lazygit}
+            winget: {manager: winget, package: JesseDuffield.lazygit}
+    mkcert:
+        description: Locally trusted development certificates
+        profile: core,infra
+        install:
+            brew: {manager: brew, package: mkcert}
+            pacman: {manager: pacman, package: mkcert}
+            apt: {manager: apt, package: mkcert}
+            dnf: {manager: dnf, package: mkcert}
+            winget: {manager: winget, package: FiloSottile.mkcert}
+    mole:
+        description: Mole Mac cleaner (macOS only)
+        install:
+            darwin: {manager: brew, package: mole}
+    ngrok:
+        description: ngrok secure tunnels
+        install:
+            darwin: {manager: brew, cask: ngrok/ngrok/ngrok}
+            yay: {manager: yay, package: ngrok}
+            winget: {manager: winget, package: Ngrok.Ngrok}
+    openjdk-17:
+        description: OpenJDK 17 (React Native Android builds)
+        profile: core,mobile
+        check: [/opt/homebrew/opt/openjdk@17, /usr/local/opt/openjdk@17, /home/linuxbrew/.linuxbrew/opt/openjdk@17, /usr/lib/jvm/java-17-openjdk]
+        install:
+            brew: {manager: brew, package: openjdk@17}
+            pacman: {manager: pacman, package: jdk17-openjdk}
+    powerlevel10k:
+        description: Powerlevel10k zsh theme
+        requires: [zsh]
+        # Theme files, not commands: Homebrew (Apple Silicon, Intel, Linux) and the AUR package.
+        check: [/opt/homebrew/share/powerlevel10k/powerlevel10k.zsh-theme, /usr/local/share/powerlevel10k/powerlevel10k.zsh-theme, /home/linuxbrew/.linuxbrew/share/powerlevel10k/powerlevel10k.zsh-theme, /usr/share/zsh-theme-powerlevel10k/powerlevel10k.zsh-theme]
+        install:
+            brew: {manager: brew, package: powerlevel10k}
+            yay: {manager: yay, package: zsh-theme-powerlevel10k}
+    railway:
+        description: Railway CLI
+        requires: [node]
+        install:
+            brew: {manager: brew, package: railway}
+            default: {manager: npm, package: "@railway/cli"}
+    ripgrep:
+        description: Fast recursive search (Neovim pickers)
+        check: [rg]
+        install:
+            brew: {manager: brew, package: ripgrep}
+            pacman: {manager: pacman, package: ripgrep}
+            apt: {manager: apt, package: ripgrep}
+            dnf: {manager: dnf, package: ripgrep}
+            winget: {manager: winget, package: BurntSushi.ripgrep.MSVC}
+    shopify-cli:
+        description: Shopify CLI
+        requires: [node]
+        check: [shopify]
+        install:
+            brew: {manager: brew, package: shopify/shopify/shopify-cli}
+            default: {manager: npm, package: "@shopify/cli"}
+    smartwindow:
+        description: SmartWindow macOS top bar (macOS only)
+        check: [/Applications/SmartWindow.app]
+        install:
+            darwin: {manager: brew, cask: kevnnard/tap/smartwindow}
+    tmux:
+        description: Terminal multiplexer
+        install:
+            brew: {manager: brew, package: tmux}
+            pacman: {manager: pacman, package: tmux}
+            apt: {manager: apt, package: tmux}
+            dnf: {manager: dnf, package: tmux}
+    uv:
+        description: Python package and project manager
+        install:
+            brew: {manager: brew, package: uv}
+            pacman: {manager: pacman, package: uv}
+            dnf: {manager: dnf, package: uv}
+            winget: {manager: winget, package: astral-sh.uv}
+    vercel:
+        description: Vercel CLI
+        requires: [node]
+        install:
+            brew: {manager: brew, package: vercel}
+            default: {manager: npm, package: vercel}
+    wakeonlan:
+        description: Wake-on-LAN magic packet sender
+        install:
+            brew: {manager: brew, package: wakeonlan}
+            pacman: {manager: pacman, package: wakeonlan}
+            apt: {manager: apt, package: wakeonlan}
+    yarn:
+        description: Yarn JavaScript package manager
+        check: [yarn, yarnpkg]
+        install:
+            brew: {manager: brew, package: yarn}
+            pacman: {manager: pacman, package: yarn}
+            apt: {manager: apt, package: yarnpkg}
+            dnf: {manager: dnf, package: yarnpkg}
+            winget: {manager: winget, package: Yarn.Yarn}
+    zoxide:
+        description: Smarter cd command
+        install:
+            brew: {manager: brew, package: zoxide}
+            pacman: {manager: pacman, package: zoxide}
+            apt: {manager: apt, package: zoxide}
+            dnf: {manager: dnf, package: zoxide}
+            winget: {manager: winget, package: ajeetdsouza.zoxide}
+    zsh-autocomplete:
+        description: Real-time type-ahead completion for zsh
+        requires: [zsh]
+        # Plugin file, not a command: every Homebrew prefix.
+        check: [/opt/homebrew/share/zsh-autocomplete/zsh-autocomplete.plugin.zsh, /usr/local/share/zsh-autocomplete/zsh-autocomplete.plugin.zsh, /home/linuxbrew/.linuxbrew/share/zsh-autocomplete/zsh-autocomplete.plugin.zsh]
+        install:
+            brew: {manager: brew, package: zsh-autocomplete}
+            pacman: {manager: pacman, package: zsh-autocomplete}
+    zsh-autosuggestions:
+        description: Fish-like autosuggestions for zsh
+        requires: [zsh]
+        # Plugin file, not a command: every Homebrew prefix, Arch, and Debian/Ubuntu/Fedora.
+        check: [/opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh, /usr/local/share/zsh-autosuggestions/zsh-autosuggestions.zsh, /home/linuxbrew/.linuxbrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh, /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh, /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh]
+        install:
+            brew: {manager: brew, package: zsh-autosuggestions}
+            pacman: {manager: pacman, package: zsh-autosuggestions}
+            apt: {manager: apt, package: zsh-autosuggestions}
+            dnf: {manager: dnf, package: zsh-autosuggestions}
+    zsh-syntax-highlighting:
+        description: Fish-like syntax highlighting for zsh
+        requires: [zsh]
+        # Plugin file, not a command: every Homebrew prefix, Arch, and Debian/Ubuntu/Fedora.
+        check: [/opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh, /usr/local/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh, /home/linuxbrew/.linuxbrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh, /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh, /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh]
+        install:
+            brew: {manager: brew, package: zsh-syntax-highlighting}
+            pacman: {manager: pacman, package: zsh-syntax-highlighting}
+            apt: {manager: apt, package: zsh-syntax-highlighting}
+            dnf: {manager: dnf, package: zsh-syntax-highlighting}
+`

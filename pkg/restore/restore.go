@@ -29,6 +29,7 @@ type ApplyResult struct {
 	LocalBackups  []string `json:"local_backups"`
 	TemplatesInit []string `json:"templates_initialized"`
 	Skipped       []string `json:"skipped"`
+	Kept          []string `json:"kept"`
 	Warnings      []string `json:"warnings"`
 }
 
@@ -83,11 +84,31 @@ func PlanAll(m *manifest.Manifest, sys *detector.SystemInfo) []*AppPlan {
 	return plans
 }
 
-// ApplyAppFiles copies configuration files from the dotfiles repository to the destination.
+// ApplyOptions tunes ApplyAppFilesWith.
+type ApplyOptions struct {
+	DryRun bool
+	// Replace authorizes replacing existing local files whose content differs
+	// from the repository. Each one is replaced only after its timestamped
+	// safety backup succeeds. Without it such files are kept and reported.
+	Replace bool
+}
+
+// ApplyAppFiles copies configuration files from the dotfiles repository to
+// the destination, replacing differing local files after a safety backup.
 func ApplyAppFiles(appName string, app manifest.AppConfig, repoDir string, dryRun bool) (*ApplyResult, error) {
+	return ApplyAppFilesWith(appName, app, repoDir, ApplyOptions{DryRun: dryRun, Replace: true})
+}
+
+// ApplyAppFilesWith copies configuration files from the dotfiles repository
+// to the destination. Missing files are created, templates are only deployed
+// when absent, and existing files are handled according to opts.Replace.
+// Writes are confined to the mapping's authorized root (see newWriteGuard);
+// paths whose existing ancestry resolves outside it are refused.
+func ApplyAppFilesWith(appName string, app manifest.AppConfig, repoDir string, opts ApplyOptions) (*ApplyResult, error) {
 	res := &ApplyResult{
 		AppName: appName,
 	}
+	dryRun := opts.DryRun
 
 	for _, mapping := range app.Paths {
 		repoPath := filepath.Join(repoDir, mapping.Dest)
@@ -96,22 +117,19 @@ func ApplyAppFiles(appName string, app manifest.AppConfig, repoDir string, dryRu
 			res.Warnings = append(res.Warnings, fmt.Sprintf("cannot expand target path %s: %v", mapping.Src, err))
 			continue
 		}
+		guard, err := newWriteGuard(targetExpanded)
+		if err != nil {
+			res.Warnings = append(res.Warnings, fmt.Sprintf("%s not restored: %v", targetExpanded, err))
+			continue
+		}
 
 		info, err := os.Stat(repoPath)
 		if err != nil {
 			// Check if a .template exists instead
 			templatePath := repoPath + ".template"
 			if tInfo, tErr := os.Stat(templatePath); tErr == nil && !tInfo.IsDir() {
-				if _, targetErr := os.Stat(targetExpanded); os.IsNotExist(targetErr) {
-					if !dryRun {
-						if err := copyFile(templatePath, targetExpanded); err != nil {
-							res.Warnings = append(res.Warnings, fmt.Sprintf("failed deploying template to %s: %v", targetExpanded, err))
-						} else {
-							res.TemplatesInit = append(res.TemplatesInit, targetExpanded)
-						}
-					} else {
-						res.TemplatesInit = append(res.TemplatesInit, targetExpanded)
-					}
+				if _, targetErr := os.Lstat(targetExpanded); os.IsNotExist(targetErr) {
+					deployTemplate(guard, templatePath, targetExpanded, dryRun, res)
 					continue
 				}
 			}
@@ -121,6 +139,10 @@ func ApplyAppFiles(appName string, app manifest.AppConfig, repoDir string, dryRu
 		}
 
 		if info.IsDir() {
+			if err := guard.check(targetExpanded); err != nil {
+				res.Warnings = append(res.Warnings, fmt.Sprintf("%s not restored: %v", targetExpanded, err))
+				continue
+			}
 			err := filepath.Walk(repoPath, func(path string, fInfo os.FileInfo, walkErr error) error {
 				if walkErr != nil {
 					return walkErr
@@ -133,23 +155,15 @@ func ApplyAppFiles(appName string, app manifest.AppConfig, repoDir string, dryRu
 				destFile := filepath.Join(targetExpanded, rel)
 
 				if fInfo.Mode()&os.ModeSymlink != 0 {
-					if !dryRun {
-						linkTarget, err := os.Readlink(path)
-						if err != nil {
-							res.Warnings = append(res.Warnings, fmt.Sprintf("cannot read symlink %s: %v", path, err))
-							return nil
-						}
-						_ = os.Remove(destFile)
-						if err := os.Symlink(linkTarget, destFile); err != nil {
-							res.Warnings = append(res.Warnings, fmt.Sprintf("failed creating symlink %s: %v", destFile, err))
-							return nil
-						}
-					}
-					res.Restored = append(res.Restored, destFile)
+					placeSymlink(guard, path, destFile, opts, res)
 					return nil
 				}
 
 				if fInfo.IsDir() {
+					if err := guard.check(destFile); err != nil {
+						res.Warnings = append(res.Warnings, fmt.Sprintf("%s not restored: %v", destFile, err))
+						return filepath.SkipDir
+					}
 					if !dryRun {
 						return os.MkdirAll(destFile, 0755)
 					}
@@ -158,50 +172,261 @@ func ApplyAppFiles(appName string, app manifest.AppConfig, repoDir string, dryRu
 
 				if strings.HasSuffix(rel, ".template") {
 					realDest := strings.TrimSuffix(destFile, ".template")
-					if _, err := os.Stat(realDest); os.IsNotExist(err) {
-						if !dryRun {
-							if err := copyFile(path, realDest); err != nil {
-								res.Warnings = append(res.Warnings, fmt.Sprintf("failed deploying template to %s: %v", realDest, err))
-							} else {
-								res.TemplatesInit = append(res.TemplatesInit, realDest)
-							}
-						} else {
-							res.TemplatesInit = append(res.TemplatesInit, realDest)
-						}
+					if _, err := os.Lstat(realDest); os.IsNotExist(err) {
+						deployTemplate(guard, path, realDest, dryRun, res)
 					}
 					return nil
 				}
 
-				if !dryRun {
-					if bk, err := makeSafetyBackup(destFile, path); err == nil && bk != "" {
-						res.LocalBackups = append(res.LocalBackups, bk)
-					}
-					if err := copyFile(path, destFile); err != nil {
-						res.Warnings = append(res.Warnings, fmt.Sprintf("failed copying %s to %s: %v", path, destFile, err))
-						return nil
-					}
-				}
-				res.Restored = append(res.Restored, destFile)
+				placeFile(guard, path, destFile, opts, res)
 				return nil
 			})
 			if err != nil {
 				res.Warnings = append(res.Warnings, fmt.Sprintf("error restoring dir %s: %v", mapping.Dest, err))
 			}
 		} else {
-			if !dryRun {
-				if bk, err := makeSafetyBackup(targetExpanded, repoPath); err == nil && bk != "" {
-					res.LocalBackups = append(res.LocalBackups, bk)
-				}
-				if err := copyFile(repoPath, targetExpanded); err != nil {
-					res.Warnings = append(res.Warnings, fmt.Sprintf("failed restoring %s to %s: %v", repoPath, targetExpanded, err))
-					continue
-				}
-			}
-			res.Restored = append(res.Restored, targetExpanded)
+			placeFile(guard, repoPath, targetExpanded, opts, res)
 		}
 	}
 
 	return res, nil
+}
+
+func deployTemplate(g writeGuard, src, dest string, dryRun bool, res *ApplyResult) {
+	if err := g.check(filepath.Dir(dest)); err != nil {
+		res.Warnings = append(res.Warnings, fmt.Sprintf("template %s not deployed: %v", dest, err))
+		return
+	}
+	if !dryRun {
+		if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+			res.Warnings = append(res.Warnings, fmt.Sprintf("failed deploying template to %s: %v", dest, err))
+			return
+		}
+		// Templates only fill gaps: exclusive creation never follows or
+		// truncates anything that appeared at dest.
+		if err := homepath.CopyExpandedNew(src, dest, 0644); err != nil {
+			res.Warnings = append(res.Warnings, fmt.Sprintf("failed deploying template to %s: %v", dest, err))
+			return
+		}
+	}
+	res.TemplatesInit = append(res.TemplatesInit, dest)
+}
+
+// placeFile restores one repository file to dest. An equivalent local file is
+// left as is, a differing one is kept unless replacement is authorized, and
+// nothing is replaced without a successful safety backup. An existing
+// symlink is replaced itself, never written through.
+func placeFile(g writeGuard, src, dest string, opts ApplyOptions, res *ApplyResult) {
+	if err := g.check(filepath.Dir(dest)); err != nil {
+		res.Warnings = append(res.Warnings, fmt.Sprintf("%s not restored: %v", dest, err))
+		return
+	}
+	info, err := os.Lstat(dest)
+	switch {
+	case os.IsNotExist(err):
+		info = nil
+	case err != nil:
+		res.Warnings = append(res.Warnings, fmt.Sprintf("cannot inspect %s: %v", dest, err))
+		return
+	case info.IsDir():
+		res.Warnings = append(res.Warnings, fmt.Sprintf("%s is a directory; not replaced", dest))
+		return
+	case !info.Mode().IsRegular() && info.Mode()&os.ModeSymlink == 0:
+		res.Warnings = append(res.Warnings, fmt.Sprintf("%s is not a regular file; not replaced", dest))
+		return
+	case sameContent(dest, src):
+		res.Restored = append(res.Restored, dest)
+		return
+	case !opts.Replace:
+		res.Kept = append(res.Kept, dest)
+		return
+	}
+	if !opts.DryRun {
+		if info != nil {
+			bk, err := backupExisting(dest)
+			if err != nil {
+				res.Warnings = append(res.Warnings, fmt.Sprintf("%s not replaced: safety backup failed: %v", dest, err))
+				return
+			}
+			res.LocalBackups = append(res.LocalBackups, bk)
+		}
+		if info != nil && info.Mode()&os.ModeSymlink != 0 {
+			err = replaceWith(dest, func(tmp string) error { return homepath.CopyExpandedNew(src, tmp, 0644) })
+		} else {
+			err = copyFile(src, dest)
+		}
+		if err != nil {
+			res.Warnings = append(res.Warnings, fmt.Sprintf("failed copying %s to %s: %v", src, dest, err))
+			return
+		}
+	}
+	res.Restored = append(res.Restored, dest)
+}
+
+// placeSymlink recreates a repository symlink at dest. An existing link or
+// regular file is only replaced when authorized and after its safety backup
+// succeeds; directories are never removed.
+func placeSymlink(g writeGuard, src, dest string, opts ApplyOptions, res *ApplyResult) {
+	linkTarget, err := os.Readlink(src)
+	if err != nil {
+		res.Warnings = append(res.Warnings, fmt.Sprintf("cannot read symlink %s: %v", src, err))
+		return
+	}
+	if err := g.check(filepath.Dir(dest)); err != nil {
+		res.Warnings = append(res.Warnings, fmt.Sprintf("%s not restored: %v", dest, err))
+		return
+	}
+	info, err := os.Lstat(dest)
+	switch {
+	case os.IsNotExist(err):
+		info = nil
+	case err != nil:
+		res.Warnings = append(res.Warnings, fmt.Sprintf("cannot inspect %s: %v", dest, err))
+		return
+	case info.Mode()&os.ModeSymlink != 0:
+		if current, err := os.Readlink(dest); err == nil && current == linkTarget {
+			res.Restored = append(res.Restored, dest)
+			return
+		}
+		if !opts.Replace {
+			res.Kept = append(res.Kept, dest)
+			return
+		}
+	case info.IsDir():
+		res.Warnings = append(res.Warnings, fmt.Sprintf("%s is a directory; not replaced by a symlink", dest))
+		return
+	case !info.Mode().IsRegular():
+		res.Warnings = append(res.Warnings, fmt.Sprintf("%s is not a regular file; not replaced by a symlink", dest))
+		return
+	default:
+		if !opts.Replace {
+			res.Kept = append(res.Kept, dest)
+			return
+		}
+	}
+	if !opts.DryRun {
+		if info != nil {
+			bk, err := backupExisting(dest)
+			if err != nil {
+				res.Warnings = append(res.Warnings, fmt.Sprintf("%s not replaced: safety backup failed: %v", dest, err))
+				return
+			}
+			res.LocalBackups = append(res.LocalBackups, bk)
+		}
+		if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+			res.Warnings = append(res.Warnings, fmt.Sprintf("failed creating symlink %s: %v", dest, err))
+			return
+		}
+		if err := replaceWith(dest, func(tmp string) error { return os.Symlink(linkTarget, tmp) }); err != nil {
+			res.Warnings = append(res.Warnings, fmt.Sprintf("failed creating symlink %s: %v", dest, err))
+			return
+		}
+	}
+	res.Restored = append(res.Restored, dest)
+}
+
+// sameContent reports whether the local file already matches the repository
+// file once the home placeholder is expanded.
+func sameContent(local, repo string) bool {
+	if info, err := os.Stat(local); err != nil || !info.Mode().IsRegular() {
+		return false
+	}
+	a, err := os.ReadFile(local)
+	if err != nil {
+		return false
+	}
+	b, err := os.ReadFile(repo)
+	if err != nil {
+		return false
+	}
+	home, err := homepath.Current()
+	return err == nil && homepath.Equivalent(a, b, home)
+}
+
+// writeGuard confines the writes of one mapping to its authorized root: the
+// home directory for targets inside it, otherwise the mapping's own parent
+// directory, which the manifest names explicitly. The root's own location is
+// trusted; below it, existing components may be symlinks only when they
+// resolve inside the root.
+type writeGuard struct {
+	root     string
+	resolved string
+}
+
+func newWriteGuard(target string) (writeGuard, error) {
+	abs, err := filepath.Abs(target)
+	if err != nil {
+		return writeGuard{}, err
+	}
+	root := filepath.Dir(abs)
+	if home, err := homepath.Current(); err == nil && home != "" {
+		if h, err := filepath.Abs(home); err == nil && within(h, abs) {
+			root = h
+		}
+	}
+	resolved, err := resolveExisting(root)
+	if err != nil {
+		return writeGuard{}, err
+	}
+	return writeGuard{root: root, resolved: resolved}, nil
+}
+
+// check verifies that every existing component of path below the root
+// resolves inside the root. Missing components are created later as plain
+// directories, so the first missing one ends the walk.
+func (g writeGuard) check(path string) error {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return err
+	}
+	if !within(g.root, abs) {
+		return fmt.Errorf("%s is outside %s", path, g.root)
+	}
+	rel, _ := filepath.Rel(g.root, abs)
+	if rel == "." {
+		return nil
+	}
+	cur := g.root
+	for _, part := range strings.Split(rel, string(filepath.Separator)) {
+		cur = filepath.Join(cur, part)
+		if _, err := os.Lstat(cur); os.IsNotExist(err) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+		resolved, err := filepath.EvalSymlinks(cur)
+		if err != nil {
+			return fmt.Errorf("cannot resolve %s: %v", cur, err)
+		}
+		if !within(g.resolved, resolved) {
+			return fmt.Errorf("%s resolves to %s, outside %s", cur, resolved, g.root)
+		}
+	}
+	return nil
+}
+
+// resolveExisting resolves symlinks in the deepest existing ancestor of p
+// and appends the missing remainder.
+func resolveExisting(p string) (string, error) {
+	missing := ""
+	for {
+		resolved, err := filepath.EvalSymlinks(p)
+		if err == nil {
+			return filepath.Join(resolved, missing), nil
+		}
+		parent := filepath.Dir(p)
+		if !os.IsNotExist(err) || parent == p {
+			return "", err
+		}
+		missing = filepath.Join(filepath.Base(p), missing)
+		p = parent
+	}
+}
+
+// within reports whether p is root or lies below it.
+func within(root, p string) bool {
+	rel, err := filepath.Rel(root, p)
+	return err == nil && !filepath.IsAbs(rel) && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 // ExecuteInstallCommand executes an installation command through shell.
@@ -339,31 +564,60 @@ func copyFile(src, dest string) error {
 	return homepath.CopyExpanded(src, dest)
 }
 
-func makeSafetyBackup(targetPath, repoSourcePath string) (string, error) {
-	info, err := os.Stat(targetPath)
+// backupExisting preserves dest beside itself under a new timestamped .bk
+// name before it is replaced: a symlink is recreated as the same link (its
+// target is not dereferenced) and a regular file is copied byte for byte with
+// its permissions. Existing backups are never overwritten.
+func backupExisting(dest string) (string, error) {
+	info, err := os.Lstat(dest)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return "", nil
-		}
 		return "", err
 	}
-	if info.IsDir() {
-		return "", nil
+	base := fmt.Sprintf("%s.%s", dest, time.Now().Format("20060102_150405"))
+	if info.Mode()&os.ModeSymlink != 0 {
+		link, err := os.Readlink(dest)
+		if err != nil {
+			return "", err
+		}
+		return createUnique(base, ".bk", func(p string) error { return os.Symlink(link, p) })
 	}
+	if !info.Mode().IsRegular() {
+		return "", fmt.Errorf("%s is not a regular file", dest)
+	}
+	return createUnique(base, ".bk", func(p string) error { return homepath.CopyRawNew(dest, p, info.Mode().Perm()) })
+}
 
-	// If contents are already identical, no backup is needed
-	targetBytes, err := os.ReadFile(targetPath)
-	if err == nil {
-		sourceBytes, err := os.ReadFile(repoSourcePath)
-		if home, herr := homepath.Current(); err == nil && herr == nil && homepath.Equivalent(targetBytes, sourceBytes, home) {
-			return "", nil
+// replaceWith creates the replacement at a fresh sibling path and renames it
+// over dest, so an existing link is swapped rather than followed.
+func replaceWith(dest string, create func(string) error) error {
+	tmp, err := createUnique(dest+".dots-new", "", create)
+	if err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, dest); err != nil {
+		// tmp was created exclusively above; only it is removed.
+		os.Remove(tmp)
+		return err
+	}
+	return nil
+}
+
+// createUnique calls create with base+suffix, then base.1+suffix and so on
+// until a name is free. create must fail with an "exists" error instead of
+// touching an existing path.
+func createUnique(base, suffix string, create func(string) error) (string, error) {
+	for i := 0; i < 100; i++ {
+		p := base + suffix
+		if i > 0 {
+			p = fmt.Sprintf("%s.%d%s", base, i, suffix)
+		}
+		err := create(p)
+		if err == nil {
+			return p, nil
+		}
+		if !os.IsExist(err) {
+			return "", err
 		}
 	}
-
-	ts := time.Now().Format("20060102_150405")
-	backupPath := fmt.Sprintf("%s.%s.bk", targetPath, ts)
-	if err := homepath.CopyRaw(targetPath, backupPath); err != nil {
-		return "", err
-	}
-	return backupPath, nil
+	return "", fmt.Errorf("no free name for %s%s", base, suffix)
 }

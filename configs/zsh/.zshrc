@@ -53,13 +53,9 @@ _source_plugin \
 _source_plugin \
   "$BREW_PREFIX/share/powerlevel10k/powerlevel10k.zsh-theme" \
   "$HOME/powerlevel10k/powerlevel10k.zsh-theme" \
+  /usr/share/zsh-theme-powerlevel10k/powerlevel10k.zsh-theme \
   /usr/share/powerlevel10k/powerlevel10k.zsh-theme
 unset -f _source_plugin
-
-# source $(dirname $BREW_BIN)/share/zsh-autocomplete/zsh-autocomplete.plugin.zsh
-source $(dirname $BREW_BIN)/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
-source $(dirname $BREW_BIN)/share/zsh-autosuggestions/zsh-autosuggestions.zsh
-source $(dirname $BREW_BIN)/share/powerlevel10k/powerlevel10k.zsh-theme
 
 export PROJECT_PATHS="$HOME/Repositories"
 export FZF_DEFAULT_COMMAND="fd --hidden --strip-cwd-prefix --exclude .git"

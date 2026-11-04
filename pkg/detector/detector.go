@@ -179,23 +179,8 @@ func parseOSRelease(r io.Reader) Distro {
 // pickPrimaryManager chooses the preferred native package manager. The has
 // function reports whether a command exists, which keeps the choice testable.
 func pickPrimaryManager(osName string, distro Distro, has func(string) bool) PackageManager {
-	var order []PackageManager
-	switch osName {
-	case "darwin":
-		order = []PackageManager{ManagerBrew}
-	case "windows":
-		order = []PackageManager{ManagerWinget, ManagerScoop, ManagerChoco}
-	default:
-		switch distro {
-		case DistroArch:
-			order = []PackageManager{ManagerYay, ManagerPacman}
-		case DistroUbuntu, DistroDebian:
-			order = []PackageManager{ManagerApt}
-		case DistroFedora:
-			order = []PackageManager{ManagerDnf}
-		case DistroSuse:
-			order = []PackageManager{ManagerZypper}
-		}
+	order := NativeManagers(osName, distro)
+	if osName != "darwin" && osName != "windows" {
 		order = append(order, ManagerYay, ManagerPacman, ManagerApt, ManagerDnf, ManagerZypper, ManagerBrew)
 	}
 	for _, m := range order {
@@ -204,6 +189,28 @@ func pickPrimaryManager(osName string, distro Distro, has func(string) bool) Pac
 		}
 	}
 	return ManagerUnknown
+}
+
+// NativeManagers returns the package managers that belong to an OS or Linux
+// family, in preference order, whether or not they are installed.
+func NativeManagers(osName string, distro Distro) []PackageManager {
+	switch osName {
+	case "darwin":
+		return []PackageManager{ManagerBrew}
+	case "windows":
+		return []PackageManager{ManagerWinget, ManagerScoop, ManagerChoco}
+	}
+	switch distro {
+	case DistroArch:
+		return []PackageManager{ManagerYay, ManagerPacman}
+	case DistroUbuntu, DistroDebian:
+		return []PackageManager{ManagerApt}
+	case DistroFedora:
+		return []PackageManager{ManagerDnf}
+	case DistroSuse:
+		return []PackageManager{ManagerZypper}
+	}
+	return nil
 }
 
 // managerCommand returns the executable name that backs a package manager.

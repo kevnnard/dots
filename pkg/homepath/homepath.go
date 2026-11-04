@@ -127,6 +127,47 @@ func CopyRaw(src, dest string) error {
 	return copyWith(src, dest, nil)
 }
 
+// CopyExpandedNew is CopyExpanded into a newly created dest with perm. It
+// fails if dest already exists, so an existing file or symlink is never
+// followed or truncated.
+func CopyExpandedNew(src, dest string, perm os.FileMode) error {
+	return copyNew(src, dest, perm, Expand)
+}
+
+// CopyRawNew is CopyRaw into a newly created dest with perm. It fails if dest
+// already exists.
+func CopyRawNew(src, dest string, perm os.FileMode) error {
+	return copyNew(src, dest, perm, nil)
+}
+
+func copyNew(src, dest string, perm os.FileMode, transform func([]byte, string) []byte) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	data, err := io.ReadAll(in)
+	if err != nil {
+		return err
+	}
+	if home, err := Current(); err == nil && transform != nil && len(data) <= maxRewriteSize {
+		data = transform(data, home)
+	}
+	out, err := os.OpenFile(dest, os.O_CREATE|os.O_EXCL|os.O_WRONLY, perm)
+	if err != nil {
+		return err
+	}
+	_, err = out.Write(data)
+	if cerr := out.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		// dest was created exclusively above, so only our partial copy is removed.
+		os.Remove(dest)
+	}
+	return err
+}
+
 func copyWith(src, dest string, transform func([]byte, string) []byte) error {
 	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
 		return err

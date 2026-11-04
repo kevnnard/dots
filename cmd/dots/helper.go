@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -78,6 +79,18 @@ func loadOrInitManifest(repoDir string) (*manifest.Manifest, error) {
 			return nil, fmt.Errorf("failed creating default manifest at %s: %w", manifestPath, err)
 		}
 		return m, nil
+	}
+	return manifest.Load(manifestPath)
+}
+
+// loadManifestReadOnly loads the repository manifest without side effects:
+// when it is missing, the embedded default is used and nothing is cloned or
+// written.
+func loadManifestReadOnly(out io.Writer, repoDir string) (*manifest.Manifest, error) {
+	manifestPath := getManifestPath(repoDir)
+	if _, err := os.Stat(manifestPath); os.IsNotExist(err) {
+		fmt.Fprintf(out, "ℹ️  No manifest at %s; planning with the built-in inventory (nothing cloned or written).\n", manifestPath)
+		return manifest.DefaultManifest(), nil
 	}
 	return manifest.Load(manifestPath)
 }

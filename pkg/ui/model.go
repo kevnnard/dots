@@ -2,6 +2,8 @@ package ui
 
 import (
 	"fmt"
+	"io"
+	"sort"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -54,6 +56,21 @@ type Model struct {
 	Err         error
 	Width       int
 	Height      int
+	// Restore settings shared with `dots restore`: WithConfig deploys the
+	// backed-up configs, ReplaceExisting authorizes replacing differing local
+	// files after a safety backup.
+	WithConfig      bool
+	ReplaceExisting bool
+	// Probe and Exec detect installed apps and run install commands.
+	Probe restore.InstalledProbe
+	Exec  restore.Executor
+	// Suspend hands the terminal to a blocking command and resumes the TUI
+	// when it returns. It is tea.Exec; tests inject a fake terminal.
+	Suspend func(tea.ExecCommand, tea.ExecCallback) tea.Cmd
+	// LastRun is the result of the latest restore, for the summary view.
+	LastRun *restore.RunResult
+	// explicit marks a custom selection of named apps.
+	explicit bool
 }
 
 func NewModel(m *manifest.Manifest, sys *detector.SystemInfo, repoDir string) Model {
@@ -70,6 +87,7 @@ func NewModel(m *manifest.Manifest, sys *detector.SystemInfo, repoDir string) Mo
 			Checked:     !app.Optional && app.MatchesProfile("core"), // default core checked unless optional
 		})
 	}
+	sort.Slice(items, func(i, j int) bool { return items[i].Name < items[j].Name })
 
 	return Model{
 		Manifest: m,
@@ -78,7 +96,23 @@ func NewModel(m *manifest.Manifest, sys *detector.SystemInfo, repoDir string) Mo
 		State:    viewMain,
 		AppItems: items,
 		Cursor:   0,
+		Probe:    restore.CommandProbe,
+		Exec:     restore.ShellExecutor,
+		Suspend:  tea.Exec,
 	}
+}
+
+// checkProfile checks the apps restore.Select picks for profile, the same
+// selection `dots restore --profile` uses.
+func (m *Model) checkProfile(profile string) {
+	selected := map[string]bool{}
+	for _, name := range restore.Select(m.Manifest, profile) {
+		selected[name] = true
+	}
+	for i := range m.AppItems {
+		m.AppItems[i].Checked = selected[m.AppItems[i].Name]
+	}
+	m.explicit = false
 }
 
 func (m Model) Init() tea.Cmd {
@@ -92,7 +126,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Height = msg.Height
 		return m, nil
 
+	case restoreDoneMsg:
+		return m.finishRestore(msg), nil
+
 	case tea.KeyMsg:
+		if m.State == viewExecuting {
+			// Input is handed to the install commands until they finish.
+			return m, nil
+		}
 		switch msg.String() {
 		case "ctrl+c":
 			return m, tea.Quit
@@ -165,38 +206,36 @@ func (m Model) updateRestorePreset(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.Cursor < 4 {
 			m.Cursor++
 		}
+	case "c":
+		m.WithConfig = !m.WithConfig
+		if !m.WithConfig {
+			m.ReplaceExisting = false
+		}
+	case "r":
+		if m.WithConfig {
+			m.ReplaceExisting = !m.ReplaceExisting
+		}
 	case "esc":
 		m.State = viewMain
 		m.Cursor = 0
 	case "enter":
 		switch m.Cursor {
-		case 0: // Full Setup (All profiles)
-			for i := range m.AppItems {
-				app := m.Manifest.Apps[m.AppItems[i].Name]
-				m.AppItems[i].Checked = !app.Optional
-			}
+		case 0: // Full Setup (All profiles, optional apps excluded)
+			m.checkProfile("all")
 			return m.executeAction()
 		case 1: // Core Only
-			for i := range m.AppItems {
-				app := m.Manifest.Apps[m.AppItems[i].Name]
-				m.AppItems[i].Checked = app.MatchesProfile("core") && !app.Optional
-			}
+			m.checkProfile("core")
 			return m.executeAction()
 		case 2: // AI & Agents
-			for i := range m.AppItems {
-				app := m.Manifest.Apps[m.AppItems[i].Name]
-				m.AppItems[i].Checked = app.MatchesProfile("ai")
-			}
+			m.checkProfile("ai")
 			return m.executeAction()
 		case 3: // Mobile Dev
-			for i := range m.AppItems {
-				app := m.Manifest.Apps[m.AppItems[i].Name]
-				m.AppItems[i].Checked = app.MatchesProfile("mobile")
-			}
+			m.checkProfile("mobile")
 			return m.executeAction()
 		case 4: // Custom Selection
 			m.State = viewCustomApps
 			m.Cursor = 0
+			m.explicit = true
 		}
 	}
 	return m, nil
@@ -283,41 +322,113 @@ func (m Model) executeAction() (tea.Model, tea.Cmd) {
 				m.Logs = append(m.Logs, StyleMuted.Render(fmt.Sprintf("ℹ️ Remote push: %s", snap.Error)))
 			}
 		}
-	} else {
-		// Restore
-		m.Logs = append(m.Logs, StyleSubtitle.Render("🚀 Running Restore & Provisioning..."))
-		for _, item := range m.AppItems {
-			if !item.Checked {
-				continue
-			}
-			app := m.Manifest.Apps[item.Name]
-			plan := restore.PlanApp(item.Name, app, m.SysInfo)
-			if plan.InstallCmd != "" {
-				m.Logs = append(m.Logs, StyleSelected.Render(fmt.Sprintf("📦 [%s] Installing: %s", item.Name, plan.InstallCmd)))
-				if err := restore.ExecuteInstallCommand(plan.InstallCmd); err != nil {
-					m.Logs = append(m.Logs, StyleError.Render(fmt.Sprintf("  ⚠️ Install failed: %v", err)))
-				}
-			}
-			res, err := restore.ApplyAppFiles(item.Name, app, m.RepoDir, false)
-			if err != nil {
-				m.Logs = append(m.Logs, StyleError.Render(fmt.Sprintf("✗ %s restore: %v", item.Name, err)))
-				continue
-			}
-			for _, bk := range res.LocalBackups {
-				m.Logs = append(m.Logs, StyleWarning.Render(fmt.Sprintf("  🛡️ Safety backup: %s", bk)))
-			}
-			for _, r := range res.Restored {
-				m.Logs = append(m.Logs, StyleSuccess.Render(fmt.Sprintf("  ✓ Restored: %s", r)))
-			}
-			for _, t := range res.TemplatesInit {
-				m.Logs = append(m.Logs, StyleWarning.Render(fmt.Sprintf("  🔒 Template created: %s (add real secrets!)", t)))
-			}
-		}
-		m.Logs = append(m.Logs, "")
-		m.Logs = append(m.Logs, StyleSuccess.Render("✨ Restore completed successfully!"))
+		return m, nil
 	}
+	return m.startRestore()
+}
 
-	return m, nil
+// restoreDoneMsg reports a restore run that held the terminal.
+type restoreDoneMsg struct {
+	res *restore.RunResult
+	err error
+	ran bool // false when the terminal could not be handed off
+}
+
+// installRun is the tea.ExecCommand that runs the restore while Bubble Tea
+// has released the terminal, so install output and sudo prompts use the real
+// terminal instead of corrupting the alternate screen.
+type installRun struct {
+	stdin          io.Reader
+	stdout, stderr io.Writer
+	run            func(stdin io.Reader, stdout, stderr io.Writer) (*restore.RunResult, error)
+	res            *restore.RunResult
+	ran            bool
+}
+
+func (c *installRun) SetStdin(r io.Reader)  { c.stdin = r }
+func (c *installRun) SetStdout(w io.Writer) { c.stdout = w }
+func (c *installRun) SetStderr(w io.Writer) { c.stderr = w }
+
+func (c *installRun) Run() error {
+	c.ran = true
+	fmt.Fprintln(c.stdout, "\n🚀 dots: running install commands in this terminal; the TUI resumes when they finish.")
+	res, err := c.run(c.stdin, c.stdout, c.stderr)
+	c.res = res
+	fmt.Fprintln(c.stdout, "dots: install commands finished, returning to the TUI.")
+	return err
+}
+
+// startRestore hands the terminal to the same planner and runner as
+// `dots restore -i`; the summary is rendered when the run returns.
+func (m Model) startRestore() (tea.Model, tea.Cmd) {
+	var selected []string
+	for _, item := range m.AppItems {
+		if item.Checked {
+			selected = append(selected, item.Name)
+		}
+	}
+	mf, sys, exe := m.Manifest, m.SysInfo, m.Exec
+	opts := restore.RunOptions{
+		RepoDir:         m.RepoDir,
+		WithConfig:      m.WithConfig,
+		ReplaceExisting: m.ReplaceExisting,
+		InstallPackages: true,
+		Explicit:        m.explicit,
+		Probe:           m.Probe,
+	}
+	c := &installRun{run: func(stdin io.Reader, stdout, stderr io.Writer) (*restore.RunResult, error) {
+		o := opts
+		o.Stdin, o.Stdout, o.Stderr = stdin, stdout, stderr
+		o.Exec = func(req restore.ExecRequest) error {
+			fmt.Fprintf(stdout, "▶ [%s] %s\n", req.AppName, req.Command)
+			return exe(req)
+		}
+		return restore.Run(mf, selected, sys, o)
+	}}
+	suspend := m.Suspend
+	if suspend == nil {
+		suspend = tea.Exec
+	}
+	m.State = viewExecuting
+	m.LastRun = nil
+	return m, suspend(c, func(err error) tea.Msg {
+		return restoreDoneMsg{res: c.res, err: err, ran: c.ran}
+	})
+}
+
+func (m Model) finishRestore(msg restoreDoneMsg) Model {
+	m.State = viewFinished
+	m.LastRun = msg.res
+	m.Logs = []string{StyleSubtitle.Render("🚀 Restore & Provisioning")}
+	if !msg.ran {
+		m.Logs = append(m.Logs, StyleError.Render(fmt.Sprintf("✗ Could not hand the terminal to the install commands; nothing ran: %v", msg.err)))
+		return m
+	}
+	if msg.res == nil {
+		m.Logs = append(m.Logs, StyleError.Render(fmt.Sprintf("✗ Cannot plan restore: %v", msg.err)))
+		return m
+	}
+	failed := len(msg.res.Problems()) > 0
+	for _, line := range msg.res.Summary() {
+		style := StyleNormal
+		switch {
+		case strings.HasPrefix(line, "❌"):
+			style = StyleError
+		case strings.HasPrefix(line, "✨"):
+			style = StyleSuccess
+		case failed && strings.HasPrefix(line, "  • "):
+			style = StyleError
+		case strings.HasPrefix(line, "    ✗"), strings.HasPrefix(line, "    ⏳"), strings.HasPrefix(line, "    ⊘"), strings.HasPrefix(line, "🔑 "):
+			// Readiness actions: missing keys, pending logins, missing commands.
+			style = StyleWarning
+		}
+		m.Logs = append(m.Logs, style.Render(line))
+	}
+	if msg.err != nil {
+		// The run finished but Bubble Tea could not fully restore the terminal.
+		m.Logs = append(m.Logs, StyleWarning.Render(fmt.Sprintf("⚠️ Terminal restore after install: %v", msg.err)))
+	}
+	return m
 }
 
 func (m Model) View() string {
@@ -360,7 +471,7 @@ func (m Model) View() string {
 	case viewRestorePreset:
 		s.WriteString(StyleSubtitle.Render("Select Installation Mode:") + "\n\n")
 		presets := []string{
-			"🌟  Full Setup       (All Profiles: Core + Mobile + Infra + AI)",
+			"🌟  Full Setup       (All Profiles: Core + Mobile + Infra + AI; optional apps via Custom)",
 			"⚡️  Core Only        (Workstation default: Shell, Neovim, Ghostty, Brew, Web)",
 			"🤖  AI & Agents      (Pi, Claude Code, Codex, and Ollama local runtime)",
 			"📱  Mobile Dev       (React Native, OpenJDK 17, CocoaPods, Fastlane)",
@@ -375,7 +486,8 @@ func (m Model) View() string {
 				s.WriteString(cursor + StyleNormal.Render(p) + "\n")
 			}
 		}
-		s.WriteString("\n" + StyleMuted.Render("Navigate: ↑/↓ · Select: Enter · Back: Esc"))
+		s.WriteString("\n" + m.configToggles())
+		s.WriteString("\n" + StyleMuted.Render("Navigate: ↑/↓ · Select: Enter · Configs: c · Replace local files: r · Back: Esc"))
 
 	case viewCustomApps:
 		modeName := "Restore"
@@ -434,6 +546,11 @@ func (m Model) View() string {
 		}
 		s.WriteString("\n" + StyleMuted.Render("Back: Esc / Enter / q"))
 
+	case viewExecuting:
+		s.WriteString(StyleSubtitle.Render("Installing...") + "\n\n")
+		s.WriteString(StyleNormal.Render("The terminal is handed to the install commands (sudo may ask for your password).") + "\n")
+		s.WriteString(StyleMuted.Render("The summary appears here when they finish."))
+
 	case viewFinished:
 		for _, log := range m.Logs {
 			s.WriteString(log + "\n")
@@ -442,4 +559,21 @@ func (m Model) View() string {
 	}
 
 	return StyleBox.Render(s.String()) + "\n"
+}
+
+// configToggles renders the restore settings shown on the preset screen.
+func (m Model) configToggles() string {
+	cfg := StyleMuted.Render("off — apps keep their stock configuration; local files are untouched")
+	if m.WithConfig {
+		cfg = StyleSelected.Render(fmt.Sprintf("on — deploy configs from %s; differing local files are kept", m.RepoDir))
+	}
+	replace := StyleMuted.Render("off — differing local files are kept")
+	if m.ReplaceExisting {
+		replace = StyleWarning.Render("on — differing local files are replaced after a .bk safety backup")
+	}
+	lines := "[c] Restore backed-up configs: " + cfg + "\n"
+	if m.WithConfig {
+		lines += "[r] Replace differing local files: " + replace + "\n"
+	}
+	return lines
 }
