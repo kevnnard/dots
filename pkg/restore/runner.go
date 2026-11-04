@@ -84,6 +84,12 @@ type StepResult struct {
 	Config       ConfigOutcome  `json:"config,omitempty"`
 	ConfigReason string         `json:"config_reason,omitempty"`
 	Files        *ApplyResult   `json:"files,omitempty"`
+	// Preflight is a known problem in the app's existing local configuration
+	// that blocks its install until an authorized replacement repairs it.
+	Preflight string `json:"preflight,omitempty"`
+	// Prepared reports a known repair applied to the existing local
+	// configuration, after a safety backup, before any installer ran.
+	Prepared string `json:"prepared,omitempty"`
 	// failedChain marks an app blocked, directly or transitively, by a
 	// package whose install command failed during this run.
 	failedChain bool
@@ -145,8 +151,16 @@ func Run(m *manifest.Manifest, selected []string, sys *detector.SystemInfo, opts
 	outcome := map[string]InstallOutcome{}
 	failed := map[string]bool{}
 
+	// Known local conflicts are diagnosed, and repaired when authorized,
+	// before any installer runs.
+	prepared := map[string][2]string{}
 	for _, step := range steps {
-		r := StepResult{Step: step}
+		issue, done := prepareLocal(m.Apps[step.AppName], opts)
+		prepared[step.AppName] = [2]string{issue, done}
+	}
+	for _, step := range steps {
+		p := prepared[step.AppName]
+		r := StepResult{Step: step, Preflight: p[0], Prepared: p[1]}
 		switch step.Status {
 		case StatusInstalled:
 			r.Install = OutcomeAlreadyInstalled
@@ -163,6 +177,10 @@ func Run(m *manifest.Manifest, selected []string, sys *detector.SystemInfo, opts
 				r.Install = OutcomeBlocked
 				r.Reason = fmt.Sprintf("requires %s (%s)", dep, why)
 				r.failedChain = failed[dep]
+				break
+			}
+			if r.Preflight != "" {
+				r.Install, r.Reason, r.failedChain = OutcomeBlocked, r.Preflight, true
 				break
 			}
 			if opts.DryRun || !opts.InstallPackages {
@@ -214,6 +232,51 @@ func deployConfigs(m *manifest.Manifest, res *RunResult, outcome map[string]Inst
 		r.Files = files
 		r.Config = configOutcome(files, opts.DryRun)
 	}
+}
+
+// prepareLocal reads the app's existing local files for known conflicts that
+// make its packages fail to install. Packages install before configuration
+// is deployed, so a run that may replace existing files repairs a known
+// conflict in the local file itself, after a safety backup; otherwise, or
+// when the repair fails, the conflict is returned and blocks the install.
+func prepareLocal(app manifest.AppConfig, opts RunOptions) (issue, done string) {
+	for _, mapping := range app.Paths {
+		target, err := manifest.ExpandPath(mapping.Src)
+		if err != nil {
+			continue
+		}
+		repair := repairFor(target)
+		if repair == nil || !repair.preflight {
+			continue
+		}
+		info, err := os.Lstat(target)
+		if err != nil {
+			continue
+		}
+		data, err := os.ReadFile(target)
+		if err != nil {
+			continue
+		}
+		local := repair.fix(data)
+		if local.conflict == "" {
+			continue
+		}
+		conflict := fmt.Sprintf("existing %s has conflicting Engram package declarations (%s)", target, local.conflict)
+		switch {
+		case local.data == nil:
+			return conflict + "; not repaired automatically; keep a single declaration manually, then retry", ""
+		case !opts.WithConfig || !opts.ReplaceExisting:
+			return conflict + "; install blocked: restore configuration with replacement of existing files to repair it after a safety backup", ""
+		case opts.DryRun:
+			return conflict + "; dry run: a real run would back it up and repair it before installing", ""
+		}
+		bk, err := repairLocal(target, info, local.data, repair)
+		if err != nil {
+			return fmt.Sprintf("%s; pre-install repair failed: %v", conflict, err), ""
+		}
+		return "", fmt.Sprintf("%s: %s before installing; safety backup: %s (copy it back to undo)", target, local.applied, bk)
+	}
+	return "", ""
 }
 
 // unmetRequirement returns the first required app whose install did not
@@ -287,10 +350,16 @@ func configOutcome(files *ApplyResult, dryRun bool) ConfigOutcome {
 func (r *RunResult) Problems() []string {
 	var out []string
 	for _, s := range r.Steps {
+		if s.Preflight != "" {
+			out = append(out, fmt.Sprintf("%s: preflight: %s", s.AppName, s.Preflight))
+		}
 		switch s.Install {
 		case OutcomeFailed:
 			out = append(out, fmt.Sprintf("%s: install failed: %s", s.AppName, s.Error))
 		case OutcomeBlocked:
+			if s.Preflight != "" && s.Reason == s.Preflight {
+				break
+			}
 			if s.failedChain || r.Explicit && s.Requested {
 				out = append(out, fmt.Sprintf("%s: blocked: %s", s.AppName, s.Reason))
 			}
@@ -308,6 +377,11 @@ func (r *RunResult) Problems() []string {
 				reason = strings.Join(s.Files.Warnings, "; ")
 			}
 			out = append(out, fmt.Sprintf("%s: configuration failed: %s", s.AppName, reason))
+		}
+		if s.Files != nil {
+			for _, n := range s.Files.NotRepaired {
+				out = append(out, fmt.Sprintf("%s: repair not applied: %s", s.AppName, n))
+			}
 		}
 	}
 	return out
@@ -422,6 +496,9 @@ func configLines(s StepResult) []string {
 	case ConfigFailed:
 		lines = append(lines, fmt.Sprintf("  ✗ %-24s failed", s.AppName))
 	}
+	if s.Prepared != "" {
+		lines = append(lines, "      🩹 repaired before install: "+s.Prepared)
+	}
 	if s.Files == nil {
 		return lines
 	}
@@ -433,6 +510,12 @@ func configLines(s StepResult) []string {
 	}
 	for _, f := range s.Files.Kept {
 		lines = append(lines, "      ▲ kept local file: "+f)
+	}
+	for _, f := range s.Files.Repaired {
+		lines = append(lines, "      🩹 repaired backup content: "+f)
+	}
+	for _, f := range s.Files.NotRepaired {
+		lines = append(lines, "      ⚠️ repair not applied: "+f)
 	}
 	for _, f := range s.Files.TemplatesInit {
 		lines = append(lines, "      🔒 secret template: "+f+" (fill in real values)")

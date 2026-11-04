@@ -31,6 +31,10 @@ type ApplyResult struct {
 	Skipped       []string `json:"skipped"`
 	Kept          []string `json:"kept"`
 	Warnings      []string `json:"warnings"`
+	// Repaired lists files deployed with known incompatible backup content
+	// repaired; NotRepaired lists known problems left in place.
+	Repaired    []string `json:"repaired,omitempty"`
+	NotRepaired []string `json:"not_repaired,omitempty"`
 }
 
 // PlanApp generates an installation plan for a single application based on current system.
@@ -215,11 +219,26 @@ func deployTemplate(g writeGuard, src, dest string, dryRun bool, res *ApplyResul
 // placeFile restores one repository file to dest. An equivalent local file is
 // left as is, a differing one is kept unless replacement is authorized, and
 // nothing is replaced without a successful safety backup. An existing
-// symlink is replaced itself, never written through.
+// symlink is replaced itself, never written through. Known incompatible
+// backup content is repaired before the comparison, so an equivalent
+// repaired local file is left alone and replacements deploy the repair.
 func placeFile(g writeGuard, src, dest string, opts ApplyOptions, res *ApplyResult) {
 	if err := g.check(filepath.Dir(dest)); err != nil {
 		res.Warnings = append(res.Warnings, fmt.Sprintf("%s not restored: %v", dest, err))
 		return
+	}
+	repair := repairFor(dest)
+	var fixed repairOutcome
+	if repair != nil {
+		if data, err := os.ReadFile(src); err == nil {
+			fixed = repair.fix(data)
+		}
+	}
+	restored := func() {
+		res.Restored = append(res.Restored, dest)
+		if fixed.issue != "" {
+			res.NotRepaired = append(res.NotRepaired, fmt.Sprintf("%s: backup deployed without repair: %s", dest, fixed.issue))
+		}
 	}
 	info, err := os.Lstat(dest)
 	switch {
@@ -234,11 +253,12 @@ func placeFile(g writeGuard, src, dest string, opts ApplyOptions, res *ApplyResu
 	case !info.Mode().IsRegular() && info.Mode()&os.ModeSymlink == 0:
 		res.Warnings = append(res.Warnings, fmt.Sprintf("%s is not a regular file; not replaced", dest))
 		return
-	case sameContent(dest, src):
-		res.Restored = append(res.Restored, dest)
+	case sameContent(dest, src, fixed.data):
+		restored()
 		return
 	case !opts.Replace:
 		res.Kept = append(res.Kept, dest)
+		reportKeptRepair(repair, dest, res)
 		return
 	}
 	if !opts.DryRun {
@@ -250,9 +270,14 @@ func placeFile(g writeGuard, src, dest string, opts ApplyOptions, res *ApplyResu
 			}
 			res.LocalBackups = append(res.LocalBackups, bk)
 		}
-		if info != nil && info.Mode()&os.ModeSymlink != 0 {
+		switch {
+		case fixed.data != nil && info != nil && info.Mode()&os.ModeSymlink != 0:
+			err = replaceWith(dest, func(tmp string) error { return writeExpandedNew(tmp, fixed.data) })
+		case fixed.data != nil:
+			err = writeExpanded(dest, fixed.data)
+		case info != nil && info.Mode()&os.ModeSymlink != 0:
 			err = replaceWith(dest, func(tmp string) error { return homepath.CopyExpandedNew(src, tmp, 0644) })
-		} else {
+		default:
 			err = copyFile(src, dest)
 		}
 		if err != nil {
@@ -260,7 +285,61 @@ func placeFile(g writeGuard, src, dest string, opts ApplyOptions, res *ApplyResu
 			return
 		}
 	}
-	res.Restored = append(res.Restored, dest)
+	restored()
+	if fixed.data != nil {
+		res.Repaired = append(res.Repaired, fmt.Sprintf("%s: %s", dest, fixed.applied))
+	}
+}
+
+// reportKeptRepair states that a kept local file still holds known
+// incompatible content, so it is never mistaken for repaired.
+func reportKeptRepair(repair *knownRepair, dest string, res *ApplyResult) {
+	if repair == nil {
+		return
+	}
+	data, err := os.ReadFile(dest)
+	if err != nil {
+		return
+	}
+	switch local := repair.fix(data); {
+	case local.data != nil:
+		res.NotRepaired = append(res.NotRepaired, fmt.Sprintf("%s: existing local file kept, repair not applied (would have %s); authorize replacing existing files to repair it after a safety backup", dest, local.applied))
+	case local.issue != "":
+		res.NotRepaired = append(res.NotRepaired, fmt.Sprintf("%s: existing local file kept: %s", dest, local.issue))
+	}
+}
+
+// writeExpanded writes repaired content to dest, expanding the home
+// placeholder for the current machine.
+func writeExpanded(dest string, data []byte) error {
+	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+		return err
+	}
+	home, _ := homepath.Current()
+	return os.WriteFile(dest, homepath.Expand(data, home), 0644)
+}
+
+// writeExpandedNew is writeExpanded into a newly created path.
+func writeExpandedNew(dest string, data []byte) error {
+	home, _ := homepath.Current()
+	return writeNew(dest, homepath.Expand(data, home))
+}
+
+// writeNew writes data into a newly created path, never touching an existing one.
+func writeNew(dest string, data []byte) error {
+	out, err := os.OpenFile(dest, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	_, err = out.Write(data)
+	if cerr := out.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		// dest was created exclusively above, so only our partial write is removed.
+		os.Remove(dest)
+	}
+	return err
 }
 
 // placeSymlink recreates a repository symlink at dest. An existing link or
@@ -326,8 +405,9 @@ func placeSymlink(g writeGuard, src, dest string, opts ApplyOptions, res *ApplyR
 }
 
 // sameContent reports whether the local file already matches the repository
-// file once the home placeholder is expanded.
-func sameContent(local, repo string) bool {
+// file, or its repaired content when set, once the home placeholder is
+// expanded.
+func sameContent(local, repo string, repaired []byte) bool {
 	if info, err := os.Stat(local); err != nil || !info.Mode().IsRegular() {
 		return false
 	}
@@ -335,9 +415,11 @@ func sameContent(local, repo string) bool {
 	if err != nil {
 		return false
 	}
-	b, err := os.ReadFile(repo)
-	if err != nil {
-		return false
+	b := repaired
+	if b == nil {
+		if b, err = os.ReadFile(repo); err != nil {
+			return false
+		}
 	}
 	home, err := homepath.Current()
 	return err == nil && homepath.Equivalent(a, b, home)

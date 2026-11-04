@@ -23,8 +23,7 @@
     "npm:pi-btw",
     "npm:pi-antigravity",
     "npm:pi-codemcp",
-    "npm:pi-claude-bridge",
-    "npm:gentle-engram@0.3.0"
+    "npm:pi-claude-bridge"
   ],
   "showHardwareCursor": true,
   "terminal": {
