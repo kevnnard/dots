@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -181,26 +182,57 @@ func ApplyAppFiles(appName string, app manifest.AppConfig, repoDir string, dryRu
 
 // ExecuteInstallCommand executes an installation command through shell.
 func ExecuteInstallCommand(cmdStr string) error {
-	cmd := exec.Command("sh", "-c", cmdStr)
+	name, args := shellInvocation(runtime.GOOS, cmdStr)
+	cmd := exec.Command(name, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
 
+// shellInvocation returns the shell executable and arguments used to run an
+// install command on the given OS.
+func shellInvocation(osName, cmdStr string) (string, []string) {
+	if osName == "windows" {
+		return "powershell", []string{"-NoProfile", "-NonInteractive", "-Command", cmdStr}
+	}
+	return "sh", []string{"-c", cmdStr}
+}
+
+// findBestRecipe resolves the install recipe for the current system. Lookup
+// order: exact distro, primary package manager, other available managers,
+// OS name, and finally the "default" key. Native managers therefore win over
+// generic OS-level script recipes.
 func findBestRecipe(recipes map[string]manifest.InstallRecipe, sys *detector.SystemInfo) (manifest.InstallRecipe, bool) {
-	if len(recipes) == 0 {
+	if len(recipes) == 0 || sys == nil {
 		return manifest.InstallRecipe{}, false
 	}
 
-	// 1. Try exact distro match (e.g. "ubuntu", "arch", "debian")
+	// 1. Exact distro match (e.g. "ubuntu", "arch", "debian")
 	if sys.Distro != "" && sys.Distro != detector.DistroUnknown {
 		if r, ok := recipes[string(sys.Distro)]; ok {
 			return r, true
 		}
 	}
 
-	// 2. Try OS match (e.g. "darwin", "linux")
+	// 2. Package manager match: primary first, then any other available manager
+	if sys.PrimaryManager != "" && sys.PrimaryManager != detector.ManagerUnknown {
+		if r, ok := recipes[string(sys.PrimaryManager)]; ok {
+			return r, true
+		}
+	}
+	for _, m := range sys.Managers {
+		if r, ok := recipes[string(m)]; ok {
+			return r, true
+		}
+	}
+
+	// 3. OS match (e.g. "darwin", "linux", "windows")
 	if r, ok := recipes[sys.OS]; ok {
+		return r, true
+	}
+
+	// 4. Any-OS fallback
+	if r, ok := recipes["default"]; ok {
 		return r, true
 	}
 
@@ -235,6 +267,26 @@ func buildInstallCommand(recipe manifest.InstallRecipe, sys *detector.SystemInfo
 	case "dnf":
 		if recipe.Package != "" {
 			return fmt.Sprintf("sudo dnf install -y %s", recipe.Package)
+		}
+	case "zypper":
+		if recipe.Package != "" {
+			return fmt.Sprintf("sudo zypper install -y %s", recipe.Package)
+		}
+	case "winget":
+		if recipe.Package != "" {
+			return fmt.Sprintf("winget install --id %s -e --accept-source-agreements --accept-package-agreements", recipe.Package)
+		}
+	case "scoop":
+		if recipe.Package != "" {
+			return fmt.Sprintf("scoop install %s", recipe.Package)
+		}
+	case "choco":
+		if recipe.Package != "" {
+			return fmt.Sprintf("choco install -y %s", recipe.Package)
+		}
+	case "cargo":
+		if recipe.Package != "" {
+			return fmt.Sprintf("cargo install %s", recipe.Package)
 		}
 	case "pnpm":
 		if recipe.Package != "" {
