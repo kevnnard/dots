@@ -31,16 +31,16 @@ Zero dependencies on blank machines. Interactive 8-bit TUI dashboard. Enterprise
 ## ⚡️ 60-Second Quickstart
 
 ### Option A: One-line bootstrap (Zero dependencies)
-Run this single command in any fresh terminal on macOS or Linux:
+Run this single command in any fresh terminal on macOS or Linux (Windows: use WSL):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/kevnnard/dots/main/install.sh | bash
 ```
 > **What this does:**
-> 1. Detects OS (`Darwin` or `Linux`) and package managers (`brew`, `apt`, `pacman`, `dnf`, `pnpm`).
+> 1. Detects the OS and installs missing `git`/`curl` with the native package manager (`pacman`, `apt`, `dnf`, `zypper`, `apk`, `brew`).
 > 2. Clones the unified repository to `~/Repositories/dots` (or `~/.dotfiles`).
-> 3. Installs standalone static binaries to `~/.local/bin/dots` and `~/.local/bin/kevnnard-dots`.
-> 4. Launches the interactive Bubble Tea visual dashboard immediately.
+> 3. Downloads the official Go toolchain to `~/.local/go` if Go is missing or older than 1.21, then builds `~/.local/bin/dots` and `~/.local/bin/kevnnard-dots`.
+> 4. Launches the interactive Bubble Tea visual dashboard (set `DOTS_NO_LAUNCH=1` to skip).
 
 ### Option B: Homebrew Tap (macOS)
 ```bash
@@ -211,6 +211,39 @@ dots restore --all --install-packages
 # Track and immediately backup a new configuration
 dots add starship ~/.config/starship.toml
 ```
+
+---
+
+## 🌍 Cross-Platform Install Recipes
+
+`dots` never assumes a specific machine. It detects the OS, the distro family (via `ID` and `ID_LIKE`, so derivatives such as Omarchy, CachyOS, Mint or Nobara map to their parent) and the native package manager (`yay`/`pacman`, `apt`, `dnf`, `zypper`, `brew`, `winget`, `scoop`, `choco`).
+
+Each app in `manifest.yaml` can declare several recipes under `install:`. The first matching key wins:
+
+| Order | Key | Example |
+|-------|-----|---------|
+| 1 | Exact distro | `arch`, `ubuntu`, `fedora` |
+| 2 | Primary package manager, then any other available manager | `yay`, `pacman`, `apt`, `brew`, `winget` |
+| 3 | Operating system | `darwin`, `linux`, `windows` |
+| 4 | Any system | `default` |
+
+Native managers therefore win over generic `curl | sh` scripts. Use `manager: script` with a `command` for tools that only ship an installer, and `requires: [node]` to install dependencies first.
+
+```yaml
+nvim:
+  install:
+    pacman:  { manager: pacman, package: neovim }
+    apt:     { manager: apt,    package: neovim }
+    winget:  { manager: winget, package: Neovim.Neovim }
+    brew:    { manager: brew,   package: neovim }
+pi:
+  requires: [node]
+  install:
+    default: { manager: npm, package: "@earendil-works/pi-coding-agent" }
+```
+
+### Portable home paths
+Absolute home directories are never versioned. `dots backup` stores them as `__HOME__` and `dots restore` expands them for the target machine, so `/Users/you/...` on macOS, `/home/you/...` on Linux and `C:/Users/you/...` on Windows all share the same config. `npm` global recipes install under `~/.local` to avoid `sudo`.
 
 ---
 
