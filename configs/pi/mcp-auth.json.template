@@ -1,7 +1,7 @@
 {
   "mcp__linear|https://mcp.linear.app/mcp": {
     "clientInformation": {
-      "client_id": "zN8j-jP310p2du9w",
+      "client_id": "YOUR_CLIENT_ID_HERE",
       "client_id_issued_at": 1791498979,
       "client_name": "pi",
       "grant_types": [
@@ -16,7 +16,7 @@
       ],
       "token_endpoint_auth_method": "YOUR_TOKEN_ENDPOINT_AUTH_METHOD_HERE"
     },
-    "codeVerifier": "-JYtsEEpEaebogyCfba-OjToEDxpitiXnzjUqWSH0pc",
+    "codeVerifier": "YOUR_CODE_VERIFIER_HERE",
     "discovery": {
       "authorizationServerMetadata": {
         "authorization_endpoint": "YOUR_AUTHORIZATION_ENDPOINT_HERE",

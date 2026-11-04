@@ -7,15 +7,15 @@
   },
   "antigravity": {
     "access": "YOUR_ACCESS_HERE",
-    "email": "kevnnard.labs@gmail.com",
+    "email": "YOUR_EMAIL_HERE",
     "expires": 1792979221469,
-    "projectId": "aicode-consumers",
+    "projectId": "YOUR_PROJECT_ID_HERE",
     "refresh": "YOUR_REFRESH_HERE",
     "type": "oauth"
   },
   "openai": {
     "access": "YOUR_ACCESS_HERE",
-    "clientId": "oaiapp_NQpt40f5bOiSTZXwn47OmTAI",
+    "clientId": "YOUR_CLIENT_ID_HERE",
     "expires": 1792977017326,
     "refresh": "YOUR_REFRESH_HERE",
     "scopes": [
@@ -30,7 +30,7 @@
   },
   "openai-codex": {
     "access": "YOUR_ACCESS_HERE",
-    "accountId": "9dff40f7-fa78-476b-9567-844b8b0c381e",
+    "accountId": "YOUR_ACCOUNT_ID_HERE",
     "expires": 1793630512061,
     "refresh": "YOUR_REFRESH_HERE",
     "type": "oauth"
