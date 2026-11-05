@@ -523,7 +523,7 @@ apps:
     zed:
         description: Zed Editor configurations, keymaps, and themes
         profile: core
-        check: [zed, /Applications/Zed.app]
+        check: [zed, zeditor, /Applications/Zed.app]
         paths:
             - src: ~/.config/zed
               dest: configs/zed

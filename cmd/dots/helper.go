@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/kevnnard/dots/pkg/manifest"
 )
@@ -85,7 +86,7 @@ func loadOrInitManifest(repoDir string) (*manifest.Manifest, error) {
 
 // loadManifestReadOnly loads the repository manifest without side effects:
 // when it is missing, the embedded default is used and nothing is cloned or
-// written.
+// written. It returns the manifest exactly as the user wrote it.
 func loadManifestReadOnly(out io.Writer, repoDir string) (*manifest.Manifest, error) {
 	manifestPath := getManifestPath(repoDir)
 	if _, err := os.Stat(manifestPath); os.IsNotExist(err) {
@@ -93,6 +94,21 @@ func loadManifestReadOnly(out io.Writer, repoDir string) (*manifest.Manifest, er
 		return manifest.DefaultManifest(), nil
 	}
 	return manifest.Load(manifestPath)
+}
+
+// loadRestoreManifest is loadManifestReadOnly plus the shipped install recipes
+// that an older local manifest lacks. Restore installs with them; clean never
+// does, because it uninstalls, so it uses the manifest as written.
+func loadRestoreManifest(out io.Writer, repoDir string) (*manifest.Manifest, error) {
+	local, err := loadManifestReadOnly(out, repoDir)
+	if err != nil {
+		return nil, err
+	}
+	eff, extended := manifest.Effective(local)
+	if len(extended) > 0 {
+		fmt.Fprintf(out, "ℹ️  Added the built-in install recipes missing from your manifest for %s.\n", strings.Join(extended, ", "))
+	}
+	return eff, nil
 }
 
 func autoCloneRepo(destDir string) bool {

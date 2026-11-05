@@ -62,7 +62,7 @@ the command to check it.`,
 		var m *manifest.Manifest
 		if dryRunFlag {
 			// A dry run never clones the repository or writes a manifest.
-			m, err = loadManifestReadOnly(out, repoDir)
+			m, err = loadRestoreManifest(out, repoDir)
 		} else {
 			m, err = loadOrInitManifest(repoDir)
 		}
