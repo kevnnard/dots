@@ -355,6 +355,11 @@ func placeSymlink(g writeGuard, src, dest string, opts ApplyOptions, res *ApplyR
 		res.Warnings = append(res.Warnings, fmt.Sprintf("%s not restored: %v", dest, err))
 		return
 	}
+	// A restored link must point inside home, never to an absolute path.
+	if filepath.IsAbs(linkTarget) || !within(g.root, filepath.Join(filepath.Dir(dest), linkTarget)) {
+		res.Warnings = append(res.Warnings, fmt.Sprintf("%s not restored: link points outside %s: %s", dest, g.root, linkTarget))
+		return
+	}
 	info, err := os.Lstat(dest)
 	switch {
 	case os.IsNotExist(err):

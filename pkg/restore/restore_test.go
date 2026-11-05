@@ -527,3 +527,45 @@ func TestApplyFilesFollowsParentSymlinkInsideHome(t *testing.T) {
 		t.Errorf("restored=%v warnings=%v", res.Restored, res.Warnings)
 	}
 }
+
+// A backed-up symlink is recreated only when it points inside home: an
+// absolute target or one that climbs out of home is refused with a warning.
+func TestApplyFilesRefusesSymlinkTargetOutsideHome(t *testing.T) {
+	root, home := isolatedHome(t)
+	repo := filepath.Join(root, "repo")
+	skills := filepath.Join(repo, "configs", "pi", "skills")
+	mustWrite(t, filepath.Join(home, ".agents", "skills", "orca-cli", "SKILL.md"), "skill\n")
+	if err := os.MkdirAll(skills, 0755); err != nil {
+		t.Fatal(err)
+	}
+	links := map[string]string{
+		"orca-cli": "../../../.agents/skills/orca-cli",
+		"abs":      "/etc",
+		"climb":    "../../../../../../etc",
+	}
+	for name, target := range links {
+		if err := os.Symlink(target, filepath.Join(skills, name)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	app := manifest.AppConfig{Paths: []manifest.PathMapping{{Src: "~/.pi/agent/skills", Dest: "configs/pi/skills"}}}
+	res, err := ApplyAppFilesWith("pi", app, repo, ApplyOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dest := filepath.Join(home, ".pi", "agent", "skills")
+	if link, err := os.Readlink(filepath.Join(dest, "orca-cli")); err != nil || link != links["orca-cli"] {
+		t.Errorf("orca-cli = %q %v, want the in-home link", link, err)
+	}
+	for _, name := range []string{"abs", "climb"} {
+		if _, err := os.Lstat(filepath.Join(dest, name)); !os.IsNotExist(err) {
+			t.Errorf("%s points outside home and must not be created", name)
+		}
+	}
+	warned := strings.Join(res.Warnings, "\n")
+	for _, name := range []string{"abs", "climb"} {
+		if !strings.Contains(warned, filepath.Join(dest, name)+" not restored: link points outside") {
+			t.Errorf("missing warning for %s:\n%s", name, warned)
+		}
+	}
+}

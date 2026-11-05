@@ -61,7 +61,9 @@ func (ExecRunner) Run(name string, args ...string) ([]byte, error) {
 }
 
 // Archive writes manifest.yaml and configs/ from repo into out and returns the
-// sha256 of the written file. Symlinks and other non-regular files are skipped.
+// sha256 of the written file. Relative symlinks travel as links (skills shared
+// through ~/.agents/skills); absolute ones, which would not be portable, and
+// other non-regular files are skipped.
 func Archive(repo, out string) (string, error) {
 	if err := writeArchive(repo, out); err != nil {
 		return "", err
@@ -110,15 +112,29 @@ func addTree(tw *tar.Writer, root, rel string) error {
 		if err != nil {
 			return err
 		}
-		if !d.Type().IsRegular() {
-			return nil
-		}
 		name, err := filepath.Rel(root, p)
 		if err != nil {
 			return err
 		}
+		if d.Type()&fs.ModeSymlink != 0 {
+			return addLink(tw, p, filepath.ToSlash(name))
+		}
+		if !d.Type().IsRegular() {
+			return nil
+		}
 		return addFile(tw, root, filepath.ToSlash(name))
 	})
+}
+
+func addLink(tw *tar.Writer, p, rel string) error {
+	target, err := os.Readlink(p)
+	if err != nil {
+		return err
+	}
+	if filepath.IsAbs(target) {
+		return nil
+	}
+	return tw.WriteHeader(&tar.Header{Name: rel, Mode: 0o777, Typeflag: tar.TypeSymlink, Linkname: filepath.ToSlash(target)})
 }
 
 // Send copies archive to device with `tailscale file cp`. The device is a
@@ -228,7 +244,9 @@ func LatestReceived(incoming string) (string, error) {
 }
 
 // extract unpacks archive under root. Entries that escape root are refused
-// before anything is written for them.
+// before anything is written for them. Symlinks must be relative; they are
+// created after every file, and no entry may sit under one, so nothing is
+// ever written through a link. Where a link points is checked on restore.
 func extract(archive, root string) error {
 	f, err := os.Open(archive)
 	if err != nil {
@@ -241,10 +259,12 @@ func extract(archive, root string) error {
 	}
 	defer gz.Close()
 	tr := tar.NewReader(gz)
+	links := map[string]string{}
+	var names []string
 	for {
 		h, err := tr.Next()
 		if errors.Is(err, io.EOF) {
-			return nil
+			return placeLinks(root, links, names)
 		}
 		if err != nil {
 			return err
@@ -253,6 +273,7 @@ func extract(archive, root string) error {
 		if path.IsAbs(name) || name == ".." || strings.HasPrefix(name, "../") {
 			return fmt.Errorf("unsafe path in archive: %q", h.Name)
 		}
+		names = append(names, name)
 		target := filepath.Join(root, filepath.FromSlash(name))
 		switch h.Typeflag {
 		case tar.TypeDir:
@@ -263,10 +284,37 @@ func extract(archive, root string) error {
 			if err := writeEntry(target, tr); err != nil {
 				return err
 			}
+		case tar.TypeSymlink:
+			if h.Linkname == "" || path.IsAbs(h.Linkname) || strings.ContainsRune(h.Linkname, 0) {
+				return fmt.Errorf("unsafe symlink in archive: %q -> %q", h.Name, h.Linkname)
+			}
+			links[name] = h.Linkname
 		default:
 			return fmt.Errorf("unsupported entry type in archive: %q", h.Name)
 		}
 	}
+}
+
+// placeLinks creates the archive's symlinks once every file is written,
+// refusing any entry that would sit under one of them.
+func placeLinks(root string, links map[string]string, names []string) error {
+	for _, name := range names {
+		for dir := path.Dir(name); dir != "."; dir = path.Dir(dir) {
+			if _, ok := links[dir]; ok {
+				return fmt.Errorf("unsafe path in archive: %q is under symlink %q", name, dir)
+			}
+		}
+	}
+	for name, target := range links {
+		dest := filepath.Join(root, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+			return err
+		}
+		if err := os.Symlink(filepath.FromSlash(target), dest); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func writeEntry(target string, body io.Reader) error {

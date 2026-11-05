@@ -296,3 +296,77 @@ func TestLatestReceivedRoundTrip(t *testing.T) {
 		t.Fatal("a removed received backup must not be reported as latest")
 	}
 }
+
+// Symlinks travel as links, so skills shared through ~/.agents/skills arrive.
+func TestArchiveCarriesSymlinksAndReceiveRecreatesThem(t *testing.T) {
+	repo := fixtureRepo(t)
+	skills := filepath.Join(repo, "configs", "pi", "skills")
+	if err := os.MkdirAll(skills, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("../../../.agents/skills/orca-cli", filepath.Join(skills, "orca-cli")); err != nil {
+		t.Fatal(err)
+	}
+	src := filepath.Join(t.TempDir(), "dots-backup-links.tar.gz")
+	sum, err := Archive(repo, src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := &fakeRunner{onGet: func(args []string) {
+		data, _ := os.ReadFile(src)
+		writeFile(t, filepath.Join(args[len(args)-1], "dots-backup-links.tar.gz"), string(data))
+	}}
+	dest := filepath.Join(t.TempDir(), "incoming")
+	if err := Receive(r, dest, sum); err != nil {
+		t.Fatal(err)
+	}
+	if link, err := os.Readlink(filepath.Join(dest, "configs", "pi", "skills", "orca-cli")); err != nil || link != "../../../.agents/skills/orca-cli" {
+		t.Fatalf("symlink not recreated: %q %v", link, err)
+	}
+}
+
+// An archive may hold only relative links, and nothing is ever written
+// through one: links are created after every file, never under another link.
+func TestReceiveRejectsUnsafeSymlinks(t *testing.T) {
+	cases := map[string][]*tar.Header{
+		"absolute target": {{Name: "configs/x", Typeflag: tar.TypeSymlink, Linkname: "/etc"}},
+		"file through link": {
+			{Name: "configs/dir", Typeflag: tar.TypeSymlink, Linkname: "../.."},
+			{Name: "configs/dir/evil", Typeflag: tar.TypeReg, Mode: 0o644, Size: 1},
+		},
+		"link under link": {
+			{Name: "configs/dir", Typeflag: tar.TypeSymlink, Linkname: "../.."},
+			{Name: "configs/dir/evil", Typeflag: tar.TypeSymlink, Linkname: "x"},
+		},
+	}
+	for name, headers := range cases {
+		src := filepath.Join(t.TempDir(), "dots-backup-evil.tar.gz")
+		f, _ := os.Create(src)
+		gz := gzip.NewWriter(f)
+		tw := tar.NewWriter(gz)
+		for _, h := range headers {
+			_ = tw.WriteHeader(h)
+			if h.Typeflag == tar.TypeReg {
+				_, _ = tw.Write([]byte("x"))
+			}
+		}
+		_ = tw.Close()
+		_ = gz.Close()
+		_ = f.Close()
+		r := &fakeRunner{onGet: func(args []string) {
+			data, _ := os.ReadFile(src)
+			writeFile(t, filepath.Join(args[len(args)-1], "dots-backup-evil.tar.gz"), string(data))
+		}}
+		parent := t.TempDir()
+		dest := filepath.Join(parent, "incoming")
+		if err := Receive(r, dest, testSHA(t, src)); err == nil {
+			t.Errorf("%s: must be rejected", name)
+		}
+		if _, err := os.Stat(dest); !os.IsNotExist(err) {
+			t.Errorf("%s: nothing may be extracted", name)
+		}
+		if _, err := os.Lstat(filepath.Join(parent, "evil")); !os.IsNotExist(err) {
+			t.Errorf("%s: wrote outside the destination", name)
+		}
+	}
+}
