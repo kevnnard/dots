@@ -238,8 +238,9 @@ dots restore --all --install-packages
 # Guided post-install steps (shell, logins, next actions); resumable
 dots setup
 dots setup --dry-run
-# Setup never runs a login for you: Codex, Antigravity, Linear and Postgres steps
-# show what to do in your own terminal, then check the tool's status when it can.
+# Setup never runs a login or an installer for you: the Gentle Shell install and
+# login, Codex, Antigravity, Linear, Neon (API key) and Postgres steps show what
+# to do in your own terminal, then check the tool's status when it can.
 # See docs/setup.md#guided-steps.
 
 # Preview the cleanup of every declared app: packages and configs (changes nothing)
@@ -264,7 +265,10 @@ dots add starship ~/.config/starship.toml
 2. **Sender**: `dots backup --send <device>` sends the archive over Taildrop and prints an 8-character **code** (the start of its sha256) plus the two commands to run on the receiver. The code is not stored in any file: copy it from that output.
 3. **Receiver** (Linux): `dots backup --receive <code>` takes the file from the Taildrop inbox, checks that its sha256 starts with the code and extracts it into `~/.cache/dots/incoming/<code>/`. A wrong code extracts nothing. If the inbox holds several backups, copies of the matching one are dropped and any other backup is kept in `~/.cache/dots/incoming/unclaimed/`, never lost. Skills shared through `~/.agents/skills` travel as relative symlinks; restore refuses any link that points outside home. The full sha256 still works with `--sha256 <sha256>`.
 4. **Receiver**: review with `dots restore --received --all --dry-run`, then apply with `dots restore --received --all`. `--received` picks the last received backup and implies `--with-config`. Existing local files are kept; add `--replace-existing` only after reviewing the dry run.
-5. **Credentials** (Codex, Claude, Linear, Postgres) are never in the backup. Log in by hand and check with `dots setup`.
+5. **Credentials** never travel: login files (`auth.json`, `mcp-auth.json`) stay out of the backup, and `mcp.json` arrives as a template. Sign in again on the new machine (Gentle Shell, Pi, Claude, Codex, Linear, Neon API key, Postgres) and follow `dots setup`.
+6. **Gentle Shell** on another machine: install the bundled Gentle Shell with its own installer (`dots setup` shows where), then `dots restore gentle-shell --received`.
+
+Known pitfalls of a macOS-to-Linux move (pnpm path, Gentle Shell installs, the Engram MCP server inside Gentle Shell, Neon sign-in) are listed in [docs/install-flow.md](docs/install-flow.md#moving-to-another-machine-known-pitfalls).
 
 If `--receive` reports `file access denied`, run once `sudo "$(command -v tailscale)" set --operator=$USER`, which lets your user read the Taildrop inbox.
 
