@@ -202,6 +202,12 @@ dots backup
 # Backup a specific app without pushing
 dots backup nvim --push=false
 
+# Move a backup between your machines over Taildrop (tailnet only, no public server).
+# Sender: archive the current configs (run `dots backup --push=false` first) and send them to a device name.
+dots backup --send kevnnard-station
+# Receiver: take the archive from the Taildrop inbox; it must match the sha256 the sender printed.
+dots backup --receive --sha256 <sha256>
+
 # Dry-run restore simulation for default Core profile (no clone, writes or commands)
 dots restore --dry-run
 
