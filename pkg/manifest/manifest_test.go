@@ -152,3 +152,16 @@ func TestGentleShellAgentHomeIsDeclared(t *testing.T) {
 		}
 	}
 }
+
+// Login files never travel, not even as templates: masking keeps OAuth
+// identifiers such as codeVerifier, client_id and account emails.
+func TestNoAppBacksUpLoginFiles(t *testing.T) {
+	login := map[string]bool{"auth.json": true, "mcp-auth.json": true, "oauth_creds.json": true, "google_accounts.json": true}
+	for name, app := range DefaultManifest().Apps {
+		for _, p := range app.Paths {
+			if login[filepath.Base(p.Src)] {
+				t.Errorf("%s backs up the login file %s", name, p.Src)
+			}
+		}
+	}
+}

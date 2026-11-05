@@ -92,8 +92,6 @@ apps:
               dest: configs/codex/rules
             - src: ~/.codex/skills
               dest: configs/codex/skills
-            - src: ~/.codex/auth.json
-              dest: configs/codex/auth.json
         exclude:
             - '*.sqlite*'
             - cache/**
@@ -460,10 +458,6 @@ apps:
               dest: configs/pi/agents
             - src: ~/.pi/agent/chains
               dest: configs/pi/chains
-            - src: ~/.pi/agent/auth.json
-              dest: configs/pi/auth.json
-            - src: ~/.pi/agent/mcp-auth.json
-              dest: configs/pi/mcp-auth.json
         exclude:
             - sessions/**
             - web-search-cache/**

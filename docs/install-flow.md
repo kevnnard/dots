@@ -129,7 +129,7 @@ in the CLI and the TUI. It lists what the user still has to do:
 |:---|:---|:---|
 | `missing` field | A field still holds a dots placeholder (`YOUR_…_HERE`) | JSON/YAML/TOML field path and file |
 | `missing` env | A referenced variable is not set in the environment dots runs in | `${NAME}`, `{env:NAME}`, `env_key`, `*_env_var`, `env_vars` |
-| `login-pending` | A credentials file still holds the dots template placeholders | Codex `auth.json`, Pi `auth.json` / `mcp-auth.json` (per provider) |
+| `login-pending` | A credentials file still holds the dots template placeholders (left by an older dots; login files no longer travel in backups) | Codex `auth.json`, Pi `auth.json` / `mcp-auth.json` (per provider) |
 | `dependency-missing` | An MCP server `command` is not found on `PATH` | `mcpServers.<name>.command`, `[mcp_servers.<name>] command` |
 | `not-verified` | dots cannot tell; the action says how to check | Claude Code session, absent or filled credentials files, GitHub CLI, Copilot in Neovim, unreadable files |
 
