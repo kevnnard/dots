@@ -281,3 +281,29 @@ func TestCheckedInPiSettingsHaveNoEngramConflict(t *testing.T) {
 		t.Errorf("checked-in Pi settings need repair: applied=%q issue=%q", out.applied, out.issue)
 	}
 }
+
+// A macOS backup pins pnpm under ~/Library/pnpm, which does not exist on
+// Linux and breaks pnpm detection there. Restore rewrites that exact line to a
+// switch that keeps the macOS path on macOS and uses the XDG path elsewhere.
+func TestApplyMakesMacOnlyPnpmHomePortable(t *testing.T) {
+	const portable = `if [[ "$OSTYPE" == darwin* ]]; then export PNPM_HOME="$HOME/Library/pnpm"; else export PNPM_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/pnpm"; fi`
+	for _, line := range []string{`export PNPM_HOME="__HOME__/Library/pnpm"`, `export PNPM_HOME="$HOME/Library/pnpm"`} {
+		backup := "# pnpm\n" + line + "\nexport A=1\n"
+		app, repo, target := repairFixture(t, ".zshrc", "configs/zsh/.zshrc", backup)
+		res, err := ApplyAppFilesWith("zsh", app, repo, ApplyOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got, want := readOrEmpty(target), "# pnpm\n"+portable+"\nexport A=1\n"; got != want {
+			t.Errorf("%s: deployed\n%s\nwant\n%s", line, got, want)
+		}
+		if len(res.Repaired) != 1 {
+			t.Errorf("%s: repaired = %q", line, res.Repaired)
+		}
+		if zsh, err := exec.LookPath("zsh"); err == nil {
+			if out, err := exec.Command(zsh, "-n", target).CombinedOutput(); err != nil {
+				t.Errorf("zsh -n: %v\n%s", err, out)
+			}
+		}
+	}
+}

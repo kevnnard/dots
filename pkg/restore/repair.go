@@ -82,6 +82,12 @@ var legacyZshLines = func() map[string]string {
 		name := strings.Fields(tool)[0]
 		lines[fmt.Sprintf(`eval "$(%s)"`, tool)] = fmt.Sprintf(`(( $+commands[%s] )) && eval "$(%s)"`, name, tool)
 	}
+	// A macOS backup pins pnpm under ~/Library/pnpm, which does not exist on
+	// Linux; the switch keeps that path on macOS and uses XDG elsewhere.
+	portablePnpm := `if [[ "$OSTYPE" == darwin* ]]; then export PNPM_HOME="$HOME/Library/pnpm"; else export PNPM_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/pnpm"; fi`
+	for _, home := range []string{homepath.Token, "$HOME"} {
+		lines[`export PNPM_HOME="`+home+`/Library/pnpm"`] = portablePnpm
+	}
 	for _, p := range zshPlugins {
 		lines["source $(dirname $BREW_BIN)/share/"+p.file] = fmt.Sprintf(
 			`for _dots_plugin in ${BREW_BIN:+"$(dirname "$BREW_BIN")/share/%s"} %s; do [[ -r "$_dots_plugin" ]] && { source "$_dots_plugin"; break; }; done; unset _dots_plugin`,
