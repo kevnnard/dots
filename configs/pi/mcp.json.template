@@ -34,7 +34,10 @@
       "url": "https://mcp.linear.app/mcp"
     },
     "neon": {
-      "url": "https://mcp.neon.tech/mcp"
+      "url": "https://mcp.neon.tech/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_NEON_API_KEY_HERE"
+      }
     },
     "postgres": {
       "args": [

@@ -119,6 +119,7 @@ first three itself; the rest are steps for you.
 | Login files (`auth.json`, `mcp-auth.json`) keep OAuth identifiers even when masked | They never travel. Sign in again on the new machine (`dots setup` lists every login). |
 | `PNPM_HOME` pinned to `~/Library/pnpm` breaks pnpm on Linux | Repaired on restore (see above). |
 | Gentle Shell | Install the bundled Gentle Shell with its own installer (`dots setup` shows where), then `dots restore gentle-shell --received`. Do not use `gentle-ai shell install` on Linux, and never run `gentle-shell update` or `pi update` inside such a private install: gentle-ai 4.3.1 leaves it unlaunchable (gentle-ai#5812, #5808). If the installer finds a `gentle-shell` on `PATH` that pnpm or npm did not install, move that link aside first; do not delete the old install. |
+| Neon MCP sign-in fails with "Invalid redirect URI" | Use an API key from https://console.neon.tech instead: `"headers": {"Authorization": "Bearer <key>"}` on `mcpServers.neon` in `~/.gentle-shell/agent/mcp.json` and `~/.pi/agent/mcp.json`. `dots setup` shows this step. |
 | Engram inside Gentle Shell | Memory works through the `gentle-engram` extension and the shared server on `127.0.0.1:7437`. Gentle Shell points `ENGRAM_BIN` at its guard, so an `engram` MCP server in `~/.gentle-shell/agent/mcp.json` always fails there; keep it `"enabled": false`. Pi keeps its own. |
 
 ## Results and exit code

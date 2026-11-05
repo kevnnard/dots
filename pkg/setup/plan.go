@@ -32,6 +32,7 @@ func Plan() []Step {
 		{ID: "antigravity", Title: "Antigravity sign-in", Login: true, Guide: "run `agy` in your terminal and sign in when it asks"},
 		{ID: "gentle-shell-login", Title: "Gentle Shell login", Login: true, Guide: "run `gentle-shell` and use /login for each provider; login files never travel in backups"},
 		{ID: "linear", Title: "Linear MCP sign-in", Login: true, Guide: "in pi or gentle-shell, sign in to the linear MCP server (OAuth) with /mcp"},
+		{ID: "neon", Title: "Neon MCP API key", Login: true, Guide: "create an API key at https://console.neon.tech (Account settings > API keys) and set it as mcpServers.neon.headers.Authorization = \"Bearer <key>\" in ~/.gentle-shell/agent/mcp.json and ~/.pi/agent/mcp.json; the OAuth sign-in fails with \"Invalid redirect URI\""},
 		{ID: "postgres", Title: "Postgres MCP connection", Login: true, Guide: "run `npx -y @microsoft/postgres-mcp connection add <name> \"<URI without password>\"`, then `connection set-password <name>` and type the password at its prompt"},
 	}
 }

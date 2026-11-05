@@ -15,7 +15,8 @@
    Restore its configs afterwards with `dots restore gentle-shell --received`.
 4. **Logins**: Claude Code, Copilot (Neovim), GitHub CLI, Codex, Gentle Shell
    (`/login` inside `gentle-shell`; login files never travel in backups),
-   Antigravity, Linear MCP, Postgres MCP.
+   Antigravity, Linear MCP, Neon MCP (an API key in the `Authorization` header;
+   its OAuth sign-in fails with "Invalid redirect URI"), Postgres MCP.
 
 ## How logins work
 

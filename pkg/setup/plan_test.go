@@ -30,7 +30,7 @@ func TestPlanStartsWithShellThenNoTokenThenLogins(t *testing.T) {
 // Services that take a credential the user enters themselves are guided: dots
 // shows where to do it and never runs it.
 func TestCredentialServicesAreGuidedNotRun(t *testing.T) {
-	want := map[string]bool{"postgres": false, "linear": false, "codex": false, "antigravity": false}
+	want := map[string]bool{"postgres": false, "linear": false, "codex": false, "antigravity": false, "neon": false}
 	for _, s := range Plan() {
 		if _, ok := want[s.ID]; !ok {
 			continue
@@ -69,4 +69,21 @@ func TestPlanGuidesGentleShellInstallAndLogin(t *testing.T) {
 	if !login.Login || len(login.Command) != 0 || !strings.Contains(login.Guide, "/login") {
 		t.Errorf("login step = %+v", *login)
 	}
+}
+
+// Neon's OAuth sign-in fails with "Invalid redirect URI", so its step guides
+// the API key header instead.
+func TestNeonStepGuidesTheAPIKeyHeader(t *testing.T) {
+	for _, s := range Plan() {
+		if s.ID != "neon" {
+			continue
+		}
+		for _, want := range []string{"console.neon.tech", "Authorization", "Bearer", "~/.gentle-shell/agent/mcp.json", "Invalid redirect URI"} {
+			if !strings.Contains(s.Guide, want) {
+				t.Errorf("neon guide lacks %q: %s", want, s.Guide)
+			}
+		}
+		return
+	}
+	t.Fatal("plan has no neon step")
 }
