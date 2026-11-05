@@ -121,7 +121,7 @@ var (
 var knownEnvNames = setOf(
 	"PGSQL_MCP_CONNECTION_STRING", "DATABASE_URL", "OPENAI_API_KEY", "ANTHROPIC_API_KEY",
 	"GITHUB_TOKEN", "GITHUB_PERSONAL_ACCESS_TOKEN", "GH_TOKEN", "LINEAR_API_KEY",
-	"CONTEXT7_API_KEY", "NEON_API_KEY", "SUPABASE_ACCESS_TOKEN", "NOTION_TOKEN",
+	"CONTEXT7_API_KEY", "NEON_API_KEY", "NOTION_TOKEN",
 	"AZURE_OPENAI_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "OPENROUTER_API_KEY",
 )
 
@@ -158,7 +158,7 @@ var trustedFields = setOf(
 // they are printed only as entries of a server or provider table.
 var trustedEntries = setOf(
 	"codegraph", "context7", "engram", "linear", "neon", "postgres", "stitch",
-	"supabase", "notion", "pencil", "github",
+	"notion", "pencil", "github",
 	"azure", "openai", "anthropic", "ollama", "openrouter", "lmstudio", "mistral",
 	"groq", "xai", "gemini", "deepseek",
 )

@@ -24,10 +24,6 @@
       ],
       "command": "/Applications/Pencil.app/Contents/Resources/app.asar.unpacked/out/mcp-server-darwin-arm64",
       "type": "stdio"
-    },
-    "supabase": {
-      "type": "sse",
-      "url": "http://127.0.0.1:54321/mcp"
     }
   }
 }

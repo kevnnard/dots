@@ -3,7 +3,6 @@ tap "kevnnard/tap", trusted: true
 tap "ngrok/ngrok", trusted: true
 tap "shopify/shopify", trusted: true
 tap "steipete/tap"
-tap "supabase/tap", trusted: true
 tap "tw93/tap", trusted: true
 # Run your GitHub Actions locally
 brew "act"
