@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Cut a dots release: bump the version, tag it, publish the GitHub release
-# with its source archive, and point the Homebrew tap's stable formula at it.
+# Cut a dots release: test, bump the version, tag, publish the GitHub release,
+# and point both Homebrew tap formulas and the tap README at it.
 #
 # Usage: scripts/release.sh [--dry-run] X.Y.Z
 # Env:   TAP_DIR  path to the homebrew-tap checkout (default ../homebrew-tap)
@@ -18,7 +18,7 @@ REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 TAP_DIR="${TAP_DIR:-$REPO_DIR/../homebrew-tap}"
 TAG="v$VERSION"
 MAIN_GO="$REPO_DIR/cmd/dots/main.go"
-FORMULA="$TAP_DIR/Formula/dots.rb"
+URL="https://codeload.github.com/kevnnard/dots/tar.gz/refs/tags/$TAG"
 
 run() {
   if [[ $DRY_RUN -eq 1 ]]; then echo "[dry-run] $*"; else "$@"; fi
@@ -26,7 +26,7 @@ run() {
 
 cd "$REPO_DIR"
 
-# Preflight: fail before touching anything.
+# Preflight: fail before changing anything.
 [[ "$(git branch --show-current)" == "main" ]] || { echo "release from main only" >&2; exit 1; }
 if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
   echo "tracked changes present; commit or stash first" >&2; exit 1
@@ -34,9 +34,9 @@ fi
 if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null || git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
   echo "$TAG already exists" >&2; exit 1
 fi
-[[ -f "$FORMULA" ]] || { echo "tap formula not found: $FORMULA (set TAP_DIR)" >&2; exit 1; }
+[[ -f "$TAP_DIR/Formula/dots.rb" ]] || { echo "tap formula not found under $TAP_DIR (set TAP_DIR)" >&2; exit 1; }
 if [[ -n "$(git -C "$TAP_DIR" status --porcelain --untracked-files=no)" ]]; then
-  echo "tap checkout has changes: $TAP_DIR" >&2; exit 1
+  echo "tap checkout has tracked changes: $TAP_DIR" >&2; exit 1
 fi
 gh auth status >/dev/null 2>&1 || { echo "gh is not authenticated" >&2; exit 1; }
 
@@ -53,54 +53,31 @@ run git tag -a "$TAG" -m "dots $TAG"
 run git push origin main
 run git push origin "$TAG"
 
-echo "==> source archive (committed content only)"
-ARCHIVE="$(mktemp -d)/dots-$TAG.tar.gz"
-run git archive --format=tar.gz --prefix="dots-$VERSION/" -o "$ARCHIVE" "$TAG"
-SHA="$( [[ $DRY_RUN -eq 1 ]] && echo DRY-RUN-SHA || shasum -a 256 "$ARCHIVE" | cut -d' ' -f1 )"
+echo "==> archive hash (the exact tarball Homebrew downloads)"
+# Hash codeload's tarball for the tag. A local git archive has different bytes,
+# so its hash would fail Homebrew's check.
+SHA="DRY-RUN-SHA"
+if [[ $DRY_RUN -eq 0 ]]; then
+  ARCHIVE="$(mktemp -d)/dots-$TAG.tar.gz"
+  for attempt in 1 2 3 4 5; do
+    if curl -fsSL "$URL" -o "$ARCHIVE"; then break; fi
+    echo "archive not ready (attempt $attempt), retrying" >&2
+    sleep 5
+  done
+  SHA="$(shasum -a 256 "$ARCHIVE" | cut -d' ' -f1)"
+fi
 echo "sha256 $SHA"
 
 echo "==> GitHub release"
-run gh release create "$TAG" "$ARCHIVE" --title "dots $TAG" --generate-notes
+run gh release create "$TAG" ${ARCHIVE:+"$ARCHIVE"} --title "dots $TAG" --generate-notes
 
-echo "==> tap formula"
-URL="https://github.com/kevnnard/dots/archive/refs/tags/$TAG.tar.gz"
+echo "==> tap formulas and README"
 if [[ $DRY_RUN -eq 1 ]]; then
-  echo "[dry-run] would set stable url $URL sha256 $SHA in $FORMULA"
+  echo "[dry-run] would set url $URL, version $VERSION, sha256 $SHA in Formula/dots.rb and Formula/kevnnard-dots.rb"
+  echo "[dry-run] would refresh the dots block in README.md, then commit and push the tap"
 else
-  python3 - "$FORMULA" "$URL" "$SHA" <<'PY'
-import re, sys
-path, url, sha = sys.argv[1:]
-src = open(path).read()
-stable = f'  stable do\n    url "{url}"\n    sha256 "{sha}"\n  end\n\n'
-if "  stable do" in src:
-    src = re.sub(r"  stable do\n.*?\n  end\n\n", stable, src, count=1, flags=re.S)
-else:
-    src = src.replace('  head "', stable + '  head "', 1)
-open(path, "w").write(src)
-PY
-  python3 - "$TAP_DIR/README.md" "$VERSION" <<'PY'
-import sys
-path, version = sys.argv[1:]
-block = (
-    "<!-- dots:start -->\n"
-    f"## dots {version}\n\n"
-    "```bash\n"
-    "brew tap kevnnard/tap\n"
-    "brew install kevnnard/tap/dots\n"
-    "brew upgrade kevnnard/tap/dots\n"
-    "```\n"
-    "<!-- dots:end -->\n"
-)
-src = open(path).read()
-if "<!-- dots:start -->" in src:
-    start = src.index("<!-- dots:start -->")
-    end = src.index("<!-- dots:end -->") + len("<!-- dots:end -->\n")
-    src = src[:start] + block + src[end:]
-else:
-    src = src.rstrip("\n") + "\n\n" + block
-open(path, "w").write(src)
-PY
-  git -C "$TAP_DIR" add Formula/dots.rb README.md
+  python3 "$REPO_DIR/scripts/release_tap.py" "$TAP_DIR" "$URL" "$VERSION" "$SHA"
+  git -C "$TAP_DIR" add Formula/dots.rb Formula/kevnnard-dots.rb README.md
   git -C "$TAP_DIR" commit -m "dots $TAG"
   git -C "$TAP_DIR" push origin HEAD
 fi
