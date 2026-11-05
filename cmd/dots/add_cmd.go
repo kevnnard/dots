@@ -44,14 +44,19 @@ var addCmd = &cobra.Command{
 		fmt.Printf("✓ Added path '%s' to app '%s' in manifest.\n", srcPath, appName)
 
 		if autoBackupFlag {
-			app := m.Apps[appName]
-			res, err := backup.BackupApp(appName, app, repoDir)
+			// Stage it like `dots backup` does: in the private backup folder,
+			// never inside the repository.
+			outDir, err := resolveOutDir("", repoDir)
+			if err != nil {
+				return err
+			}
+			res, err := backup.BackupApp(appName, m.Apps[appName], outDir)
 			if err != nil {
 				return err
 			}
 			printAppBackupResult(res)
 		} else {
-			fmt.Println("Tip: Run 'dots backup' to snapshot this new configuration into the repository.")
+			fmt.Println("Tip: run 'dots backup' to stage this new configuration in your private backup.")
 		}
 
 		return nil
@@ -59,6 +64,6 @@ var addCmd = &cobra.Command{
 }
 
 func init() {
-	addCmd.Flags().BoolVarP(&autoBackupFlag, "backup", "b", true, "Immediately backup the path after adding (default true)")
+	addCmd.Flags().BoolVarP(&autoBackupFlag, "backup", "b", true, "Stage the path in the private backup folder (~/.cache/dots/backup) right after adding")
 	rootCmd.AddCommand(addCmd)
 }

@@ -53,6 +53,7 @@ func TestEndToEndCLI(t *testing.T) {
 	os.WriteFile(dummyConfig, []byte("setting=on\n"), 0644)
 
 	addCmd := exec.Command(binPath, "add", "mytool", dummyConfig, "--dir", dotfilesDir)
+	addCmd.Env = append(os.Environ(), "HOME="+tmpDir)
 	output, err = addCmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("failed 'dots add': %s: %v", string(output), err)
@@ -61,10 +62,13 @@ func TestEndToEndCLI(t *testing.T) {
 		t.Errorf("expected add confirmation, got: %s", string(output))
 	}
 
-	// Verify that dummy.conf was copied to configs/mytool/dummy.conf
-	backedUpFile := filepath.Join(dotfilesDir, "configs", "mytool", "dummy.conf")
-	if _, err := os.Stat(backedUpFile); os.IsNotExist(err) {
-		t.Fatalf("expected backed up file at %s", backedUpFile)
+	// dummy.conf is staged in the private backup folder, never in the repository
+	stagedFile := filepath.Join(tmpDir, ".cache", "dots", "backup", "configs", "mytool", "dummy.conf")
+	if _, err := os.Stat(stagedFile); os.IsNotExist(err) {
+		t.Fatalf("expected staged file at %s", stagedFile)
+	}
+	if _, err := os.Stat(filepath.Join(dotfilesDir, "configs", "mytool")); !os.IsNotExist(err) {
+		t.Fatalf("dots add must never copy a config into the repository")
 	}
 
 	// 5. Test 'dots restore --dry-run --dir <dotfilesDir>'

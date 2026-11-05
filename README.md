@@ -68,7 +68,7 @@ This repository holds the **tool and its install recipes**, not your configs. Yo
 |:---|:---|
 | **Set up a machine with these tools** | Install `dots` (Quickstart), then `dots restore --all --install-packages` and `dots setup`. Apps keep their stock configuration. |
 | **Bring your configs from another machine** | On the machine that has them: `dots backup` and `dots backup --send <device>`. On the new one: `dots backup --receive <code>`, then `dots restore --received --all`. See [New machine, step by step](#-new-machine-step-by-step). |
-| **Track one more config** | `dots add <app> <path> --backup=false`; it travels in your next `dots backup`. |
+| **Track one more config** | `dots add <app> <path>`: records it in the manifest and stages it in your private backup; it travels with your next `dots backup --send`. |
 
 ---
 
@@ -261,8 +261,8 @@ dots clean --backups --dry-run
 # Undo a clean: put the quarantined configs back (asks once)
 dots clean recover ~/.dots-quarantine/clean-<timestamp>
 
-# Track a new configuration path in the manifest; it travels in your next backup
-dots add starship ~/.config/starship.toml --backup=false
+# Track a new configuration path and stage it in the private backup folder
+dots add starship ~/.config/starship.toml
 ```
 
 ---
