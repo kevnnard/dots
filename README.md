@@ -229,6 +229,9 @@ dots restore --all --install-packages
 # Guided post-install steps (shell, logins, next actions); resumable
 dots setup
 dots setup --dry-run
+# Setup never runs a login for you: Codex, Antigravity, Linear and Postgres steps
+# show what to do in your own terminal, then check the tool's status when it can.
+# See docs/setup.md#guided-steps.
 
 # Preview the cleanup of every declared app: packages and configs (changes nothing)
 dots clean --all --packages --configs --dry-run
