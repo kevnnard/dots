@@ -22,7 +22,7 @@
 **Cross-platform workstation setup, dotfiles backup engine, and AI agent harness in Go.**  
 Zero dependencies on blank machines. Interactive 8-bit TUI dashboard. Enterprise-grade secret protection.
 
-[⚡️ Quickstart](#️-60-second-quickstart) • [🗺️ Architecture](#️-system-architecture) • [🖥️ Interactive TUI](#️-interactive-tui-dashboard) • [📦 Stacks & Profiles](#-stacks--profiles-matrix) • [🛡️ Secrets](#️-zero-leak-secrets-engine) • [📖 CLI Guide](#-complete-cli-reference)
+[⚡️ Quickstart](#️-60-second-quickstart) • [🚚 New machine](#-new-machine-step-by-step) • [🗺️ Architecture](#️-system-architecture) • [🖥️ Interactive TUI](#️-interactive-tui-dashboard) • [📦 Stacks & Profiles](#-stacks--profiles-matrix) • [🛡️ Secrets](#️-zero-leak-secrets-engine) • [📖 CLI Guide](#-complete-cli-reference)
 
 </div>
 
@@ -60,45 +60,47 @@ go build -ldflags="-s -w" -o ~/.local/bin/dots ./cmd/dots
 
 ---
 
-## 👥 How to Use This Repository
+## 👥 How to Use dots
 
-| Mode | Who it's for | Workflow |
-|:---|:---|:---|
-| **1. Use My Setup (Consumer)** | You like this exact workstation setup (Ghostty, Neovim, Herdr, Zsh, AI agents) and want your Mac or Linux to look and work identically. | Just run the Quickstart and execute `dots restore --install-packages`. You don't need to fork; your machine simply downloads and installs the official recipes. |
-| **2. Manage Your Own Dotfiles (Fork & Backup)** | You want to use `dots` as the engine to version and sync **your own personal** dotfiles across your own computers. | 1. Click **[Fork](https://github.com/kevnnard/dots/fork)** on GitHub to create `github.com/<your-username>/dots`.<br/>2. Clone your fork (`git clone https://github.com/<your-username>/dots.git ~/.dotfiles`).<br/>3. Run `dots backup` — it stages your configs in `~/.cache/dots/backup`, outside the repo. Nothing is committed or pushed; move the archive with Taildrop (see below). |
+This repository holds the **tool and its install recipes**, not your configs. You never fork it or push your dotfiles to it: install `dots`, restore with it, and move your own configs between your machines as a private backup over Tailscale.
 
-> 💡 **Tip for Fork users:** You can run the one-line installer pointing directly to your fork:
-> ```bash
-> curl -fsSL https://raw.githubusercontent.com/kevnnard/dots/main/install.sh | DOTS_REPO="https://github.com/<your-username>/dots.git" bash
-> ```
+| Goal | What you run |
+|:---|:---|
+| **Set up a machine with these tools** | Install `dots` (Quickstart), then `dots restore --all --install-packages` and `dots setup`. Apps keep their stock configuration. |
+| **Bring your configs from another machine** | On the machine that has them: `dots backup` and `dots backup --send <device>`. On the new one: `dots backup --receive <code>`, then `dots restore --received --all`. See [New machine, step by step](#-new-machine-step-by-step). |
+| **Track one more config** | `dots add <app> <path> --backup=false`; it travels in your next `dots backup`. |
 
 ---
 
 ## 🗺️ System Architecture
 
-`dots` uses a **Single Source of Truth** model. Both the tool source code and the configuration files live in the same repository, safely deploying outwards to host OS destinations and collecting backups inward through an automated sanitization firewall:
+The repository is the **source of truth for what to install and where configs live** (`manifest.yaml`, Brewfiles, the Go engine). Your configs never go into it: `dots backup` copies them, sanitized, into a private staging folder, and Taildrop moves that archive to your other machines inside your tailnet.
 
 ```mermaid
 flowchart TD
-    subgraph Repo["Unified Dotfiles Repository (Single Source of Truth)"]
-        Manifest["manifest.yaml (Recipes & Exclusions)"]
-        Configs["configs/ (nvim, ghostty, zsh, zed, pi, claude, codex)"]
-        Templates["configs/**/*.template (Sanitized Secrets & SSH IPs)"]
+    subgraph Repo["dots repository (public)"]
+        Manifest["manifest.yaml (apps, recipes, config paths, exclusions)"]
         Brewfiles["Brewfile, Brewfile.mobile, Brewfile.infra, Brewfile.ai"]
-        Binary["dots CLI & TUI Engine (Go)"]
+        Binary["dots CLI & TUI engine (Go)"]
     end
 
-    subgraph Host["Target Machine (macOS / Linux)"]
-        HomeDir["~/.config, ~/.zshrc, ~/.ssh, ~/.pi, ~/.claude"]
-        SafetyBackup["Target Safety Backups (*.YYYYMMDD_HHMMSS.bk)"]
-        PkgMgr["Package Managers (Homebrew, APT, Pacman, PNPM)"]
+    subgraph Mac["Machine A (has your configs)"]
+        HomeA["~/.config, ~/.zshrc, ~/.gentle-shell, ~/.pi, ~/.claude"]
+        Stage["~/.cache/dots/backup (private, sanitized)"]
     end
 
-    Binary -->|1. Detect OS & Drift| Host
-    Repo -->|2. Restore & Provision| Host
-    Host -.->|Diff detected before overwrite| SafetyBackup
-    Host -->|3. Backup & AST Redact| Stage["Staging dir (outside repo)"]
-    Stage -->|4. Taildrop, tailnet only| Other["Your other machine"]
+    subgraph Linux["Machine B (new)"]
+        Incoming["~/.cache/dots/incoming/CODE"]
+        HomeB["~/.config, ~/.zshrc, ~/.gentle-shell, ~/.pi, ~/.claude"]
+        SafetyBackup["Safety backups (*.YYYYMMDD_HHMMSS.bk)"]
+        PkgMgr["Package managers (Homebrew, pacman/yay, APT, pnpm)"]
+    end
+
+    Binary -->|dots restore --install-packages| PkgMgr
+    HomeA -->|dots backup: copy + redact| Stage
+    Stage -->|dots backup --send: Taildrop, tailnet only| Incoming
+    Incoming -->|dots restore --received| HomeB
+    HomeB -.->|before any replacement| SafetyBackup
 ```
 
 ---
@@ -138,7 +140,7 @@ Installing suspends the dashboard: install commands get the real terminal, so th
 | `Enter` | Select action, confirm installation preset, or view status |
 | `Space` | Toggle individual application in Custom Selection |
 | `a` | Toggle select all / unselect all in Custom Selection |
-| `c` | On the installation mode screen: toggle restoring the configs backed up in the repository (off by default) |
+| `c` | On the installation mode screen: toggle deploying configs from the dotfiles directory (off by default). For a backup received from another machine use `dots restore --received`. |
 | `r` | On the installation mode screen, with `c` on: allow replacing differing local files after a `.bk` safety backup |
 | `b` | Trigger immediate Backup from main menu |
 | `d` | Trigger Dry-run simulation (preview without writing) |
@@ -162,16 +164,17 @@ Configurations and software packages are grouped into modular profiles. You can 
 
 ## 🛡️ Zero-Leak Secrets Engine
 
-`dots` was engineered to allow publishing dotfiles to **public GitHub repositories** without ever leaking tokens, keys, database passwords, or server addresses.
+Backups never go to GitHub. They stay in a private folder and travel only over your tailnet, and even so `dots` strips what must not leave a machine: tokens, keys, database passwords and server addresses become templates, and login files are not copied at all.
 
 ```text
-Local Machine Config                       Dotfiles Repository (Public Safe)
-────────────────────                       ─────────────────────────────────
+Local Machine Config                       Private backup (~/.cache/dots/backup)
+────────────────────                       ─────────────────────────────────────
 ~/.ssh/config (Host 165.232.145.129)  ──►  configs/ssh/config.template (Host YOUR_SERVER_HOST_OR_IP)
 ~/.pi/agent/mcp.json (Linear / GCP)   ──►  configs/pi/mcp.json.template (lin_api_*** -> YOUR_LINEAR_KEY)
 ~/.claude/mcp.json (Postgres URL)     ──►  configs/claude/mcp.json.template (postgres://... -> YOUR_POSTGRES_URL)
 ~/.env (API_KEY=sk-proj-12345)        ──►  configs/**/*.env.template (API_KEY=YOUR_API_KEY)
-~/.ssh/id_ed25519                     ──►  ⛔️ BLOCKED by gitignore & engine exclusion filter
+~/.pi/agent/auth.json, mcp-auth.json  ──►  ⛔️ never copied (log in again on the new machine)
+~/.ssh/id_ed25519                     ──►  ⛔️ never copied (engine exclusion filter)
 ```
 
 1. **AST-Level JSON Sanitization**: Detects and redacts Bearer tokens, OpenAI/Anthropic/Linear/GCP API keys, and connection strings while preserving JSON hierarchy and server arguments.
@@ -208,7 +211,7 @@ dots backup --send kevnnard-station
 # Receiver: take the archive from the Taildrop inbox; it must match the code the sender printed.
 dots backup --receive <code>
 
-# Restore the last received backup: review first, then apply (see "Moving a backup between machines")
+# Restore the last received backup: review first, then apply (see "New machine, step by step")
 dots restore --received --all --dry-run
 
 # Dry-run restore simulation for default Core profile (no clone, writes or commands)
@@ -217,11 +220,14 @@ dots restore --dry-run
 # Install Core packages with their stock configuration
 dots restore --install-packages
 
-# Install Core packages and deploy the configs backed up in the repository
-dots restore --install-packages --with-config
+# Install packages and deploy the configs of the last received backup
+dots restore --received --all --install-packages
 
 # Same, also replacing differing local files (each gets a .bk safety backup first)
-dots restore --install-packages --with-config --replace-existing
+dots restore --received --all --install-packages --replace-existing
+
+# Deploy configs from a backup folder you extracted yourself
+dots -d ~/.cache/dots/incoming/<code> restore --with-config
 
 # Install one app with the apps it requires (optional apps must be named)
 dots restore lazygit --install-packages
@@ -252,25 +258,56 @@ dots clean zsh --configs
 # Move older restore backups (*.bk) to quarantine; the newest of each file stays
 dots clean --backups --dry-run
 
-# Track and immediately backup a new configuration
-dots add starship ~/.config/starship.toml
+# Track a new configuration path in the manifest; it travels in your next backup
+dots add starship ~/.config/starship.toml --backup=false
 ```
 
 ---
 
 
-### Moving a backup between machines
+## 🚚 New machine, step by step
 
-1. **Sender** (Mac): `dots backup` stages the configs in `~/.cache/dots/backup`. Nothing is committed or pushed.
-2. **Sender**: `dots backup --send <device>` sends the archive over Taildrop and prints an 8-character **code** (the start of its sha256) plus the two commands to run on the receiver. The code is not stored in any file: copy it from that output.
-3. **Receiver** (Linux): `dots backup --receive <code>` takes the file from the Taildrop inbox, checks that its sha256 starts with the code and extracts it into `~/.cache/dots/incoming/<code>/`. A wrong code extracts nothing. If the inbox holds several backups, copies of the matching one are dropped and any other backup is kept in `~/.cache/dots/incoming/unclaimed/`, never lost. Skills shared through `~/.agents/skills` travel as relative symlinks; restore refuses any link that points outside home. The full sha256 still works with `--sha256 <sha256>`.
-4. **Receiver**: review with `dots restore --received --all --dry-run`, then apply with `dots restore --received --all`. `--received` picks the last received backup and implies `--with-config`. Existing local files are kept; add `--replace-existing` only after reviewing the dry run.
-5. **Credentials** never travel: login files (`auth.json`, `mcp-auth.json`) stay out of the backup, and `mcp.json` arrives as a template. Sign in again on the new machine (Gentle Shell, Pi, Claude, Codex, Linear, Neon API key, Postgres) and follow `dots setup`.
-6. **Gentle Shell** on another machine: install the bundled Gentle Shell with its own installer (`dots setup` shows where), then `dots restore gentle-shell --received`.
+Both machines need Tailscale, signed in to the same tailnet. Device names come from `tailscale status`.
+
+**On the machine that has your configs (for example your Mac):**
+
+```bash
+brew upgrade kevnnard/tap/dots          # same dots version on both machines
+dots backup                             # stage a sanitized copy in ~/.cache/dots/backup
+dots backup --send <device>             # send it over Taildrop; prints an 8-character code
+```
+
+**On the new machine (for example Linux):**
+
+```bash
+# 1. Install dots (or use the one-line bootstrap from the Quickstart)
+brew tap kevnnard/tap && brew install kevnnard/tap/dots
+
+# 2. Let your user read the Taildrop inbox (once)
+sudo "$(command -v tailscale)" set --operator=$USER
+
+# 3. Receive the backup with the code the sender printed
+dots backup --receive <code>
+
+# 4. Preview, then install packages and deploy your configs
+dots restore --received --all --install-packages --dry-run
+dots restore --received --all --install-packages
+
+# 5. Logins, API keys and the Gentle Shell install, in order
+dots setup --dry-run
+dots setup
+```
+
+What to expect:
+
+1. **The code** is the start of the archive sha256 and is not stored anywhere: copy it from the sender output. A wrong code extracts nothing. The full sha256 also works with `--sha256 <sha256>`.
+2. **Several backups in the inbox** are fine: copies of the matching one are dropped and any other backup is kept in `~/.cache/dots/incoming/unclaimed/`, never lost.
+3. **Skills shared through `~/.agents/skills`** travel as relative symlinks; restore refuses any link that points outside home.
+4. **Local files are kept** when they differ from the backup, and the summary lists them. Add `--replace-existing` only after reviewing the dry run; every replaced file first gets a `.bk` copy.
+5. **Credentials never travel**: login files (`auth.json`, `mcp-auth.json`) stay out of the backup and `mcp.json` arrives as a template. Sign in again (Gentle Shell, Pi, Claude, Codex, Linear, Neon API key, Postgres); `dots setup` and the restore summary list each one.
+6. **Gentle Shell**: install the bundled Gentle Shell with its own installer (`dots setup` shows where), then `dots restore gentle-shell --received`.
 
 Known pitfalls of a macOS-to-Linux move (pnpm path, Gentle Shell installs, the Engram MCP server inside Gentle Shell, Neon sign-in) are listed in [docs/install-flow.md](docs/install-flow.md#moving-to-another-machine-known-pitfalls).
-
-If `--receive` reports `file access denied`, run once `sudo "$(command -v tailscale)" set --operator=$USER`, which lets your user read the Taildrop inbox.
 
 ## 🌍 Cross-Platform Install Recipes
 
@@ -329,21 +366,7 @@ dots/
 │   ├── setup/               # Resumable post-install steps (shell, logins, next actions)
 │   ├── status/              # Drift inspector and diff engine
 │   └── ui/                  # Bubble Tea / Lipgloss terminal visual dashboard
-├── configs/                 # Tracked dotfiles (deployed outwards to host)
-│   ├── agents/skills/       # Full Gentleman AI skill catalog
-│   ├── claude/              # Claude Code settings, agents, and mcp.json.template
-│   ├── codex/               # Codex CLI rules, hooks, and config.toml
-│   ├── engram/              # Engram memory protocol configuration
-│   ├── gentle-ai/           # Gentle AI harness state and model assignments
-│   ├── gentle-shell/        # Gentle Shell agent home: settings, skills, agents, chains, extensions, mcp.json.template
-│   ├── ghostty/             # Ghostty shaders, themes, and configuration
-│   ├── herdr/               # Herdr terminal workspace and agent manager
-│   ├── nvim/                # LazyVim setup, plugins, and keymaps
-│   ├── orca/                # Orca agent workspace hooks
-│   ├── pi/                  # Pi Agent harness, models, chains, mcp.json.template
-│   ├── ssh/                 # Sanitized config.template (IPs masked)
-│   ├── zed/                 # Zed editor keymaps and settings
-│   └── zsh/                 # .zshrc and .p10k.zsh Powerlevel10k theme
+├── configs/                 # A few sanitized templates and defaults only; your configs travel in private backups
 ├── docs/                    # Setup, cleaner, and install-flow guides
 ├── scripts/release.sh       # Cut a release: tests, tag, GitHub release, Homebrew tap
 ├── Brewfile                 # Core macOS workstation packages
