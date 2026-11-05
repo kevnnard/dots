@@ -56,15 +56,15 @@ validated, so anything dots cannot prove is reported as "not-verified" with
 the command to check it.`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if receivedFlag {
+			withConfigFlag = true
+		}
 		if replaceExistingFlag && !withConfigFlag {
 			return fmt.Errorf("--replace-existing only applies together with --with-config")
 		}
 		repoDir, err := resolveRestoreDir()
 		if err != nil {
 			return err
-		}
-		if receivedFlag {
-			withConfigFlag = true
 		}
 		out := cmd.OutOrStdout()
 

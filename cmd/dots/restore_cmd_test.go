@@ -610,3 +610,21 @@ func TestRestoreReceivedRejectsDir(t *testing.T) {
 		t.Errorf("nothing may run, ran %q", f.ran())
 	}
 }
+
+// --received implies --with-config, so --replace-existing is accepted with it.
+func TestRestoreReceivedAcceptsReplaceExisting(t *testing.T) {
+	f := receivedFixture(t)
+	if err := os.MkdirAll(filepath.Dir(f.target), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(f.target, []byte("# local\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	out, err := runRestore(t, "zsh", "-i", "--received", "--replace-existing")
+	if err != nil {
+		t.Fatalf("exit error: %v\n%s", err, out)
+	}
+	if data, _ := os.ReadFile(f.target); string(data) != "# backed up\n" {
+		t.Errorf("--received --replace-existing must replace the local file: %q\n%s", data, out)
+	}
+}
