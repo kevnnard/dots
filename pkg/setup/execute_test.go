@@ -211,3 +211,13 @@ func TestGuidedStepWithoutStatusIsManualWithGuide(t *testing.T) {
 		t.Fatalf("got %+v ran=%v", res, env.ran)
 	}
 }
+
+// A guided step that is not a login reports "not done yet", not "not signed in".
+func TestGuidedInstallStepFailsAsNotInstalled(t *testing.T) {
+	env := &fakeEnv{outputs: map[string]string{}}
+	step := Step{ID: "gentle-shell", Title: "Gentle Shell", Guide: "run sh install-gentle-shell.sh", Verify: []string{"gentle-shell", "--version"}}
+	res := Execute(env, step, "")
+	if res.Status != StatusFailed || res.Detail != "not installed yet; do this: run sh install-gentle-shell.sh" || len(env.ran) != 0 {
+		t.Fatalf("got %+v ran=%v", res, env.ran)
+	}
+}

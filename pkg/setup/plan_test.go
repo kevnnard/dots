@@ -1,6 +1,9 @@
 package setup
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // The shell choice comes first, then steps that need no token, then steps
 // that need a login the user completes in the terminal.
@@ -41,5 +44,29 @@ func TestCredentialServicesAreGuidedNotRun(t *testing.T) {
 		if !found {
 			t.Errorf("plan is missing guided step %q", id)
 		}
+	}
+}
+
+// Gentle Shell is installed with its own installer, which dots never runs:
+// the step shows where to get it and checks `gentle-shell --version`. It
+// needs no token, so it comes before the login steps; its login follows them.
+func TestPlanGuidesGentleShellInstallAndLogin(t *testing.T) {
+	var install, login *Step
+	for i, s := range Plan() {
+		switch s.ID {
+		case "gentle-shell":
+			install = &Plan()[i]
+		case "gentle-shell-login":
+			login = &Plan()[i]
+		}
+	}
+	if install == nil || login == nil {
+		t.Fatalf("plan must have gentle-shell and gentle-shell-login steps")
+	}
+	if install.Login || len(install.Command) != 0 || !strings.Contains(install.Guide, "install-gentle-shell.sh") || strings.Join(install.Verify, " ") != "gentle-shell --version" {
+		t.Errorf("install step = %+v", *install)
+	}
+	if !login.Login || len(login.Command) != 0 || !strings.Contains(login.Guide, "/login") {
+		t.Errorf("login step = %+v", *login)
 	}
 }

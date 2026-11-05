@@ -188,6 +188,10 @@ func guidedStep(env Env, step Step, res Result) Result {
 		res.Status, res.Detail = StatusDone, "verified with "+strings.Join(step.Verify, " ")
 		return res
 	}
+	if !step.Login {
+		res.Status, res.Detail = StatusFailed, "not installed yet; do this: "+step.Guide
+		return res
+	}
 	res.Status, res.Detail = StatusFailed, "not signed in yet; do this: "+step.Guide
 	return res
 }

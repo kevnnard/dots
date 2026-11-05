@@ -9,7 +9,13 @@
    must show the new shell before the step passes. It applies in the next session.
 2. **zsh with powerlevel10k**. No token. Passes when `~/.zshrc` and
    `~/.p10k.zsh` are in place (from `dots restore zsh --with-config`).
-3. **Logins**: Claude Code, Copilot (Neovim), GitHub CLI.
+3. **Gentle Shell (bundled install)**. No token. dots never runs the installer:
+   it shows where to download `gentle-shell-installer` and to run
+   `sh install-gentle-shell.sh`, then passes when `gentle-shell --version` works.
+   Restore its configs afterwards with `dots restore gentle-shell --received`.
+4. **Logins**: Claude Code, Copilot (Neovim), GitHub CLI, Codex, Gentle Shell
+   (`/login` inside `gentle-shell`; login files never travel in backups),
+   Antigravity, Linear MCP, Postgres MCP.
 
 ## How logins work
 
