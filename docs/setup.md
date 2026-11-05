@@ -36,3 +36,7 @@ command exit non-zero, but the remaining steps still run.
 - Only zsh and bash are offered for the shell now. More shells can come from
   `/etc/shells` later.
 - The shell change needs your password when `chsh` asks for it.
+
+## Guided steps
+
+Some steps need a credential that only you can enter: the Postgres MCP connection password, the Linear MCP sign-in, the Codex and Antigravity sign-ins. For these, `dots setup` never runs the login and never reads the credential. It shows the guide (the command or app step to do yourself) and then checks the tool's own status when one exists. Without a status check the step stays `manual`.

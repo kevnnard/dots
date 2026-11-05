@@ -179,3 +179,35 @@ func TestLoginSkipsLoginWhenStatusAlreadyPasses(t *testing.T) {
 		t.Errorf("gh auth login must not run, ran %v", env.ran)
 	}
 }
+
+// A guided step only tells the user what to run. dots never runs it, so no
+// credential passes through dots.
+func TestGuidedStepNeverRunsItsGuide(t *testing.T) {
+	env := &fakeEnv{outputs: map[string]string{}}
+	step := Step{ID: "codex", Title: "Codex login", Guide: "codex login", Verify: []string{"codex", "login", "status"}}
+	res := Execute(env, step, "")
+	if len(env.ran) != 0 {
+		t.Fatalf("guided step ran %v; it must only show the guide", env.ran)
+	}
+	if res.Status != StatusFailed || !strings.Contains(res.Detail, "codex login") {
+		t.Fatalf("not signed in should fail with the guide, got %+v", res)
+	}
+}
+
+func TestGuidedStepDoneWhenStatusPasses(t *testing.T) {
+	env := &fakeEnv{outputs: map[string]string{"codex login status": "logged in"}}
+	step := Step{ID: "codex", Title: "Codex login", Guide: "codex login", Verify: []string{"codex", "login", "status"}}
+	res := Execute(env, step, "")
+	if res.Status != StatusDone || len(env.ran) != 0 {
+		t.Fatalf("signed in should be done without running anything, got %+v ran=%v", res, env.ran)
+	}
+}
+
+func TestGuidedStepWithoutStatusIsManualWithGuide(t *testing.T) {
+	env := &fakeEnv{outputs: map[string]string{}}
+	step := Step{ID: "linear", Title: "Linear MCP", Guide: "open pi and sign in to linear"}
+	res := Execute(env, step, "")
+	if res.Status != StatusManual || !strings.Contains(res.Detail, "sign in to linear") || len(env.ran) != 0 {
+		t.Fatalf("got %+v ran=%v", res, env.ran)
+	}
+}

@@ -23,3 +23,23 @@ func TestPlanStartsWithShellThenNoTokenThenLogins(t *testing.T) {
 		t.Errorf("plan has no login step")
 	}
 }
+
+// Services that take a credential the user enters themselves are guided: dots
+// shows where to do it and never runs it.
+func TestCredentialServicesAreGuidedNotRun(t *testing.T) {
+	want := map[string]bool{"postgres": false, "linear": false, "codex": false, "antigravity": false}
+	for _, s := range Plan() {
+		if _, ok := want[s.ID]; !ok {
+			continue
+		}
+		want[s.ID] = true
+		if s.Guide == "" || len(s.Command) != 0 {
+			t.Errorf("%s must have a guide and no command, got guide=%q command=%v", s.ID, s.Guide, s.Command)
+		}
+	}
+	for id, found := range want {
+		if !found {
+			t.Errorf("plan is missing guided step %q", id)
+		}
+	}
+}

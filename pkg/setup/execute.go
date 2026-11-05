@@ -52,6 +52,9 @@ func Execute(env Env, step Step, choice string) Result {
 		}
 		return res
 	}
+	if step.Guide != "" {
+		return guidedStep(env, step, res)
+	}
 	// A status command that already passes means the session exists: do not
 	// run the login again.
 	if len(step.Verify) > 0 {
@@ -171,4 +174,20 @@ func shellField(entry string) string {
 		return ""
 	}
 	return fields[6]
+}
+
+// guidedStep never runs the guide: the user does it. It passes when the tool's
+// status check passes; without one, or before the user is signed in, it is
+// reported as manual or failed with the guide, never as an error in dots.
+func guidedStep(env Env, step Step, res Result) Result {
+	if len(step.Verify) == 0 {
+		res.Status, res.Detail = StatusManual, "do this yourself: "+step.Guide
+		return res
+	}
+	if _, err := env.Output(step.Verify); err == nil {
+		res.Status, res.Detail = StatusDone, "verified with "+strings.Join(step.Verify, " ")
+		return res
+	}
+	res.Status, res.Detail = StatusFailed, "not signed in yet; do this: "+step.Guide
+	return res
 }

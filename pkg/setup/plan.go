@@ -12,6 +12,10 @@ type Step struct {
 	Login   bool
 	Command []string
 	Verify  []string
+	// Guide is what the user runs or does, in their own terminal or app, to
+	// give the tool a credential. dots never runs a guide and never reads the
+	// credential; it only shows the guide and checks Verify afterwards.
+	Guide string
 }
 
 // Plan returns the steps in priority order: the default shell first, then
@@ -23,5 +27,9 @@ func Plan() []Step {
 		{ID: "claude", Title: "Claude Code login", Login: true, Command: []string{"claude"}},
 		{ID: "copilot", Title: "Copilot (Neovim) sign-in", Login: true, Command: []string{"nvim"}},
 		{ID: "gh", Title: "GitHub CLI login", Login: true, Command: []string{"gh", "auth", "login"}, Verify: []string{"gh", "auth", "status"}},
+		{ID: "codex", Title: "Codex login", Login: true, Guide: "run `codex login` in your terminal", Verify: []string{"codex", "login", "status"}},
+		{ID: "antigravity", Title: "Antigravity sign-in", Login: true, Guide: "run `agy` in your terminal and sign in when it asks"},
+		{ID: "linear", Title: "Linear MCP sign-in", Login: true, Guide: "in pi or gentle-shell, sign in to the linear MCP server (OAuth) with /mcp"},
+		{ID: "postgres", Title: "Postgres MCP connection", Login: true, Guide: "run `npx -y @microsoft/postgres-mcp connection add <name> \"<URI without password>\"`, then `connection set-password <name>` and type the password at its prompt"},
 	}
 }
