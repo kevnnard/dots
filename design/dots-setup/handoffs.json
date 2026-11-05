@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "chosen": "02-terminal-checklist.html",
+  "handoffs": {
+    "02-terminal-checklist.html": {
+      "status": "implemented",
+      "queued": false,
+      "sentAt": "2026-11-04T23:24:53.877Z",
+      "startedAt": "2026-11-04T23:24:59.189Z",
+      "implementedAt": "2026-11-04T23:25:45.202Z",
+      "feature": "odd/tasks/post-install-setup.md",
+      "note": "Implemented in cmd/dots/setup_view.go with pkg/ui styles. Header shows done steps over total, one glyph per step, shell choice marks the selected shell. Differences: line input (1/2/Enter) instead of arrow keys; no running preview URL because this is a CLI."
+    }
+  }
+}

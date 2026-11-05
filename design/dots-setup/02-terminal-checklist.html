@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dots setup — terminal checklist</title>
+<style>
+  :root {
+    --bg: #1E1E2E; --text: #F8F8F2; --primary: #7D56F4; --secondary: #00D7D7;
+    --success: #04B575; --warning: #FFB86C; --danger: #FF5555; --muted: #9AA3C7; --title-bg: #7D56F4;
+  }
+  body { margin: 0; background: #11111B; color: var(--text);
+    font: 14px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .window { max-width: 760px; margin: 40px auto; background: var(--bg); border-radius: 10px; overflow: hidden; }
+  .titlebar { background: var(--title-bg); color: var(--text); padding: 6px 14px; font-weight: 700; }
+  pre { margin: 0; padding: 20px 24px; white-space: pre-wrap; }
+  .ok { color: var(--success); }
+  .sel { color: var(--secondary); font-weight: 700; }
+  .warn { color: var(--warning); }
+  .mute { color: var(--muted); }
+  .key { color: var(--text); background: #313244; padding: 0 4px; border-radius: 3px; }
+  :focus-visible { outline: 3px solid var(--secondary); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<section class="window" aria-label="dots setup in the terminal">
+  <div class="titlebar">dots setup · 2/5</div>
+<pre><span class="ok">✓</span> 1. Default shell ............ zsh  <span class="mute">(applies in next session)</span>
+<span class="ok">✓</span> 2. zsh with powerlevel10k ..... ready
+<span class="mute">◦</span> 3. Claude Code login ......... <span class="warn">waiting for you</span>
+<span class="mute">◦</span> 4. Copilot (Neovim) ......... <span class="warn">manual check</span>
+<span class="mute">◦</span> 5. GitHub CLI login ......... <span class="mute">pending</span>
+
+<span class="sel">▸ Choose the default shell</span>
+    <span class="sel">● zsh</span>   <span class="mute">○ bash</span>
+
+<span class="mute">↑/↓ move · Enter select · q quit</span>
+<span class="mute">Logins run here. Password and link prompts appear in this terminal.</span></pre>
+</section>
+</body>
+</html>
