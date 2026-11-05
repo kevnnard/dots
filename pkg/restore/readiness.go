@@ -100,6 +100,10 @@ var authRules = map[string][]authRule{
 		{provider: "Pi provider login", file: "~/.pi/agent/auth.json", perKey: true, action: "run `pi` and use /login"},
 		{provider: "Pi MCP OAuth", file: "~/.pi/agent/mcp-auth.json", perKey: true, action: "run `pi` and authenticate the MCP server when prompted"},
 	},
+	"gentle-shell": {
+		{provider: "Gentle Shell provider login", file: "~/.gentle-shell/agent/auth.json", perKey: true, action: "run `gentle-shell` and use /login"},
+		{provider: "Gentle Shell MCP OAuth", file: "~/.gentle-shell/agent/mcp-auth.json", perKey: true, action: "run `gentle-shell` and authenticate the MCP server when prompted"},
+	},
 	"nvim": {{provider: "GitHub Copilot (Neovim)", file: "~/.config/nvim/lua/config/lazy.lua", marker: "copilot", action: "open nvim and run :Copilot auth"}},
 }
 

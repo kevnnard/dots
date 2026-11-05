@@ -144,6 +144,45 @@ apps:
             brew:
                 manager: brew
                 package: gentleman-programming/tap/gentle-ai
+    gentle-shell:
+        description: Gentle Shell agent home (settings, models, MCP servers, skills, agents, chains, extensions)
+        profile: core,ai
+        paths:
+            - src: ~/.gentle-shell/agent/settings.json
+              dest: configs/gentle-shell/settings.json
+            - src: ~/.gentle-shell/agent/models.json
+              dest: configs/gentle-shell/models.json
+            - src: ~/.gentle-shell/agent/mcp.json
+              dest: configs/gentle-shell/mcp.json
+            - src: ~/.gentle-shell/agent/trust.json
+              dest: configs/gentle-shell/trust.json
+            - src: ~/.gentle-shell/agent/web-search.json
+              dest: configs/gentle-shell/web-search.json
+            - src: ~/.gentle-shell/agent/claude-bridge.json
+              dest: configs/gentle-shell/claude-bridge.json
+            - src: ~/.gentle-shell/agent/skills
+              dest: configs/gentle-shell/skills
+            - src: ~/.gentle-shell/agent/agents
+              dest: configs/gentle-shell/agents
+            - src: ~/.gentle-shell/agent/chains
+              dest: configs/gentle-shell/chains
+            - src: ~/.gentle-shell/agent/extensions
+              dest: configs/gentle-shell/extensions
+        exclude:
+            - sessions/**
+            - web-search-cache/**
+            - '*.log'
+            - '*.bak*'
+            - '*.tmp.*'
+            - '*.cache.json'
+            - crashes.json
+            - npm/**
+            - bin/**
+            - node_modules/**
+            - .git/**
+            - .DS_Store
+        secrets:
+            - mcp.json
     herdr:
         description: Herdr terminal workspace and agent process manager
         profile: core,ai

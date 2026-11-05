@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -116,5 +117,38 @@ func TestExpandPath(t *testing.T) {
 	expected := filepath.Join(home, ".config", "nvim")
 	if expanded != expected {
 		t.Errorf("expected %s, got %s", expected, expanded)
+	}
+}
+
+// Gentle Shell keeps its own agent home, ~/.gentle-shell/agent, on macOS and
+// Linux alike. Its configs travel like Pi's; its login files never do, not
+// even as templates: masking keeps OAuth identifiers such as codeVerifier.
+func TestGentleShellAgentHomeIsDeclared(t *testing.T) {
+	gs, ok := DefaultManifest().Apps["gentle-shell"]
+	if !ok {
+		t.Fatal("manifest must declare gentle-shell")
+	}
+	srcs := map[string]string{}
+	for _, p := range gs.Paths {
+		if !strings.HasPrefix(p.Src, "~/.gentle-shell/agent/") {
+			t.Errorf("path %s is outside the Gentle Shell agent home", p.Src)
+		}
+		srcs[p.Src] = p.Dest
+	}
+	for _, rel := range []string{"settings.json", "models.json", "mcp.json", "trust.json", "skills", "agents", "chains", "extensions"} {
+		if dest := srcs["~/.gentle-shell/agent/"+rel]; dest != "configs/gentle-shell/"+rel {
+			t.Errorf("%s: dest %q, want configs/gentle-shell/%s", rel, dest, rel)
+		}
+	}
+	for _, never := range []string{"auth.json", "mcp-auth.json", "antigravity-accounts.json", "configs", "sessions"} {
+		if _, ok := srcs["~/.gentle-shell/agent/"+never]; ok {
+			t.Errorf("%s holds credentials or private state and must not be backed up", never)
+		}
+	}
+	secrets := strings.Join(gs.Secrets, ",")
+	for _, s := range []string{"mcp.json"} {
+		if !strings.Contains(","+secrets+",", ","+s+",") {
+			t.Errorf("%s must be a secret (template only), secrets = %v", s, gs.Secrets)
+		}
 	}
 }
