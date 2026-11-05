@@ -22,7 +22,7 @@
 **Cross-platform workstation setup, dotfiles backup engine, and AI agent harness in Go.**  
 Zero dependencies on blank machines. Interactive 8-bit TUI dashboard. Enterprise-grade secret protection.
 
-[⚡️ Quickstart](#️-60-second-quickstart) • [🚚 New machine](#-new-machine-step-by-step) • [🗺️ Architecture](#️-system-architecture) • [🖥️ Interactive TUI](#️-interactive-tui-dashboard) • [📦 Stacks & Profiles](#-stacks--profiles-matrix) • [🛡️ Secrets](#️-zero-leak-secrets-engine) • [📖 CLI Guide](#-complete-cli-reference)
+[⚡️ Quickstart](#️-60-second-quickstart) • [🚚 New machine](#-new-machine-step-by-step) • [🧹 Clean up](#-clean-up) • [🗺️ Architecture](#️-system-architecture) • [🖥️ Interactive TUI](#️-interactive-tui-dashboard) • [📦 Stacks & Profiles](#-stacks--profiles-matrix) • [🛡️ Secrets](#️-zero-leak-secrets-engine) • [📖 CLI Guide](#-complete-cli-reference)
 
 </div>
 
@@ -258,6 +258,9 @@ dots clean zsh --configs
 # Move older restore backups (*.bk) to quarantine; the newest of each file stays
 dots clean --backups --dry-run
 
+# Undo a clean: put the quarantined configs back (asks once)
+dots clean recover ~/.dots-quarantine/clean-<timestamp>
+
 # Track a new configuration path in the manifest; it travels in your next backup
 dots add starship ~/.config/starship.toml --backup=false
 ```
@@ -308,6 +311,37 @@ What to expect:
 6. **Gentle Shell**: install the bundled Gentle Shell with its own installer (`dots setup` shows where), then `dots restore gentle-shell --received`.
 
 Known pitfalls of a macOS-to-Linux move (pnpm path, Gentle Shell installs, the Engram MCP server inside Gentle Shell, Neon sign-in) are listed in [docs/install-flow.md](docs/install-flow.md#moving-to-another-machine-known-pitfalls).
+
+## 🧹 Clean up
+
+`dots clean` undoes what `dots restore` installed or deployed, only for apps declared in `manifest.yaml`. It prints the whole plan first and changes nothing until you type `yes` once; `--dry-run` stops after the plan. It needs an interactive terminal, and there is no flag to skip the confirmation.
+
+Pick what to clean; the three scopes are independent, and with none of them nothing is planned:
+
+| Flag | What it does |
+|:---|:---|
+| `--packages` | Uninstalls the apps' packages with the manager's plain uninstall (no force, purge or recursion), dependents first. Only packages whose single declared owner the package database proves; others are reported as blocked or unsupported and never touched. |
+| `--configs` | Moves the apps' mapped config files into `~/.dots-quarantine/clean-<timestamp>/`. Nothing is deleted; files that may hold credentials stay in place. Directories are not supported yet. |
+| `--backups` | Moves older restore backups (`<file>.<timestamp>.bk`) into the same quarantine. The most recent backup of every file always stays. |
+
+```bash
+# Preview everything for every declared app (changes nothing)
+dots clean --all --packages --configs --backups --dry-run
+
+# Clean named apps only
+dots clean zsh --configs
+dots clean herdr fzf --packages
+
+# Tidy up the .bk copies that restores leave behind
+dots clean --backups --dry-run
+dots clean --backups
+
+# Undo: put a quarantine back (existing files are left as conflicts)
+dots clean recover ~/.dots-quarantine/clean-<timestamp> --dry-run
+dots clean recover ~/.dots-quarantine/clean-<timestamp>
+```
+
+`--all` means every app in the manifest, optional ones included; it never means every package installed on the machine. In the TUI, **Clean Up Apps** runs the same plan, with `p`, `c` and `b` toggling the scopes. Details: [docs/cleaner.md](docs/cleaner.md).
 
 ## 🌍 Cross-Platform Install Recipes
 
