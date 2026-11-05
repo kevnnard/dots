@@ -42,11 +42,14 @@ curl -fsSL https://raw.githubusercontent.com/kevnnard/dots/main/install.sh | bas
 > 3. Downloads the official Go toolchain to `~/.local/go` if Go is missing or older than 1.21, then builds `~/.local/bin/dots` and `~/.local/bin/kevnnard-dots`.
 > 4. Launches the interactive Bubble Tea visual dashboard (set `DOTS_NO_LAUNCH=1` to skip).
 
-### Option B: Homebrew Tap (macOS)
+### Option B: Homebrew (macOS and Linux)
 ```bash
 brew tap kevnnard/tap
-brew install --HEAD kevnnard/tap/dots
+brew install kevnnard/tap/dots        # latest stable release
+brew upgrade kevnnard/tap/dots        # after a new release
+brew install --HEAD kevnnard/tap/dots # latest main, for unreleased changes
 ```
+The formula installs `dots` and the alias `kevnnard-dots`. Each release is cut with `scripts/release.sh` (see [Releases](#-releases)).
 
 ### Option C: Build from source
 ```bash
@@ -223,6 +226,19 @@ dots restore --profile mobile --install-packages
 # Restore full environment (all profiles combined)
 dots restore --all --install-packages
 
+# Guided post-install steps (shell, logins, next actions); resumable
+dots setup
+dots setup --dry-run
+
+# Preview the cleanup of every declared app: packages and configs (changes nothing)
+dots clean --all --packages --configs --dry-run
+
+# Clean one app after one confirmation; its configs move to quarantine, never deleted
+dots clean zsh --configs
+
+# Move older restore backups (*.bk) to quarantine; the newest of each file stays
+dots clean --backups --dry-run
+
 # Track and immediately backup a new configuration
 dots add starship ~/.config/starship.toml
 ```
@@ -278,9 +294,12 @@ dots/
 ├── cmd/dots/                # Go CLI entrypoint, subcommands, and TUI wiring
 ├── pkg/
 │   ├── backup/              # Copy engine, exclusions, and secret AST sanitizers
+│   ├── clean/               # Cleaner: packages, configs to quarantine, old .bk backups
 │   ├── detector/            # OS, Distro, Arch, and package manager detector
+│   ├── homepath/            # __HOME__ portable path mapping
 │   ├── manifest/            # manifest.yaml parser, path expander, Brewfiles
 │   ├── restore/             # File restoration, safety .bk creator, package runner
+│   ├── setup/               # Resumable post-install steps (shell, logins, next actions)
 │   ├── status/              # Drift inspector and diff engine
 │   └── ui/                  # Bubble Tea / Lipgloss terminal visual dashboard
 ├── configs/                 # Tracked dotfiles (deployed outwards to host)
@@ -297,6 +316,8 @@ dots/
 │   ├── ssh/                 # Sanitized config.template (IPs masked)
 │   ├── zed/                 # Zed editor keymaps and settings
 │   └── zsh/                 # .zshrc and .p10k.zsh Powerlevel10k theme
+├── docs/                    # Setup, cleaner, and install-flow guides
+├── scripts/release.sh       # Cut a release: tests, tag, GitHub release, Homebrew tap
 ├── Brewfile                 # Core macOS workstation packages
 ├── Brewfile.ai              # AI agents & Ollama local runtime
 ├── Brewfile.infra           # Local infrastructure & test tools
@@ -308,6 +329,19 @@ dots/
 
 ---
 
+## 🚀 Releases
+
+Releases are cut from `main` with a clean tree and `gh` authenticated:
+
+```bash
+scripts/release.sh --dry-run 1.3.0   # prints every step, changes nothing
+scripts/release.sh 1.3.0
+```
+
+The script runs the tests, sets `version` in `cmd/dots/main.go`, commits, tags `v1.3.0` and pushes both. It creates the GitHub release and hashes the source tarball that Homebrew downloads. Then it updates `Formula/dots.rb` and `Formula/kevnnard-dots.rb` in the tap checkout (`TAP_DIR`, default `../homebrew-tap`) and pushes the tap. Users then run `brew upgrade kevnnard/tap/dots`.
+
+---
+
 ## 📜 License
 
 This project is licensed under the **[PolyForm Noncommercial License 1.0.0](LICENSE)**.
@@ -315,4 +349,4 @@ This project is licensed under the **[PolyForm Noncommercial License 1.0.0](LICE
 - **✅ Free for personal use**: Anyone can use, modify, fork, and distribute this software for personal workstation setups, education, research, and non-commercial development.
 - **❌ Commercial sale prohibited**: Selling, reselling, or commercial exploitation of this software or its derivatives is strictly prohibited without explicit written consent from the author.
 
-Copyright (c) 2026 **Kevin Naranjo (Kevnnard)**.
+Copyright (c) 2026 **Kevnnard**.

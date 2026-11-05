@@ -71,13 +71,13 @@ echo "sha256 $SHA"
 echo "==> GitHub release"
 run gh release create "$TAG" ${ARCHIVE:+"$ARCHIVE"} --title "dots $TAG" --generate-notes
 
-echo "==> tap formulas and README"
+echo "==> tap formulas"
 if [[ $DRY_RUN -eq 1 ]]; then
   echo "[dry-run] would set url $URL, version $VERSION, sha256 $SHA in Formula/dots.rb and Formula/kevnnard-dots.rb"
-  echo "[dry-run] would refresh the dots block in README.md, then commit and push the tap"
+  echo "[dry-run] then commit and push the tap"
 else
   python3 "$REPO_DIR/scripts/release_tap.py" "$TAP_DIR" "$URL" "$VERSION" "$SHA"
-  git -C "$TAP_DIR" add Formula/dots.rb Formula/kevnnard-dots.rb README.md
+  git -C "$TAP_DIR" add Formula/dots.rb Formula/kevnnard-dots.rb
   git -C "$TAP_DIR" commit -m "dots $TAG"
   git -C "$TAP_DIR" push origin HEAD
 fi
