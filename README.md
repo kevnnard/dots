@@ -262,7 +262,7 @@ dots add starship ~/.config/starship.toml
 
 1. **Sender** (Mac): `dots backup` stages the configs in `~/.cache/dots/backup`. Nothing is committed or pushed.
 2. **Sender**: `dots backup --send <device>` sends the archive over Taildrop and prints an 8-character **code** (the start of its sha256) plus the two commands to run on the receiver. The code is not stored in any file: copy it from that output.
-3. **Receiver** (Linux): `dots backup --receive <code>` takes the file from the Taildrop inbox, checks that its sha256 starts with the code and extracts it into `~/.cache/dots/incoming/<code>/`. A wrong code extracts nothing. The full sha256 still works with `--sha256 <sha256>`.
+3. **Receiver** (Linux): `dots backup --receive <code>` takes the file from the Taildrop inbox, checks that its sha256 starts with the code and extracts it into `~/.cache/dots/incoming/<code>/`. A wrong code extracts nothing. If the inbox holds several backups, copies of the matching one are dropped and any other backup is kept in `~/.cache/dots/incoming/unclaimed/`, never lost. Skills shared through `~/.agents/skills` travel as relative symlinks; restore refuses any link that points outside home. The full sha256 still works with `--sha256 <sha256>`.
 4. **Receiver**: review with `dots restore --received --all --dry-run`, then apply with `dots restore --received --all`. `--received` picks the last received backup and implies `--with-config`. Existing local files are kept; add `--replace-existing` only after reviewing the dry run.
 5. **Credentials** (Codex, Claude, Linear, Postgres) are never in the backup. Log in by hand and check with `dots setup`.
 

@@ -149,64 +149,113 @@ func Send(r Runner, archive, device string) error {
 	return nil
 }
 
-// Receive takes the one dots backup in the Taildrop inbox, checks that its
-// sha256 starts with code, and extracts it into dest. dest must not exist.
-func Receive(r Runner, dest, code string) error {
+// Receive takes the dots backups from the Taildrop inbox and extracts the one
+// whose sha256 starts with code into dest, which must not exist. Taildrop
+// hands over every pending file at once: copies of the matching backup are
+// dropped, and any other backup is kept in unclaimed/ next to dest, never
+// lost. It returns the kept paths.
+func Receive(r Runner, dest, code string) ([]string, error) {
 	if err := checkCode(code); err != nil {
-		return err
+		return nil, err
 	}
 	if _, err := os.Lstat(dest); err == nil {
-		return fmt.Errorf("destination %s already exists; nothing was received", dest)
+		return nil, fmt.Errorf("destination %s already exists; nothing was received", dest)
 	} else if !os.IsNotExist(err) {
-		return err
+		return nil, err
 	}
 
 	inbox, err := os.MkdirTemp("", "dots-inbox-")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer os.RemoveAll(inbox)
 	if out, err := r.Run("tailscale", "file", "get", "--conflict=skip", inbox); err != nil {
-		return fmt.Errorf("tailscale file get: %w: %s", err, strings.TrimSpace(string(out)))
+		return nil, fmt.Errorf("tailscale file get: %w: %s", err, strings.TrimSpace(string(out)))
 	}
 
 	matches, err := filepath.Glob(filepath.Join(inbox, ArchivePrefix+"*.tar.gz"))
 	if err != nil {
-		return err
+		return nil, err
 	}
-	switch len(matches) {
-	case 0:
-		return errors.New("no dots backup found in the Taildrop inbox")
-	case 1:
-	default:
-		return fmt.Errorf("found %d dots backups; receive one at a time", len(matches))
+	if len(matches) == 0 {
+		return nil, errors.New("no dots backup found in the Taildrop inbox")
 	}
-
-	got, err := sha256File(matches[0])
-	if err != nil {
-		return err
-	}
-	if !strings.HasPrefix(got, strings.ToLower(code)) {
-		return fmt.Errorf("the received backup does not match code %s (its sha256 is %s); nothing was extracted", code, got)
-	}
-
 	parent := filepath.Dir(dest)
+	var match, firstSum string
+	var unclaimed []string
+	for _, m := range matches {
+		got, err := sha256File(m)
+		if err != nil {
+			return unclaimed, err
+		}
+		if strings.HasPrefix(got, strings.ToLower(code)) {
+			if match == "" {
+				match = m
+			}
+			continue
+		}
+		if firstSum == "" {
+			firstSum = got
+		}
+		kept, err := keepUnclaimed(m, filepath.Join(parent, "unclaimed"))
+		if err != nil {
+			return unclaimed, err
+		}
+		unclaimed = append(unclaimed, kept)
+	}
+	if match == "" {
+		return unclaimed, fmt.Errorf("the received backup does not match code %s (its sha256 is %s); nothing was extracted, it was kept in %s", code, firstSum, filepath.Join(parent, "unclaimed"))
+	}
+
 	if err := os.MkdirAll(parent, 0o755); err != nil {
-		return err
+		return unclaimed, err
 	}
 	stage, err := os.MkdirTemp(parent, ".dots-receive-")
 	if err != nil {
-		return err
+		return unclaimed, err
 	}
-	if err := extract(matches[0], stage); err != nil {
+	if err := extract(match, stage); err != nil {
 		os.RemoveAll(stage)
-		return err
+		return unclaimed, err
 	}
 	if err := os.Rename(stage, dest); err != nil {
 		os.RemoveAll(stage)
-		return err
+		return unclaimed, err
 	}
-	return nil
+	return unclaimed, nil
+}
+
+// keepUnclaimed copies archive into dir under a name that is not taken yet.
+// The inbox is usually on another filesystem, so it is copied, not renamed.
+func keepUnclaimed(archive, dir string) (string, error) {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	data, err := os.ReadFile(archive)
+	if err != nil {
+		return "", err
+	}
+	base := strings.TrimSuffix(filepath.Base(archive), ".tar.gz")
+	for i := 0; i < 1000; i++ {
+		name := base + ".tar.gz"
+		if i > 0 {
+			name = fmt.Sprintf("%s.%d.tar.gz", base, i)
+		}
+		target := filepath.Join(dir, name)
+		f, err := os.OpenFile(target, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+		if os.IsExist(err) {
+			continue
+		}
+		if err != nil {
+			return "", err
+		}
+		if _, err := f.Write(data); err != nil {
+			f.Close()
+			return "", err
+		}
+		return target, f.Close()
+	}
+	return "", fmt.Errorf("too many unclaimed backups named %s in %s", base, dir)
 }
 
 // IncomingDir is where received backups are extracted: ~/.cache/dots/incoming.

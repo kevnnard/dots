@@ -199,7 +199,11 @@ func runReceive(code, into string) error {
 		}
 		into = filepath.Join(incoming, name)
 	}
-	if err := transfer.Receive(transferRunner, into, code); err != nil {
+	unclaimed, err := transfer.Receive(transferRunner, into, code)
+	for _, u := range unclaimed {
+		fmt.Printf("📦 Kept another backup from the inbox: %s\n", u)
+	}
+	if err != nil {
 		return err
 	}
 	if err := os.MkdirAll(incoming, 0o755); err != nil {

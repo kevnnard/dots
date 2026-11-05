@@ -145,7 +145,7 @@ func TestReceiveVerifiesShaAndExtracts(t *testing.T) {
 		writeFile(t, filepath.Join(args[len(args)-1], "dots-backup-ok.tar.gz"), string(data))
 	}}
 	dest := filepath.Join(t.TempDir(), "incoming")
-	if err := Receive(r, dest, sum); err != nil {
+	if _, err := Receive(r, dest, sum); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dest, "manifest.yaml")); err != nil {
@@ -164,7 +164,7 @@ func TestReceiveRejectsShaMismatch(t *testing.T) {
 		writeFile(t, filepath.Join(args[len(args)-1], "dots-backup-bad.tar.gz"), string(data))
 	}}
 	dest := filepath.Join(t.TempDir(), "incoming")
-	err := Receive(r, dest, strings.Repeat("0", 64))
+	_, err := Receive(r, dest, strings.Repeat("0", 64))
 	if err == nil || !strings.Contains(err.Error(), "sha256") {
 		t.Fatalf("want sha256 mismatch error, got %v", err)
 	}
@@ -178,13 +178,13 @@ func TestReceiveIgnoresOtherFilesAndNeverOverwrites(t *testing.T) {
 		writeFile(t, filepath.Join(args[len(args)-1], "photo.png"), "x")
 	}}
 	dest := filepath.Join(t.TempDir(), "incoming")
-	err := Receive(r, dest, strings.Repeat("0", 64))
+	_, err := Receive(r, dest, strings.Repeat("0", 64))
 	if err == nil || !strings.Contains(err.Error(), "no dots backup") {
 		t.Fatalf("want no-backup error, got %v", err)
 	}
 
 	existing := t.TempDir()
-	if err := Receive(&fakeRunner{}, existing, strings.Repeat("0", 64)); err == nil {
+	if _, err := Receive(&fakeRunner{}, existing, strings.Repeat("0", 64)); err == nil {
 		t.Fatal("existing destination must be refused")
 	}
 }
@@ -205,7 +205,7 @@ func TestRejectsPathTraversalInArchive(t *testing.T) {
 		writeFile(t, filepath.Join(args[len(args)-1], "dots-backup-evil.tar.gz"), string(data))
 	}}
 	dest := filepath.Join(t.TempDir(), "incoming")
-	if err := Receive(r, dest, testSHA(t, src)); err == nil {
+	if _, err := Receive(r, dest, testSHA(t, src)); err == nil {
 		t.Fatal("path traversal must be rejected")
 	}
 }
@@ -228,7 +228,7 @@ func TestReceiveAcceptsShortCode(t *testing.T) {
 		writeFile(t, filepath.Join(args[len(args)-1], "dots-backup-ok.tar.gz"), string(data))
 	}}
 	dest := filepath.Join(t.TempDir(), "incoming")
-	if err := Receive(r, dest, strings.ToUpper(code)); err != nil {
+	if _, err := Receive(r, dest, strings.ToUpper(code)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dest, "manifest.yaml")); err != nil {
@@ -252,7 +252,7 @@ func TestReceiveRejectsShortCodeMismatch(t *testing.T) {
 		wrong = "11111111"
 	}
 	dest := filepath.Join(t.TempDir(), "incoming")
-	err = Receive(r, dest, wrong)
+	_, err = Receive(r, dest, wrong)
 	if err == nil || !strings.Contains(err.Error(), "does not match") {
 		t.Fatalf("want code mismatch error, got %v", err)
 	}
@@ -265,7 +265,7 @@ func TestReceiveRejectsMalformedCodeBeforeTouchingInbox(t *testing.T) {
 	for _, code := range []string{"", "1b6d846", "zzzzzzzz", strings.Repeat("a", 65)} {
 		r := &fakeRunner{}
 		dest := filepath.Join(t.TempDir(), "incoming")
-		err := Receive(r, dest, code)
+		_, err := Receive(r, dest, code)
 		if err == nil || !strings.Contains(err.Error(), "code") {
 			t.Errorf("code %q: want malformed code error, got %v", code, err)
 		}
@@ -317,7 +317,7 @@ func TestArchiveCarriesSymlinksAndReceiveRecreatesThem(t *testing.T) {
 		writeFile(t, filepath.Join(args[len(args)-1], "dots-backup-links.tar.gz"), string(data))
 	}}
 	dest := filepath.Join(t.TempDir(), "incoming")
-	if err := Receive(r, dest, sum); err != nil {
+	if _, err := Receive(r, dest, sum); err != nil {
 		t.Fatal(err)
 	}
 	if link, err := os.Readlink(filepath.Join(dest, "configs", "pi", "skills", "orca-cli")); err != nil || link != "../../../.agents/skills/orca-cli" {
@@ -359,7 +359,7 @@ func TestReceiveRejectsUnsafeSymlinks(t *testing.T) {
 		}}
 		parent := t.TempDir()
 		dest := filepath.Join(parent, "incoming")
-		if err := Receive(r, dest, testSHA(t, src)); err == nil {
+		if _, err := Receive(r, dest, testSHA(t, src)); err == nil {
 			t.Errorf("%s: must be rejected", name)
 		}
 		if _, err := os.Stat(dest); !os.IsNotExist(err) {
@@ -368,5 +368,72 @@ func TestReceiveRejectsUnsafeSymlinks(t *testing.T) {
 		if _, err := os.Lstat(filepath.Join(parent, "evil")); !os.IsNotExist(err) {
 			t.Errorf("%s: wrote outside the destination", name)
 		}
+	}
+}
+
+// Taildrop hands over every pending file at once. Copies of the matching
+// backup are fine; any other backup is kept in unclaimed/, never lost.
+func TestReceivePicksMatchingBackupAndKeepsOthers(t *testing.T) {
+	repo := fixtureRepo(t)
+	src := filepath.Join(t.TempDir(), "a.tar.gz")
+	sum, err := Archive(repo, src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	other := filepath.Join(t.TempDir(), "b.tar.gz")
+	writeFile(t, filepath.Join(repo, "configs", "zsh", ".zshrc"), "export B=2\n")
+	if _, err := Archive(repo, other); err != nil {
+		t.Fatal(err)
+	}
+	r := &fakeRunner{onGet: func(args []string) {
+		inbox := args[len(args)-1]
+		data, _ := os.ReadFile(src)
+		writeFile(t, filepath.Join(inbox, "dots-backup-1.tar.gz"), string(data))
+		writeFile(t, filepath.Join(inbox, "dots-backup-2.tar.gz"), string(data))
+		odata, _ := os.ReadFile(other)
+		writeFile(t, filepath.Join(inbox, "dots-backup-3.tar.gz"), string(odata))
+	}}
+	parent := t.TempDir()
+	dest := filepath.Join(parent, "code")
+	unclaimed, err := Receive(r, dest, ShortCode(sum))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if data, _ := os.ReadFile(filepath.Join(dest, "configs", "zsh", ".zshrc")); string(data) != "export A=1\n" {
+		t.Errorf("extracted the wrong backup: %q", data)
+	}
+	want := filepath.Join(parent, "unclaimed", "dots-backup-3.tar.gz")
+	if len(unclaimed) != 1 || unclaimed[0] != want {
+		t.Fatalf("unclaimed = %v, want [%s]", unclaimed, want)
+	}
+	if _, err := os.Stat(want); err != nil {
+		t.Errorf("the other backup must be kept: %v", err)
+	}
+}
+
+func TestReceiveWithoutMatchKeepsEveryBackup(t *testing.T) {
+	repo := fixtureRepo(t)
+	src := filepath.Join(t.TempDir(), "a.tar.gz")
+	if _, err := Archive(repo, src); err != nil {
+		t.Fatal(err)
+	}
+	r := &fakeRunner{onGet: func(args []string) {
+		data, _ := os.ReadFile(src)
+		writeFile(t, filepath.Join(args[len(args)-1], "dots-backup-1.tar.gz"), string(data))
+	}}
+	parent := t.TempDir()
+	dest := filepath.Join(parent, "code")
+	unclaimed, err := Receive(r, dest, "00000000")
+	if err == nil || !strings.Contains(err.Error(), "does not match code 00000000") {
+		t.Fatalf("want mismatch error, got %v", err)
+	}
+	if _, statErr := os.Stat(dest); !os.IsNotExist(statErr) {
+		t.Error("nothing may be extracted without a match")
+	}
+	if len(unclaimed) != 1 {
+		t.Fatalf("unclaimed = %v, want the received backup kept", unclaimed)
+	}
+	if _, err := os.Stat(unclaimed[0]); err != nil {
+		t.Errorf("backup lost: %v", err)
 	}
 }
