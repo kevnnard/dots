@@ -16,6 +16,7 @@ import (
 	"github.com/kevnnard/dots/pkg/detector"
 	"github.com/kevnnard/dots/pkg/manifest"
 	"github.com/kevnnard/dots/pkg/restore"
+	"github.com/kevnnard/dots/pkg/transfer"
 )
 
 func TestUIModelNavigation(t *testing.T) {
@@ -109,6 +110,7 @@ func newTUIFixture(t *testing.T) *tuiFixture {
 	root := t.TempDir()
 	repo := filepath.Join(root, "repo")
 	f := &tuiFixture{target: filepath.Join(root, "home", ".zshrc"), fail: map[string]bool{}}
+	t.Setenv("HOME", filepath.Join(root, "home"))
 	os.MkdirAll(filepath.Join(repo, "configs", "zsh"), 0755)
 	os.WriteFile(filepath.Join(repo, "configs", "zsh", ".zshrc"), []byte("# backed up\n"), 0644)
 	m := &manifest.Manifest{Apps: map[string]manifest.AppConfig{
@@ -482,5 +484,39 @@ func TestTUIReportsKnownZshRepairThroughSharedSummary(t *testing.T) {
 	}
 	if backups, _ := filepath.Glob(f.target + ".*.bk"); len(backups) != 1 {
 		t.Errorf("safety backups = %v", backups)
+	}
+}
+
+// With a backup received from another machine, the config toggle deploys that
+// backup, like `dots restore --received`; without one it uses the repository.
+func TestTUIConfigToggleUsesLastReceivedBackup(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("HOME", filepath.Join(root, "home"))
+	incoming, err := transfer.IncomingDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	received := filepath.Join(incoming, "f4ca8131")
+	os.MkdirAll(filepath.Join(received, "configs", "zsh"), 0755)
+	os.WriteFile(filepath.Join(received, "manifest.yaml"), []byte("version: 1\n"), 0644)
+	os.WriteFile(filepath.Join(received, "configs", "zsh", ".zshrc"), []byte("# received\n"), 0644)
+	if err := transfer.RecordLatest(incoming, received); err != nil {
+		t.Fatal(err)
+	}
+	f := newTUIFixture(t)
+	t.Setenv("HOME", filepath.Join(root, "home"))
+	f.model = NewModel(f.model.Manifest, f.model.SysInfo, f.model.RepoDir)
+	f.model.Probe = func(string, manifest.AppConfig) bool { return false }
+	f.model.Exec = func(req restore.ExecRequest) error { f.calls = append(f.calls, req.AppName); return nil }
+	f.model.Suspend = f.suspend
+	f.stdin = strings.NewReader("")
+
+	preset := press(f.model, "enter", "c")
+	if !strings.Contains(preset.View(), received) {
+		t.Errorf("config toggle must name the received backup %s:\n%s", received, preset.View())
+	}
+	press(preset, "enter")
+	if data, _ := os.ReadFile(f.target); string(data) != "# received\n" {
+		t.Errorf("deployed %q, want the received backup", data)
 	}
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/kevnnard/dots/pkg/manifest"
 	"github.com/kevnnard/dots/pkg/restore"
 	"github.com/kevnnard/dots/pkg/status"
+	"github.com/kevnnard/dots/pkg/transfer"
 )
 
 type currentView int
@@ -48,9 +49,12 @@ type CheckItem struct {
 }
 
 type Model struct {
-	Manifest    *manifest.Manifest
-	SysInfo     *detector.SystemInfo
-	RepoDir     string
+	Manifest *manifest.Manifest
+	SysInfo  *detector.SystemInfo
+	RepoDir  string
+	// ConfigDir is where the config toggle deploys from: the last backup
+	// received from another machine (dots backup --receive), else RepoDir.
+	ConfigDir   string
 	State       currentView
 	PrevState   currentView
 	Cursor      int
@@ -104,16 +108,24 @@ func NewModel(m *manifest.Manifest, sys *detector.SystemInfo, repoDir string) Mo
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].Name < items[j].Name })
 
+	configDir := repoDir
+	if incoming, err := transfer.IncomingDir(); err == nil {
+		if received, err := transfer.LatestReceived(incoming); err == nil {
+			configDir = received
+		}
+	}
+
 	return Model{
-		Manifest: m,
-		SysInfo:  sys,
-		RepoDir:  repoDir,
-		State:    viewMain,
-		AppItems: items,
-		Cursor:   0,
-		Probe:    restore.CommandProbe,
-		Exec:     restore.ShellExecutor,
-		Suspend:  tea.Exec,
+		Manifest:  m,
+		SysInfo:   sys,
+		RepoDir:   repoDir,
+		ConfigDir: configDir,
+		State:     viewMain,
+		AppItems:  items,
+		Cursor:    0,
+		Probe:     restore.CommandProbe,
+		Exec:      restore.ShellExecutor,
+		Suspend:   tea.Exec,
 
 		CleanExec:     clean.OSExecutor{},
 		CleanHome:     os.UserHomeDir,
@@ -404,8 +416,12 @@ func (m Model) startRestore() (tea.Model, tea.Cmd) {
 		}
 	}
 	mf, sys, exe := m.Manifest, m.SysInfo, m.Exec
+	source := m.RepoDir
+	if m.WithConfig {
+		source = m.ConfigDir
+	}
 	opts := restore.RunOptions{
-		RepoDir:         m.RepoDir,
+		RepoDir:         source,
 		WithConfig:      m.WithConfig,
 		ReplaceExisting: m.ReplaceExisting,
 		InstallPackages: true,
@@ -611,7 +627,7 @@ func (m Model) View() string {
 func (m Model) configToggles() string {
 	cfg := StyleMuted.Render("off — apps keep their stock configuration; local files are untouched")
 	if m.WithConfig {
-		cfg = StyleSelected.Render(fmt.Sprintf("on — deploy configs from %s; differing local files are kept", m.RepoDir))
+		cfg = StyleSelected.Render(fmt.Sprintf("on — deploy configs from %s; differing local files are kept", m.ConfigDir))
 	}
 	replace := StyleMuted.Render("off — differing local files are kept")
 	if m.ReplaceExisting {
