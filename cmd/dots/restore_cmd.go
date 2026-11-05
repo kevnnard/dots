@@ -6,6 +6,7 @@ import (
 	"github.com/kevnnard/dots/pkg/detector"
 	"github.com/kevnnard/dots/pkg/manifest"
 	"github.com/kevnnard/dots/pkg/restore"
+	"github.com/kevnnard/dots/pkg/transfer"
 	"github.com/spf13/cobra"
 )
 
@@ -16,6 +17,7 @@ var (
 	allProfilesFlag     bool
 	withConfigFlag      bool
 	replaceExistingFlag bool
+	receivedFlag        bool
 
 	// External effects of restore, replaced by tests.
 	detectSystem                           = detector.Detect
@@ -36,6 +38,10 @@ installed. Existing local files that differ are kept unless --replace-existing
 is also given, in which case each one gets a timestamped .bk safety backup
 before it is replaced.
 
+--received restores the last backup taken with ` + "`dots backup --receive <code>`" + `
+and implies --with-config: dots restore --received --all --dry-run, then
+without --dry-run.
+
 Known legacy .zshrc plugin lines and the obsolete duplicate Pi Engram declaration
 are repaired in backup content before deployment. Other content is not repaired.
 With --with-config --replace-existing, the exact known local Pi Engram conflict
@@ -53,9 +59,12 @@ the command to check it.`,
 		if replaceExistingFlag && !withConfigFlag {
 			return fmt.Errorf("--replace-existing only applies together with --with-config")
 		}
-		repoDir, err := resolveDotfilesDir()
+		repoDir, err := resolveRestoreDir()
 		if err != nil {
 			return err
+		}
+		if receivedFlag {
+			withConfigFlag = true
 		}
 		out := cmd.OutOrStdout()
 
@@ -130,12 +139,29 @@ the command to check it.`,
 	},
 }
 
+// resolveRestoreDir is the dotfiles directory, or with --received the last
+// received backup.
+func resolveRestoreDir() (string, error) {
+	if !receivedFlag {
+		return resolveDotfilesDir()
+	}
+	if dotfilesDirFlag != "" {
+		return "", fmt.Errorf("--received and --dir cannot be combined: --received already selects the last received backup")
+	}
+	incoming, err := transfer.IncomingDir()
+	if err != nil {
+		return "", err
+	}
+	return transfer.LatestReceived(incoming)
+}
+
 func init() {
 	restoreCmd.Flags().BoolVarP(&dryRunFlag, "dry-run", "n", false, "Simulate restore without cloning, modifying files or running commands")
 	restoreCmd.Flags().BoolVarP(&installPackagesFlag, "install-packages", "i", false, "Execute package manager commands to install apps")
 	restoreCmd.Flags().StringVarP(&profileFlag, "profile", "p", "core", "Target profile: core (default), ai, mobile, infra, or all")
 	restoreCmd.Flags().BoolVarP(&allProfilesFlag, "all", "a", false, "Restore all profiles (optional apps still need to be named)")
 	restoreCmd.Flags().BoolVar(&withConfigFlag, "with-config", false, "Deploy configs backed up in the dotfiles repo (default: keep stock configs)")
+	restoreCmd.Flags().BoolVar(&receivedFlag, "received", false, "Restore the last backup received with dots backup --receive (implies --with-config)")
 	restoreCmd.Flags().BoolVar(&replaceExistingFlag, "replace-existing", false, "With --with-config, replace differing local files after a .bk safety backup")
 	rootCmd.AddCommand(restoreCmd)
 }

@@ -209,3 +209,90 @@ func TestRejectsPathTraversalInArchive(t *testing.T) {
 		t.Fatal("path traversal must be rejected")
 	}
 }
+
+// The receiver may type only the short code the sender prints: its first
+// characters still have to match the archive, and nothing else is accepted.
+func TestReceiveAcceptsShortCode(t *testing.T) {
+	repo := fixtureRepo(t)
+	src := filepath.Join(t.TempDir(), "dots-backup-ok.tar.gz")
+	sum, err := Archive(repo, src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := ShortCode(sum)
+	if len(code) != MinCodeLength || !strings.HasPrefix(sum, code) {
+		t.Fatalf("ShortCode(%s) = %q, want its first %d characters", sum, code, MinCodeLength)
+	}
+	r := &fakeRunner{onGet: func(args []string) {
+		data, _ := os.ReadFile(src)
+		writeFile(t, filepath.Join(args[len(args)-1], "dots-backup-ok.tar.gz"), string(data))
+	}}
+	dest := filepath.Join(t.TempDir(), "incoming")
+	if err := Receive(r, dest, strings.ToUpper(code)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dest, "manifest.yaml")); err != nil {
+		t.Fatalf("manifest not extracted: %v", err)
+	}
+}
+
+func TestReceiveRejectsShortCodeMismatch(t *testing.T) {
+	repo := fixtureRepo(t)
+	src := filepath.Join(t.TempDir(), "dots-backup-bad.tar.gz")
+	sum, err := Archive(repo, src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := &fakeRunner{onGet: func(args []string) {
+		data, _ := os.ReadFile(src)
+		writeFile(t, filepath.Join(args[len(args)-1], "dots-backup-bad.tar.gz"), string(data))
+	}}
+	wrong := "00000000"
+	if strings.HasPrefix(sum, wrong) {
+		wrong = "11111111"
+	}
+	dest := filepath.Join(t.TempDir(), "incoming")
+	err = Receive(r, dest, wrong)
+	if err == nil || !strings.Contains(err.Error(), "does not match") {
+		t.Fatalf("want code mismatch error, got %v", err)
+	}
+	if _, statErr := os.Stat(dest); !os.IsNotExist(statErr) {
+		t.Fatal("nothing may be extracted after a code mismatch")
+	}
+}
+
+func TestReceiveRejectsMalformedCodeBeforeTouchingInbox(t *testing.T) {
+	for _, code := range []string{"", "1b6d846", "zzzzzzzz", strings.Repeat("a", 65)} {
+		r := &fakeRunner{}
+		dest := filepath.Join(t.TempDir(), "incoming")
+		err := Receive(r, dest, code)
+		if err == nil || !strings.Contains(err.Error(), "code") {
+			t.Errorf("code %q: want malformed code error, got %v", code, err)
+		}
+		if len(r.calls) != 0 {
+			t.Errorf("code %q: the Taildrop inbox must not be read, got %v", code, r.calls)
+		}
+	}
+}
+
+func TestLatestReceivedRoundTrip(t *testing.T) {
+	root := t.TempDir()
+	if _, err := LatestReceived(root); err == nil || !strings.Contains(err.Error(), "no received backup") {
+		t.Fatalf("want no-received-backup error, got %v", err)
+	}
+	dest := filepath.Join(root, "1b6d8464")
+	writeFile(t, filepath.Join(dest, "manifest.yaml"), "version: 1\n")
+	if err := RecordLatest(root, dest); err != nil {
+		t.Fatal(err)
+	}
+	got, err := LatestReceived(root)
+	if err != nil || got != dest {
+		t.Fatalf("LatestReceived = %q, %v; want %q", got, err, dest)
+	}
+	if err := os.RemoveAll(dest); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LatestReceived(root); err == nil {
+		t.Fatal("a removed received backup must not be reported as latest")
+	}
+}

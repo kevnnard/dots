@@ -13,6 +13,7 @@ import (
 	"github.com/kevnnard/dots/pkg/detector"
 	"github.com/kevnnard/dots/pkg/manifest"
 	"github.com/kevnnard/dots/pkg/restore"
+	"github.com/kevnnard/dots/pkg/transfer"
 	"github.com/kevnnard/dots/pkg/ui"
 )
 
@@ -98,7 +99,7 @@ func (f *cliFixture) ran() string {
 func runRestore(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 	dryRunFlag, installPackagesFlag, allProfilesFlag = false, false, false
-	withConfigFlag, replaceExistingFlag = false, false
+	withConfigFlag, replaceExistingFlag, receivedFlag = false, false, false
 	profileFlag, dotfilesDirFlag = "core", ""
 	var out bytes.Buffer
 	rootCmd.SetOut(&out)
@@ -542,5 +543,70 @@ func TestRestoreAuthorizedRunRepairsPiBeforeFirstInstaller(t *testing.T) {
 	}
 	if !strings.Contains(out, "🩹 repaired before install: "+target) || !strings.Contains(out, "safety backup: "+backups[0]) {
 		t.Errorf("output must report the pre-install repair and its backup:\n%s", out)
+	}
+}
+
+// receivedFixture records the fixture repository as the last received backup
+// under a temporary HOME, the way `dots backup --receive` leaves it.
+func receivedFixture(t *testing.T) *cliFixture {
+	t.Helper()
+	f := newCLIFixture(t)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	incoming, err := transfer.IncomingDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(incoming, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := transfer.RecordLatest(incoming, f.repo); err != nil {
+		t.Fatal(err)
+	}
+	return f
+}
+
+func TestRestoreReceivedDeploysLastReceivedBackup(t *testing.T) {
+	f := receivedFixture(t)
+	out, err := runRestore(t, "zsh", "-i", "--received")
+	if err != nil {
+		t.Fatalf("exit error: %v\n%s", err, out)
+	}
+	if f.ran() != "zsh,zsh-theme" {
+		t.Errorf("ran %q, want zsh,zsh-theme", f.ran())
+	}
+	for _, c := range f.calls {
+		if c.Dir != f.repo {
+			t.Errorf("%s ran in %q, want the received backup %q", c.AppName, c.Dir, f.repo)
+		}
+	}
+	if data, _ := os.ReadFile(f.target); string(data) != "# backed up\n" {
+		t.Errorf("--received must deploy the received configs: %q\n%s", data, out)
+	}
+	if !strings.Contains(out, "Restoring backed-up configs from "+f.repo) {
+		t.Errorf("output must name the received backup:\n%s", out)
+	}
+}
+
+func TestRestoreReceivedWithoutBackupFailsAndRunsNothing(t *testing.T) {
+	f := newCLIFixture(t)
+	t.Setenv("HOME", t.TempDir())
+	out, err := runRestore(t, "zsh", "-i", "--received")
+	if err == nil || !strings.Contains(err.Error(), "no received backup yet: run `dots backup --receive <code>` first") {
+		t.Fatalf("want no-received-backup error, got %v\n%s", err, out)
+	}
+	if len(f.calls) != 0 {
+		t.Errorf("nothing may run, ran %q", f.ran())
+	}
+}
+
+func TestRestoreReceivedRejectsDir(t *testing.T) {
+	f := receivedFixture(t)
+	out, err := runRestore(t, "zsh", "-i", "--received", "--dir", f.repo)
+	if err == nil || !strings.Contains(err.Error(), "--received and --dir cannot be combined") {
+		t.Fatalf("want conflict error, got %v\n%s", err, out)
+	}
+	if len(f.calls) != 0 {
+		t.Errorf("nothing may run, ran %q", f.ran())
 	}
 }

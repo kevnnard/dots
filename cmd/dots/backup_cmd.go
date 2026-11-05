@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/kevnnard/dots/pkg/backup"
@@ -17,15 +18,23 @@ var (
 	receiveFlag bool
 	sha256Flag  string
 	intoFlag    string
+
+	// Runs `tailscale file`, replaced by tests.
+	transferRunner transfer.Runner = transfer.ExecRunner{}
 )
 
 var backupCmd = &cobra.Command{
-	Use:   "backup [app-name]",
+	Use:   "backup [app-name | --receive <code>]",
 	Short: "Stage a private backup of local configs outside the repository",
 	Long: `Copies configuration files and directories from the local machine into a staging
 directory (default ~/.cache/dots/backup, or --out). The repository is never written
 and nothing is committed or pushed: backups hold personal configs, and the repository
-is public. Sensitive files are sanitized into templates; credentials never travel.`,
+is public. Sensitive files are sanitized into templates; credentials never travel.
+
+Move the backup to another machine over Taildrop:
+  dots backup --send <device>   prints a short code
+  dots backup --receive <code>  on the other machine, then
+  dots restore --received --all --dry-run`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Changed, not a non-empty check: --send '' must fail here, never fall
 		// through to the normal backup.
@@ -33,7 +42,11 @@ is public. Sensitive files are sanitized into templates; credentials never trave
 			return runSend(sendFlag, outFlag)
 		}
 		if receiveFlag {
-			return runReceive(sha256Flag, intoFlag)
+			code := sha256Flag
+			if code == "" && len(args) > 0 {
+				code = args[0]
+			}
+			return runReceive(code, intoFlag)
 		}
 
 		repoDir, err := resolveDotfilesDir()
@@ -156,42 +169,58 @@ func runSend(device, out string) error {
 	if err != nil {
 		return err
 	}
-	if err := transfer.Send(transfer.ExecRunner{}, archive, device); err != nil {
+	if err := transfer.Send(transferRunner, archive, device); err != nil {
 		return err
 	}
+	code := transfer.ShortCode(sum)
 	fmt.Printf("✈️  Sent %s to %s\n", filepath.Base(archive), device)
-	fmt.Printf("   sha256: %s\n", sum)
-	fmt.Printf("   On the receiving machine: dots backup --receive --sha256 %s\n", sum)
+	fmt.Printf("   Code: %s (sha256 %s)\n", code, sum)
+	fmt.Println("   On the receiving machine:")
+	fmt.Printf("     dots backup --receive %s\n", code)
+	fmt.Println("     dots restore --received --all --dry-run")
 	return nil
 }
 
-// runReceive takes the backup from the Taildrop inbox. It needs the sha256 the
-// sender printed; nothing is extracted unless it matches.
-func runReceive(sha, into string) error {
-	if len(sha) != 64 {
-		return fmt.Errorf("--sha256 is required: pass the 64-character sha256 the sender printed")
+// runReceive takes the backup from the Taildrop inbox. It needs the code (or
+// the full sha256) the sender printed; nothing is extracted unless it matches.
+// The extracted backup is recorded as the latest for `dots restore --received`.
+func runReceive(code, into string) error {
+	if code == "" {
+		return fmt.Errorf("the code is required: run `dots backup --receive <code>` with the code the sender printed")
 	}
-	if into == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return err
-		}
-		into = filepath.Join(home, ".cache", "dots", "incoming", sha[:12])
-	}
-	if err := transfer.Receive(transfer.ExecRunner{}, into, sha); err != nil {
+	incoming, err := transfer.IncomingDir()
+	if err != nil {
 		return err
 	}
-	fmt.Printf("📥 Received and verified (sha256 %s)\n", sha)
-	fmt.Printf("   Extracted into %s. Review it before restoring anything.\n", into)
-	fmt.Printf("   Restore with: dots -d %s restore\n", into)
+	if into == "" {
+		name := strings.ToLower(code)
+		if len(name) > 12 {
+			name = name[:12]
+		}
+		into = filepath.Join(incoming, name)
+	}
+	if err := transfer.Receive(transferRunner, into, code); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(incoming, 0o755); err != nil {
+		return err
+	}
+	if err := transfer.RecordLatest(incoming, into); err != nil {
+		return err
+	}
+	fmt.Printf("📥 Received and verified (code %s)\n", code)
+	fmt.Printf("   Extracted into %s\n", into)
+	fmt.Println("   Review the plan, then apply it:")
+	fmt.Println("     dots restore --received --all --dry-run")
+	fmt.Println("     dots restore --received --all")
 	return nil
 }
 
 func init() {
 	backupCmd.Flags().StringVar(&outFlag, "out", "", "Staging directory outside the repository (default ~/.cache/dots/backup)")
 	backupCmd.Flags().StringVar(&sendFlag, "send", "", "Send the staged backup to a Tailscale device name")
-	backupCmd.Flags().BoolVar(&receiveFlag, "receive", false, "Receive the backup from the Taildrop inbox (needs --sha256)")
-	backupCmd.Flags().StringVar(&sha256Flag, "sha256", "", "sha256 printed by the sender; required with --receive")
-	backupCmd.Flags().StringVar(&intoFlag, "into", "", "Directory to extract into (default ~/.cache/dots/incoming/<sha prefix>)")
+	backupCmd.Flags().BoolVar(&receiveFlag, "receive", false, "Receive the backup from the Taildrop inbox: dots backup --receive <code>")
+	backupCmd.Flags().StringVar(&sha256Flag, "sha256", "", "Full sha256 printed by the sender, instead of the short code")
+	backupCmd.Flags().StringVar(&intoFlag, "into", "", "Directory to extract into (default ~/.cache/dots/incoming/<code>)")
 	rootCmd.AddCommand(backupCmd)
 }

@@ -1,7 +1,8 @@
 // Package transfer moves a dots backup between machines over Taildrop. The
 // archive carries only the repository's configs/ tree and manifest.yaml. The
-// receiver accepts one archive, checks its sha256 before extracting, and never
-// overwrites an existing destination.
+// receiver accepts one archive, checks it against the code the sender printed
+// (the sha256 or its first MinCodeLength characters) before extracting, and
+// never overwrites an existing destination.
 package transfer
 
 import (
@@ -22,6 +23,29 @@ import (
 
 // ArchivePrefix names every archive so the receiver can pick it out of the inbox.
 const ArchivePrefix = "dots-backup-"
+
+// MinCodeLength is the shortest sha256 prefix the receiver may type.
+const MinCodeLength = 8
+
+// latestFile, inside the incoming directory, names the last received backup.
+const latestFile = "latest"
+
+// ShortCode returns the code the receiver types: the first MinCodeLength
+// characters of the archive sha256.
+func ShortCode(sum string) string {
+	return sum[:MinCodeLength]
+}
+
+// checkCode refuses anything but MinCodeLength to 64 hexadecimal characters.
+func checkCode(code string) error {
+	if len(code) < MinCodeLength || len(code) > 64 {
+		return fmt.Errorf("the code must be the %d-character code (or the full sha256) the sender printed, got %d characters", MinCodeLength, len(code))
+	}
+	if strings.Trim(strings.ToLower(code), "0123456789abcdef") != "" {
+		return fmt.Errorf("the code must be hexadecimal, as the sender printed it: %q", code)
+	}
+	return nil
+}
 
 // Runner runs one external command and returns its combined output.
 type Runner interface {
@@ -109,11 +133,11 @@ func Send(r Runner, archive, device string) error {
 	return nil
 }
 
-// Receive takes the one dots backup in the Taildrop inbox, checks it against
-// wantSHA, and extracts it into dest. dest must not exist.
-func Receive(r Runner, dest, wantSHA string) error {
-	if wantSHA == "" {
-		return errors.New("sha256 is required to verify the archive")
+// Receive takes the one dots backup in the Taildrop inbox, checks that its
+// sha256 starts with code, and extracts it into dest. dest must not exist.
+func Receive(r Runner, dest, code string) error {
+	if err := checkCode(code); err != nil {
+		return err
 	}
 	if _, err := os.Lstat(dest); err == nil {
 		return fmt.Errorf("destination %s already exists; nothing was received", dest)
@@ -146,8 +170,8 @@ func Receive(r Runner, dest, wantSHA string) error {
 	if err != nil {
 		return err
 	}
-	if !strings.EqualFold(got, wantSHA) {
-		return fmt.Errorf("sha256 mismatch: got %s, want %s; nothing was extracted", got, wantSHA)
+	if !strings.HasPrefix(got, strings.ToLower(code)) {
+		return fmt.Errorf("the received backup does not match code %s (its sha256 is %s); nothing was extracted", code, got)
 	}
 
 	parent := filepath.Dir(dest)
@@ -167,6 +191,40 @@ func Receive(r Runner, dest, wantSHA string) error {
 		return err
 	}
 	return nil
+}
+
+// IncomingDir is where received backups are extracted: ~/.cache/dots/incoming.
+func IncomingDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".cache", "dots", "incoming"), nil
+}
+
+// RecordLatest remembers dest as the last backup received into incoming.
+func RecordLatest(incoming, dest string) error {
+	abs, err := filepath.Abs(dest)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(incoming, latestFile), []byte(abs+"\n"), 0o644)
+}
+
+// LatestReceived returns the last backup recorded by RecordLatest, provided it
+// still holds a manifest.
+func LatestReceived(incoming string) (string, error) {
+	data, err := os.ReadFile(filepath.Join(incoming, latestFile))
+	if os.IsNotExist(err) {
+		return "", errors.New("no received backup yet: run `dots backup --receive <code>` first")
+	} else if err != nil {
+		return "", err
+	}
+	dir := strings.TrimSpace(string(data))
+	if _, err := os.Stat(filepath.Join(dir, "manifest.yaml")); err != nil {
+		return "", fmt.Errorf("the last received backup %s is gone: run `dots backup --receive <code>` again", dir)
+	}
+	return dir, nil
 }
 
 // extract unpacks archive under root. Entries that escape root are refused

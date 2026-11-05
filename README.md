@@ -205,11 +205,11 @@ dots backup nvim
 # Move a backup between your machines over Taildrop (tailnet only, no public server).
 # Sender: run `dots backup` first, then send the staged archive to a device name.
 dots backup --send kevnnard-station
-# Receiver: take the archive from the Taildrop inbox; it must match the sha256 the sender printed.
-dots backup --receive --sha256 <sha256>
+# Receiver: take the archive from the Taildrop inbox; it must match the code the sender printed.
+dots backup --receive <code>
 
-# Restore a received backup: review first, then apply (see "Moving a backup between machines")
-dots -d ~/.cache/dots/incoming/<first 12 chars of sha256> restore --with-config --dry-run
+# Restore the last received backup: review first, then apply (see "Moving a backup between machines")
+dots restore --received --all --dry-run
 
 # Dry-run restore simulation for default Core profile (no clone, writes or commands)
 dots restore --dry-run
@@ -261,9 +261,9 @@ dots add starship ~/.config/starship.toml
 ### Moving a backup between machines
 
 1. **Sender** (Mac): `dots backup` stages the configs in `~/.cache/dots/backup`. Nothing is committed or pushed.
-2. **Sender**: `dots backup --send <device>` sends the archive over Taildrop and prints its **sha256**. The sha256 is not stored in any file: copy it from that output.
-3. **Receiver** (Linux): `dots backup --receive --sha256 <sha256>` takes the file from the Taildrop inbox, checks it against the sha256 and extracts it into `~/.cache/dots/incoming/<first 12 chars>/`. A wrong sha256 extracts nothing.
-4. **Receiver**: review with `dots -d <that folder> restore --with-config --dry-run`, then apply with `dots -d <that folder> restore --with-config`. Existing local files are kept; add `--replace-existing` only after reviewing the dry run.
+2. **Sender**: `dots backup --send <device>` sends the archive over Taildrop and prints an 8-character **code** (the start of its sha256) plus the two commands to run on the receiver. The code is not stored in any file: copy it from that output.
+3. **Receiver** (Linux): `dots backup --receive <code>` takes the file from the Taildrop inbox, checks that its sha256 starts with the code and extracts it into `~/.cache/dots/incoming/<code>/`. A wrong code extracts nothing. The full sha256 still works with `--sha256 <sha256>`.
+4. **Receiver**: review with `dots restore --received --all --dry-run`, then apply with `dots restore --received --all`. `--received` picks the last received backup and implies `--with-config`. Existing local files are kept; add `--replace-existing` only after reviewing the dry run.
 5. **Credentials** (Codex, Claude, Linear, Postgres) are never in the backup. Log in by hand and check with `dots setup`.
 
 If `--receive` reports `file access denied`, run once `sudo "$(command -v tailscale)" set --operator=$USER`, which lets your user read the Taildrop inbox.
