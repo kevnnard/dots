@@ -73,7 +73,7 @@ Restore adapts two recognized legacy configurations, including old backup copies
 
 | File | Repair |
 |:---|:---|
-| `~/.zshrc` | Exact legacy initialization and plugin-loading lines gain availability checks; Powerlevel10k tries Homebrew and Arch system locations. A macOS-only `export PNPM_HOME="$HOME/Library/pnpm"` becomes a switch that keeps that path on macOS and uses `${XDG_DATA_HOME:-$HOME/.local/share}/pnpm` elsewhere. Unknown shell statements stay unchanged. |
+| `~/.zshrc` | Exact legacy initialization and plugin-loading lines gain availability checks; Powerlevel10k tries Homebrew and Arch system locations. A macOS-only `export PNPM_HOME="/Users/<you>/Library/pnpm"` (an absolute home path) becomes a switch that keeps that path on macOS and uses `${XDG_DATA_HOME:-$HOME/.local/share}/pnpm` elsewhere. Unknown shell statements stay unchanged. |
 | `~/.pi/agent/settings.json` | Remove the obsolete `npm:gentle-engram@0.3.0` string only when its single companion is the canonical `npm:gentle-engram` object with `extensions: ["+index.ts"]`. Other settings are preserved. |
 
 Source content is repaired before comparison and deployment. Existing different

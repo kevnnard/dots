@@ -287,7 +287,7 @@ func TestCheckedInPiSettingsHaveNoEngramConflict(t *testing.T) {
 // switch that keeps the macOS path on macOS and uses the XDG path elsewhere.
 func TestApplyMakesMacOnlyPnpmHomePortable(t *testing.T) {
 	const portable = `if [[ "$OSTYPE" == darwin* ]]; then export PNPM_HOME="$HOME/Library/pnpm"; else export PNPM_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/pnpm"; fi`
-	for _, line := range []string{`export PNPM_HOME="__HOME__/Library/pnpm"`, `export PNPM_HOME="$HOME/Library/pnpm"`} {
+	for _, line := range []string{`export PNPM_HOME="__HOME__/Library/pnpm"`} {
 		backup := "# pnpm\n" + line + "\nexport A=1\n"
 		app, repo, target := repairFixture(t, ".zshrc", "configs/zsh/.zshrc", backup)
 		res, err := ApplyAppFilesWith("zsh", app, repo, ApplyOptions{})
@@ -305,5 +305,22 @@ func TestApplyMakesMacOnlyPnpmHomePortable(t *testing.T) {
 				t.Errorf("zsh -n: %v\n%s", err, out)
 			}
 		}
+	}
+}
+
+// The portable $HOME form inside an OS switch is already correct: restore
+// must not wrap it in a second switch.
+func TestApplyLeavesGuardedPnpmHomeAlone(t *testing.T) {
+	const guarded = "if [[ \"$OSTYPE\" == darwin* ]]; then\n  export PNPM_HOME=\"$HOME/Library/pnpm\"\nelse\n  export PNPM_HOME=\"${XDG_DATA_HOME:-$HOME/.local/share}/pnpm\"\nfi\n"
+	app, repo, target := repairFixture(t, ".zshrc", "configs/zsh/.zshrc", guarded)
+	res, err := ApplyAppFilesWith("zsh", app, repo, ApplyOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := readOrEmpty(target); got != guarded {
+		t.Errorf("deployed\n%s\nwant unchanged\n%s", got, guarded)
+	}
+	if len(res.Repaired) != 0 {
+		t.Errorf("repaired = %q, want none", res.Repaired)
 	}
 }
