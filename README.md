@@ -65,7 +65,7 @@ go build -ldflags="-s -w" -o ~/.local/bin/dots ./cmd/dots
 | Mode | Who it's for | Workflow |
 |:---|:---|:---|
 | **1. Use My Setup (Consumer)** | You like this exact workstation setup (Ghostty, Neovim, Herdr, Zsh, AI agents) and want your Mac or Linux to look and work identically. | Just run the Quickstart and execute `dots restore --install-packages`. You don't need to fork; your machine simply downloads and installs the official recipes. |
-| **2. Manage Your Own Dotfiles (Fork & Backup)** | You want to use `dots` as the engine to version and sync **your own personal** dotfiles across your own computers. | 1. Click **[Fork](https://github.com/kevnnard/dots/fork)** on GitHub to create `github.com/<your-username>/dots`.<br/>2. Clone your fork (`git clone https://github.com/<your-username>/dots.git ~/.dotfiles`).<br/>3. Run `dots backup` — snapshots and commits will push to **your own repository**, keeping your configs safe under your account! |
+| **2. Manage Your Own Dotfiles (Fork & Backup)** | You want to use `dots` as the engine to version and sync **your own personal** dotfiles across your own computers. | 1. Click **[Fork](https://github.com/kevnnard/dots/fork)** on GitHub to create `github.com/<your-username>/dots`.<br/>2. Clone your fork (`git clone https://github.com/<your-username>/dots.git ~/.dotfiles`).<br/>3. Run `dots backup` — it stages your configs in `~/.cache/dots/backup`, outside the repo. Nothing is committed or pushed; move the archive with Taildrop (see below). |
 
 > 💡 **Tip for Fork users:** You can run the one-line installer pointing directly to your fork:
 > ```bash
@@ -97,8 +97,8 @@ flowchart TD
     Binary -->|1. Detect OS & Drift| Host
     Repo -->|2. Restore & Provision| Host
     Host -.->|Diff detected before overwrite| SafetyBackup
-    Host -->|3. Backup & AST Redact| Repo
-    Repo -->|4. Auto Git Snapshot & Push| Remote["GitHub (Private or Public)"]
+    Host -->|3. Backup & AST Redact| Stage["Staging dir (outside repo)"]
+    Stage -->|4. Taildrop, tailnet only| Other["Your other machine"]
 ```
 
 ---
@@ -196,14 +196,14 @@ dots detect
 # Inspect synchronization state and file drift across apps
 dots status
 
-# Backup all apps and push Git snapshot to remote
+# Stage a backup of all apps in ~/.cache/dots/backup (never in the repo, never pushed)
 dots backup
 
-# Backup a specific app without pushing
-dots backup nvim --push=false
+# Stage a single app
+dots backup nvim
 
 # Move a backup between your machines over Taildrop (tailnet only, no public server).
-# Sender: archive the current configs (run `dots backup --push=false` first) and send them to a device name.
+# Sender: run `dots backup` first, then send the staged archive to a device name.
 dots backup --send kevnnard-station
 # Receiver: take the archive from the Taildrop inbox; it must match the sha256 the sender printed.
 dots backup --receive --sha256 <sha256>

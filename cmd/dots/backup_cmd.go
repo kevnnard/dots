@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	pushFlag    bool
+	outFlag     string
 	sendFlag    string
 	receiveFlag bool
 	sha256Flag  string
@@ -21,13 +21,16 @@ var (
 
 var backupCmd = &cobra.Command{
 	Use:   "backup [app-name]",
-	Short: "Backup configs and dependencies into the dotfiles repository",
-	Long:  `Copies configuration files and directories from the local machine into the dotfiles repository. Automatically sanitizes sensitive files into templates and dumps Brewfile on macOS.`,
+	Short: "Stage a private backup of local configs outside the repository",
+	Long: `Copies configuration files and directories from the local machine into a staging
+directory (default ~/.cache/dots/backup, or --out). The repository is never written
+and nothing is committed or pushed: backups hold personal configs, and the repository
+is public. Sensitive files are sanitized into templates; credentials never travel.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Changed, not a non-empty check: --send '' must fail here, never fall
-		// through to the normal backup, which commits and pushes to the repo.
+		// through to the normal backup.
 		if cmd.Flags().Changed("send") {
-			return runSend(sendFlag)
+			return runSend(sendFlag, outFlag)
 		}
 		if receiveFlag {
 			return runReceive(sha256Flag, intoFlag)
@@ -37,13 +40,17 @@ var backupCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		outDir, err := resolveOutDir(outFlag, repoDir)
+		if err != nil {
+			return err
+		}
 
 		m, err := loadOrInitManifest(repoDir)
 		if err != nil {
 			return err
 		}
 
-		fmt.Printf("📦 Backing up configurations to: %s\n\n", repoDir)
+		fmt.Printf("📦 Staging backup in: %s\n\n", outDir)
 
 		if len(args) > 0 {
 			targetApp := args[0]
@@ -51,7 +58,7 @@ var backupCmd = &cobra.Command{
 			if !ok {
 				return fmt.Errorf("app '%s' not found in manifest", targetApp)
 			}
-			res, err := backup.BackupApp(targetApp, app, repoDir)
+			res, err := backup.BackupApp(targetApp, app, outDir)
 			if err != nil {
 				return err
 			}
@@ -59,8 +66,11 @@ var backupCmd = &cobra.Command{
 			return nil
 		}
 
-		total, err := backup.BackupAll(m, repoDir)
+		total, err := backup.BackupAll(m, outDir)
 		if err != nil {
+			return err
+		}
+		if err := backup.StageManifest(repoDir, outDir); err != nil {
 			return err
 		}
 
@@ -68,20 +78,8 @@ var backupCmd = &cobra.Command{
 			printAppBackupResult(res)
 		}
 
-		fmt.Printf("\n✨ Backup complete! Total files processed: %d\n", total.Total)
-
-		// Git Snapshot Commit & Push
-		snap, snapErr := backup.CreateGitSnapshot(repoDir, pushFlag)
-		if snapErr != nil {
-			fmt.Printf("⚠️  Git snapshot error: %v\n", snapErr)
-		} else if snap.Committed {
-			fmt.Printf("📸 Git snapshot committed: %s [%s]\n", snap.Message, snap.CommitHash)
-			if snap.Pushed {
-				fmt.Println("🚀 Snapshot pushed to remote repository!")
-			} else if snap.Error != "" {
-				fmt.Printf("⚠️  Remote push note: %s\n", snap.Error)
-			}
-		}
+		fmt.Printf("\n✨ Backup staged. Files processed: %d\n", total.Total)
+		fmt.Printf("   Send it with: dots backup --send <device>\n")
 
 		if len(total.Warnings) > 0 {
 			fmt.Println("\n⚠️  Warnings:")
@@ -91,6 +89,26 @@ var backupCmd = &cobra.Command{
 		}
 		return nil
 	},
+}
+
+// resolveOutDir returns the staging directory and refuses one inside the repository.
+func resolveOutDir(out, repoDir string) (string, error) {
+	dir := out
+	if dir == "" {
+		def, err := backup.DefaultOutDir()
+		if err != nil {
+			return "", err
+		}
+		dir = def
+	}
+	dir, err := filepath.Abs(dir)
+	if err != nil {
+		return "", err
+	}
+	if err := backup.CheckOutsideRepo(repoDir, dir); err != nil {
+		return "", err
+	}
+	return dir, nil
 }
 
 func printAppBackupResult(res *backup.Result) {
@@ -112,13 +130,21 @@ func printAppBackupResult(res *backup.Result) {
 	}
 }
 
-// runSend archives the repository's configs and sends them to a Tailscale device.
-// Run `dots backup --push=false` first so the archive holds the current configs.
-func runSend(device string) error {
+// runSend archives the staged backup and sends it to a Tailscale device.
+// Run `dots backup` first so the staging directory holds the current configs.
+func runSend(device, out string) error {
 	repoDir, err := resolveDotfilesDir()
 	if err != nil {
 		return err
 	}
+	stage, err := resolveOutDir(out, repoDir)
+	if err != nil {
+		return err
+	}
+	if _, err := os.Stat(filepath.Join(stage, "manifest.yaml")); err != nil {
+		return fmt.Errorf("no staged backup in %s: run `dots backup` first", stage)
+	}
+
 	tmp, err := os.MkdirTemp("", "dots-send-")
 	if err != nil {
 		return err
@@ -126,7 +152,7 @@ func runSend(device string) error {
 	defer os.RemoveAll(tmp)
 
 	archive := filepath.Join(tmp, transfer.ArchivePrefix+time.Now().Format("20060102-150405")+".tar.gz")
-	sum, err := transfer.Archive(repoDir, archive)
+	sum, err := transfer.Archive(stage, archive)
 	if err != nil {
 		return err
 	}
@@ -157,12 +183,13 @@ func runReceive(sha, into string) error {
 	}
 	fmt.Printf("📥 Received and verified (sha256 %s)\n", sha)
 	fmt.Printf("   Extracted into %s. Review it before restoring anything.\n", into)
+	fmt.Printf("   Restore with: dots -d %s restore\n", into)
 	return nil
 }
 
 func init() {
-	backupCmd.Flags().BoolVarP(&pushFlag, "push", "p", true, "Push snapshot commit to remote git repository (default true)")
-	backupCmd.Flags().StringVar(&sendFlag, "send", "", "Send the configs archive to a Tailscale device name (use --push=false first)")
+	backupCmd.Flags().StringVar(&outFlag, "out", "", "Staging directory outside the repository (default ~/.cache/dots/backup)")
+	backupCmd.Flags().StringVar(&sendFlag, "send", "", "Send the staged backup to a Tailscale device name")
 	backupCmd.Flags().BoolVar(&receiveFlag, "receive", false, "Receive the backup from the Taildrop inbox (needs --sha256)")
 	backupCmd.Flags().StringVar(&sha256Flag, "sha256", "", "sha256 printed by the sender; required with --receive")
 	backupCmd.Flags().StringVar(&intoFlag, "into", "", "Directory to extract into (default ~/.cache/dots/incoming/<sha prefix>)")

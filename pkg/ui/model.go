@@ -325,13 +325,18 @@ func (m Model) executeAction() (tea.Model, tea.Cmd) {
 
 	if m.Action == "backup" {
 		m.Logs = append(m.Logs, StyleSubtitle.Render("📦 Running Backup..."))
+		outDir, err := backup.DefaultOutDir()
+		if err != nil {
+			m.Logs = append(m.Logs, StyleError.Render(fmt.Sprintf("✗ backup dir: %v", err)))
+			return m, nil
+		}
 		totalCopied := 0
 		for _, item := range m.AppItems {
 			if !item.Checked {
 				continue
 			}
 			app := m.Manifest.Apps[item.Name]
-			res, err := backup.BackupApp(item.Name, app, m.RepoDir)
+			res, err := backup.BackupApp(item.Name, app, outDir)
 			if err != nil {
 				m.Logs = append(m.Logs, StyleError.Render(fmt.Sprintf("✗ %s: %v", item.Name, err)))
 				continue
@@ -348,15 +353,10 @@ func (m Model) executeAction() (tea.Model, tea.Cmd) {
 		m.Logs = append(m.Logs, "")
 		m.Logs = append(m.Logs, StyleSuccess.Render(fmt.Sprintf("✨ Backup complete! Total items saved: %d", totalCopied)))
 
-		// Create Git snapshot commit and push
-		snap, snapErr := backup.CreateGitSnapshot(m.RepoDir, true)
-		if snapErr == nil && snap.Committed {
-			m.Logs = append(m.Logs, StyleSelected.Render(fmt.Sprintf("📸 Git snapshot committed: %s [%s]", snap.Message, snap.CommitHash)))
-			if snap.Pushed {
-				m.Logs = append(m.Logs, StyleSuccess.Render("🚀 Pushed snapshot to remote repository!"))
-			} else if snap.Error != "" {
-				m.Logs = append(m.Logs, StyleMuted.Render(fmt.Sprintf("ℹ️ Remote push: %s", snap.Error)))
-			}
+		if err := backup.StageManifest(m.RepoDir, outDir); err != nil {
+			m.Logs = append(m.Logs, StyleError.Render(fmt.Sprintf("✗ manifest: %v", err)))
+		} else {
+			m.Logs = append(m.Logs, StyleMuted.Render(fmt.Sprintf("Staged in %s (not committed, not pushed)", outDir)))
 		}
 		return m, nil
 	}
@@ -489,7 +489,7 @@ func (m Model) View() string {
 		s.WriteString(StyleSubtitle.Render("Main Menu:") + "\n\n")
 		options := []string{
 			"🚀  Restore / Install Setup    (Deploy configs & install packages)",
-			"📦  Backup Current Machine     (Snapshot local configs to repo)",
+			"📦  Backup Current Machine     (Stage local configs outside the repo)",
 			"📊  Status & Drift Detection   (Inspect sync state vs local machine)",
 			"🧹  Clean Up Apps              (Uninstall packages / quarantine configs, after a preview)",
 			"❌  Quit",
