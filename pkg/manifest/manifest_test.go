@@ -130,8 +130,11 @@ func TestGentleShellAgentHomeIsDeclared(t *testing.T) {
 	}
 	srcs := map[string]string{}
 	for _, p := range gs.Paths {
-		if !strings.HasPrefix(p.Src, "~/.gentle-shell/agent/") {
-			t.Errorf("path %s is outside the Gentle Shell agent home", p.Src)
+		// The preference files of its config homes are checked by
+		// TestGentleAIConfigHomesTravelOnlyPreferences.
+		configHome := strings.HasPrefix(p.Src, "~/.gentle-shell/gentle-ai/") || strings.HasPrefix(p.Src, "~/.gentle-shell/config/gentle-ai/")
+		if !strings.HasPrefix(p.Src, "~/.gentle-shell/agent/") && !configHome {
+			t.Errorf("path %s is outside the Gentle Shell agent and config homes", p.Src)
 		}
 		srcs[p.Src] = p.Dest
 	}
@@ -149,6 +152,96 @@ func TestGentleShellAgentHomeIsDeclared(t *testing.T) {
 	for _, s := range []string{"mcp.json"} {
 		if !strings.Contains(","+secrets+",", ","+s+",") {
 			t.Errorf("%s must be a secret (template only), secrets = %v", s, gs.Secrets)
+		}
+	}
+}
+
+// gentle-pi keeps its preferences in a config home that also holds builds,
+// scratch, telemetry and authority files, so only the named preference files
+// travel, never the folder. Sources: SHARED_CONFIG_FILES and the policy
+// readers of gentle-pi (lib/*-policy.ts, keymaps.ts, star-prompt.ts).
+func TestGentleAIConfigHomesTravelOnlyPreferences(t *testing.T) {
+	prefs := map[string]bool{}
+	for _, f := range []string{"animations.json", "background-subagents.json", "banner.json", "builtin-codemode-optout.json", "double-esc-cancel.json", "history-capture.json", "keymaps.json", "models.json", "notifications.json", "persona.json", "profile-fallbacks.json", "profiles.json", "profiles.export.json", "star-prompt.json", "vim.json", "visual-customization.json", "visual-profiles.json"} {
+		prefs[f] = true
+	}
+	homes := map[string]string{
+		"~/.pi/gentle-ai/":                  "configs/pi/gentle-ai/",
+		"~/.gentle-shell/gentle-ai/":        "configs/gentle-shell/gentle-ai/",
+		"~/.gentle-shell/config/gentle-ai/": "configs/gentle-shell/config/gentle-ai/",
+	}
+	m := DefaultManifest()
+	for home, dest := range homes {
+		declared := map[string]bool{}
+		for _, app := range []string{"pi", "gentle-shell"} {
+			for _, p := range m.Apps[app].Paths {
+				if !strings.HasPrefix(p.Src, home) {
+					continue
+				}
+				name := strings.TrimPrefix(p.Src, home)
+				if !prefs[name] && !(home == "~/.pi/gentle-ai/" && name == "channel.json") {
+					t.Errorf("%s: %s is not a preference file", app, p.Src)
+				}
+				if p.Dest != dest+name {
+					t.Errorf("%s: dest %q, want %s%s", p.Src, p.Dest, dest, name)
+				}
+				declared[name] = true
+			}
+		}
+		for name := range prefs {
+			if !declared[name] {
+				t.Errorf("%s%s is not backed up", home, name)
+			}
+		}
+	}
+	// Permission authority is not a portable preference.
+	for name, app := range m.Apps {
+		for _, p := range app.Paths {
+			if base := filepath.Base(p.Src); base == "runtime-guardrails.json" || base == "permission-mode.json" {
+				t.Errorf("%s backs up the permission authority file %s", name, p.Src)
+			}
+		}
+	}
+}
+
+// Every location a config loader reads is written with ~/, so the same
+// manifest maps to the home of any OS, and the agent homes cover the files
+// their loaders document (Pi docs/configuration.md).
+func TestPersonalConfigLocationsArePortable(t *testing.T) {
+	m := DefaultManifest()
+	want := map[string][]string{
+		"zsh":          {"~/.oh-my-zsh/custom"},
+		"gga":          {"~/.config/gga/config"},
+		"claude":       {"~/.claude/hooks", "~/.claude/output-styles", "~/.claude/commands", "~/.claude/keybindings.json"},
+		"codex":        {"~/.codex/engram-instructions.md", "~/.codex/engram-compact-prompt.md", "~/.codex/herdr-agent-state.sh"},
+		"pi":           {"~/.pi/agent/extensions"},
+		"gentle-shell": {},
+	}
+	for _, home := range []string{"pi", "gentle-shell"} {
+		for _, rel := range []string{"keybindings.json", "AGENTS.md", "AGENTS.override.md", "CLAUDE.md", "SYSTEM.md", "APPEND_SYSTEM.md", "prompts", "themes"} {
+			dir := "~/.pi/agent/"
+			if home == "gentle-shell" {
+				dir = "~/.gentle-shell/agent/"
+			}
+			want[home] = append(want[home], dir+rel)
+		}
+	}
+	for app, srcs := range want {
+		have := map[string]bool{}
+		for _, p := range m.Apps[app].Paths {
+			have[p.Src] = true
+		}
+		for _, src := range srcs {
+			if !have[src] {
+				t.Errorf("%s does not back up %s", app, src)
+			}
+		}
+	}
+	for name, app := range m.Apps {
+		for _, p := range app.Paths {
+			if strings.Contains(p.Src, "Library/") || strings.HasPrefix(p.Src, "/") {
+				t.Errorf("%s: %s assumes one OS layout", name, p.Src)
+			}
 		}
 	}
 }

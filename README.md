@@ -22,7 +22,7 @@
 **Cross-platform workstation setup, dotfiles backup engine, and AI agent harness in Go.**  
 Zero dependencies on blank machines. Interactive 8-bit TUI dashboard. Enterprise-grade secret protection.
 
-[⚡️ Quickstart](#️-60-second-quickstart) • [🚚 New machine](#-new-machine-step-by-step) • [🧹 Clean up](#-clean-up) • [🗺️ Architecture](#️-system-architecture) • [🖥️ Interactive TUI](#️-interactive-tui-dashboard) • [📦 Stacks & Profiles](#-stacks--profiles-matrix) • [🛡️ Secrets](#️-zero-leak-secrets-engine) • [📖 CLI Guide](#-complete-cli-reference)
+[⚡️ Quickstart](#️-60-second-quickstart) • [🚚 New machine](#-new-machine-step-by-step) • [🧹 Clean up](#-clean-up) • [🗺️ Architecture](#️-system-architecture) • [🖥️ Interactive TUI](#️-interactive-tui-dashboard) • [📦 Stacks & Profiles](#-stacks--profiles-matrix) • [🛡️ Secrets](#️-secrets-handling) • [📖 CLI Guide](#-complete-cli-reference)
 
 </div>
 
@@ -69,6 +69,8 @@ This repository holds the **tool and its install recipes**, not your configs. Yo
 | **Set up a machine with these tools** | Install `dots` (Quickstart), then `dots restore --all --install-packages` and `dots setup`. Apps keep their stock configuration. |
 | **Bring your configs from another machine** | On the machine that has them: `dots backup` and `dots backup --send <device>`. On the new one: `dots backup --receive <code>`, then `dots restore --received --all`. See [New machine, step by step](#-new-machine-step-by-step). |
 | **Track one more config** | `dots add <app> <path>`: records it in the manifest and stages it in your private backup; it travels with your next `dots backup --send`. |
+
+What a backup covers (and what it never copies) is listed in [docs/portable-config-backup.md](docs/portable-config-backup.md).
 
 ---
 
@@ -162,9 +164,11 @@ Configurations and software packages are grouped into modular profiles. You can 
 
 ---
 
-## 🛡️ Zero-Leak Secrets Engine
+## 🛡️ Secrets Handling
 
-Backups never go to GitHub. They stay in a private folder and travel only over your tailnet, and even so `dots` strips what must not leave a machine: tokens, keys, database passwords and server addresses become templates, and login files are not copied at all.
+Backups never go to GitHub. They stay in a private folder and travel only over your tailnet. In files the manifest names as secrets (and in `.env`, `*.key`, `*.pem` files), values under credential-like keys, such as tokens, keys, database passwords and server addresses, become placeholders in templates. Login files are not mapped at all.
+
+Detection goes by file name and key name. It cannot prove that other scripts, settings or extensions are free of credentials, so **review the staged folder before you send it**. If a staging folder written by an earlier dots holds an unmasked copy where a template now belongs, backup stops and removes nothing; stage into a new empty folder with `dots backup --out <new-folder>`. Coverage and limits: [docs/portable-config-backup.md](docs/portable-config-backup.md).
 
 ```text
 Local Machine Config                       Private backup (~/.cache/dots/backup)
@@ -173,6 +177,7 @@ Local Machine Config                       Private backup (~/.cache/dots/backup)
 ~/.pi/agent/mcp.json (Linear / GCP)   ──►  configs/pi/mcp.json.template (lin_api_*** -> YOUR_LINEAR_KEY)
 ~/.claude/mcp.json (Postgres URL)     ──►  configs/claude/mcp.json.template (postgres://... -> YOUR_POSTGRES_URL)
 ~/.env (API_KEY=sk-proj-12345)        ──►  configs/**/*.env.template (API_KEY=YOUR_API_KEY)
+~/.pi/web-search.json (API keys)      ──►  configs/pi/web-search.json.template (keys masked)
 ~/.pi/agent/auth.json, mcp-auth.json  ──►  ⛔️ never copied (log in again on the new machine)
 ~/.ssh/id_ed25519                     ──►  ⛔️ never copied (engine exclusion filter)
 ```
@@ -199,7 +204,8 @@ dots detect
 # Inspect synchronization state and file drift across apps
 dots status
 
-# Stage a backup of all apps in ~/.cache/dots/backup (never in the repo, never pushed)
+# Stage a backup of all apps in ~/.cache/dots/backup (never in the repo, never pushed).
+# A manifest from an older dots is not rewritten: backup lists the built-in paths it lacks.
 dots backup
 
 # Stage a single app
@@ -307,7 +313,7 @@ What to expect:
 2. **Several backups in the inbox** are fine: copies of the matching one are dropped and any other backup is kept in `~/.cache/dots/incoming/unclaimed/`, never lost.
 3. **Skills shared through `~/.agents/skills`** travel as relative symlinks; restore refuses any link that points outside home.
 4. **Local files are kept** when they differ from the backup, and the summary lists them. Add `--replace-existing` only after reviewing the dry run; every replaced file first gets a `.bk` copy.
-5. **Credentials never travel**: login files (`auth.json`, `mcp-auth.json`) stay out of the backup and `mcp.json` arrives as a template. Sign in again (Gentle Shell, Pi, Claude, Codex, Linear, Neon API key, Postgres); `dots setup` and the restore summary list each one.
+5. **Logins do not travel**: login files (`auth.json`, `mcp-auth.json`) are not mapped and `mcp.json` arrives as a template. Sign in again (Gentle Shell, Pi, Claude, Codex, Linear, Neon API key, Postgres); `dots setup` and the restore summary list each one.
 6. **Gentle Shell**: install the bundled Gentle Shell with its own installer (`dots setup` shows where), then `dots restore gentle-shell --received`.
 
 Known pitfalls of a macOS-to-Linux move (pnpm path, Gentle Shell installs, the Engram MCP server inside Gentle Shell, Neon sign-in) are listed in [docs/install-flow.md](docs/install-flow.md#moving-to-another-machine-known-pitfalls).

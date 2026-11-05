@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -247,5 +248,40 @@ func TestBackupStoresDirectorySymlinkAsSymlink(t *testing.T) {
 	}
 	if target != realSkill {
 		t.Fatalf("link target = %q, want %q", target, realSkill)
+	}
+}
+
+// A secret found while walking a directory follows the same rule as a mapped
+// secret file, and BackupAll stops instead of reporting a staged backup.
+func TestBackupAllStopsOnRawSecretCopyInsideDirectory(t *testing.T) {
+	src := filepath.Join(t.TempDir(), "tool")
+	if err := os.MkdirAll(src, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, ".env"), []byte("TOKEN=fixture-placeholder\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	stage := t.TempDir()
+	raw := filepath.Join(stage, "configs", "tool", ".env")
+	if err := os.MkdirAll(filepath.Dir(raw), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(raw, []byte("TOKEN=stale-fixture-value\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	m := &manifest.Manifest{Apps: map[string]manifest.AppConfig{
+		"tool": {Paths: []manifest.PathMapping{{Src: src, Dest: "configs/tool"}}},
+	}}
+
+	total, err := BackupAll(m, stage)
+	var rawErr *RawSecretError
+	if !errors.As(err, &rawErr) || rawErr.Path != raw || total != nil {
+		t.Fatalf("BackupAll = %v, %v; want a RawSecretError for %s", total, err, raw)
+	}
+	if data, _ := os.ReadFile(raw); string(data) != "TOKEN=stale-fixture-value\n" {
+		t.Errorf("raw copy changed: %q", data)
+	}
+	if _, err := os.Stat(raw + ".template"); !os.IsNotExist(err) {
+		t.Error("no template may be written next to the raw copy")
 	}
 }

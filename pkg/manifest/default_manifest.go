@@ -56,6 +56,14 @@ apps:
               dest: configs/claude/skills
             - src: ~/.claude/agents
               dest: configs/claude/agents
+            - src: ~/.claude/commands
+              dest: configs/claude/commands
+            - src: ~/.claude/output-styles
+              dest: configs/claude/output-styles
+            - src: ~/.claude/hooks
+              dest: configs/claude/hooks
+            - src: ~/.claude/keybindings.json
+              dest: configs/claude/keybindings.json
         secrets:
             - mcp.json
         exclude:
@@ -92,6 +100,13 @@ apps:
               dest: configs/codex/rules
             - src: ~/.codex/skills
               dest: configs/codex/skills
+            # Files config.toml and hooks.json reference by path.
+            - src: ~/.codex/engram-instructions.md
+              dest: configs/codex/engram-instructions.md
+            - src: ~/.codex/engram-compact-prompt.md
+              dest: configs/codex/engram-compact-prompt.md
+            - src: ~/.codex/herdr-agent-state.sh
+              dest: configs/codex/herdr-agent-state.sh
         exclude:
             - '*.sqlite*'
             - cache/**
@@ -173,6 +188,94 @@ apps:
               dest: configs/gentle-shell/chains
             - src: ~/.gentle-shell/agent/extensions
               dest: configs/gentle-shell/extensions
+            - src: ~/.gentle-shell/agent/keybindings.json
+              dest: configs/gentle-shell/keybindings.json
+            - src: ~/.gentle-shell/agent/AGENTS.md
+              dest: configs/gentle-shell/AGENTS.md
+            - src: ~/.gentle-shell/agent/AGENTS.override.md
+              dest: configs/gentle-shell/AGENTS.override.md
+            - src: ~/.gentle-shell/agent/CLAUDE.md
+              dest: configs/gentle-shell/CLAUDE.md
+            - src: ~/.gentle-shell/agent/SYSTEM.md
+              dest: configs/gentle-shell/SYSTEM.md
+            - src: ~/.gentle-shell/agent/APPEND_SYSTEM.md
+              dest: configs/gentle-shell/APPEND_SYSTEM.md
+            - src: ~/.gentle-shell/agent/prompts
+              dest: configs/gentle-shell/prompts
+            - src: ~/.gentle-shell/agent/themes
+              dest: configs/gentle-shell/themes
+            # Gentle Shell preferences: the bundled install reads config/gentle-ai,
+            # the standalone launcher gentle-ai. Only named preference files
+            # travel; these folders also hold builds, scratch, telemetry and
+            # permission authority (runtime-guardrails, permission-mode).
+            - src: ~/.gentle-shell/config/gentle-ai/animations.json
+              dest: configs/gentle-shell/config/gentle-ai/animations.json
+            - src: ~/.gentle-shell/config/gentle-ai/background-subagents.json
+              dest: configs/gentle-shell/config/gentle-ai/background-subagents.json
+            - src: ~/.gentle-shell/config/gentle-ai/banner.json
+              dest: configs/gentle-shell/config/gentle-ai/banner.json
+            - src: ~/.gentle-shell/config/gentle-ai/builtin-codemode-optout.json
+              dest: configs/gentle-shell/config/gentle-ai/builtin-codemode-optout.json
+            - src: ~/.gentle-shell/config/gentle-ai/double-esc-cancel.json
+              dest: configs/gentle-shell/config/gentle-ai/double-esc-cancel.json
+            - src: ~/.gentle-shell/config/gentle-ai/history-capture.json
+              dest: configs/gentle-shell/config/gentle-ai/history-capture.json
+            - src: ~/.gentle-shell/config/gentle-ai/keymaps.json
+              dest: configs/gentle-shell/config/gentle-ai/keymaps.json
+            - src: ~/.gentle-shell/config/gentle-ai/models.json
+              dest: configs/gentle-shell/config/gentle-ai/models.json
+            - src: ~/.gentle-shell/config/gentle-ai/notifications.json
+              dest: configs/gentle-shell/config/gentle-ai/notifications.json
+            - src: ~/.gentle-shell/config/gentle-ai/persona.json
+              dest: configs/gentle-shell/config/gentle-ai/persona.json
+            - src: ~/.gentle-shell/config/gentle-ai/profile-fallbacks.json
+              dest: configs/gentle-shell/config/gentle-ai/profile-fallbacks.json
+            - src: ~/.gentle-shell/config/gentle-ai/profiles.json
+              dest: configs/gentle-shell/config/gentle-ai/profiles.json
+            - src: ~/.gentle-shell/config/gentle-ai/profiles.export.json
+              dest: configs/gentle-shell/config/gentle-ai/profiles.export.json
+            - src: ~/.gentle-shell/config/gentle-ai/star-prompt.json
+              dest: configs/gentle-shell/config/gentle-ai/star-prompt.json
+            - src: ~/.gentle-shell/config/gentle-ai/vim.json
+              dest: configs/gentle-shell/config/gentle-ai/vim.json
+            - src: ~/.gentle-shell/config/gentle-ai/visual-customization.json
+              dest: configs/gentle-shell/config/gentle-ai/visual-customization.json
+            - src: ~/.gentle-shell/config/gentle-ai/visual-profiles.json
+              dest: configs/gentle-shell/config/gentle-ai/visual-profiles.json
+            - src: ~/.gentle-shell/gentle-ai/animations.json
+              dest: configs/gentle-shell/gentle-ai/animations.json
+            - src: ~/.gentle-shell/gentle-ai/background-subagents.json
+              dest: configs/gentle-shell/gentle-ai/background-subagents.json
+            - src: ~/.gentle-shell/gentle-ai/banner.json
+              dest: configs/gentle-shell/gentle-ai/banner.json
+            - src: ~/.gentle-shell/gentle-ai/builtin-codemode-optout.json
+              dest: configs/gentle-shell/gentle-ai/builtin-codemode-optout.json
+            - src: ~/.gentle-shell/gentle-ai/double-esc-cancel.json
+              dest: configs/gentle-shell/gentle-ai/double-esc-cancel.json
+            - src: ~/.gentle-shell/gentle-ai/history-capture.json
+              dest: configs/gentle-shell/gentle-ai/history-capture.json
+            - src: ~/.gentle-shell/gentle-ai/keymaps.json
+              dest: configs/gentle-shell/gentle-ai/keymaps.json
+            - src: ~/.gentle-shell/gentle-ai/models.json
+              dest: configs/gentle-shell/gentle-ai/models.json
+            - src: ~/.gentle-shell/gentle-ai/notifications.json
+              dest: configs/gentle-shell/gentle-ai/notifications.json
+            - src: ~/.gentle-shell/gentle-ai/persona.json
+              dest: configs/gentle-shell/gentle-ai/persona.json
+            - src: ~/.gentle-shell/gentle-ai/profile-fallbacks.json
+              dest: configs/gentle-shell/gentle-ai/profile-fallbacks.json
+            - src: ~/.gentle-shell/gentle-ai/profiles.json
+              dest: configs/gentle-shell/gentle-ai/profiles.json
+            - src: ~/.gentle-shell/gentle-ai/profiles.export.json
+              dest: configs/gentle-shell/gentle-ai/profiles.export.json
+            - src: ~/.gentle-shell/gentle-ai/star-prompt.json
+              dest: configs/gentle-shell/gentle-ai/star-prompt.json
+            - src: ~/.gentle-shell/gentle-ai/vim.json
+              dest: configs/gentle-shell/gentle-ai/vim.json
+            - src: ~/.gentle-shell/gentle-ai/visual-customization.json
+              dest: configs/gentle-shell/gentle-ai/visual-customization.json
+            - src: ~/.gentle-shell/gentle-ai/visual-profiles.json
+              dest: configs/gentle-shell/gentle-ai/visual-profiles.json
         exclude:
             - sessions/**
             - web-search-cache/**
@@ -188,6 +291,7 @@ apps:
             - .DS_Store
         secrets:
             - mcp.json
+            - web-search.json
     herdr:
         description: Herdr terminal workspace and agent process manager
         profile: core,ai
@@ -458,11 +562,71 @@ apps:
               dest: configs/pi/agents
             - src: ~/.pi/agent/chains
               dest: configs/pi/chains
+            - src: ~/.pi/agent/extensions
+              dest: configs/pi/extensions
+            - src: ~/.pi/agent/keybindings.json
+              dest: configs/pi/keybindings.json
+            - src: ~/.pi/agent/AGENTS.md
+              dest: configs/pi/AGENTS.md
+            - src: ~/.pi/agent/AGENTS.override.md
+              dest: configs/pi/AGENTS.override.md
+            - src: ~/.pi/agent/CLAUDE.md
+              dest: configs/pi/CLAUDE.md
+            - src: ~/.pi/agent/SYSTEM.md
+              dest: configs/pi/SYSTEM.md
+            - src: ~/.pi/agent/APPEND_SYSTEM.md
+              dest: configs/pi/APPEND_SYSTEM.md
+            - src: ~/.pi/agent/prompts
+              dest: configs/pi/prompts
+            - src: ~/.pi/agent/themes
+              dest: configs/pi/themes
+            - src: ~/.pi/web-search.json
+              dest: configs/pi/web-search.json
+            # Gentle AI preferences for Pi. Only named preference files travel;
+            # the folder also holds builds, scratch, telemetry and permission
+            # authority (runtime-guardrails, permission-mode).
+            - src: ~/.pi/gentle-ai/animations.json
+              dest: configs/pi/gentle-ai/animations.json
+            - src: ~/.pi/gentle-ai/background-subagents.json
+              dest: configs/pi/gentle-ai/background-subagents.json
+            - src: ~/.pi/gentle-ai/banner.json
+              dest: configs/pi/gentle-ai/banner.json
+            - src: ~/.pi/gentle-ai/builtin-codemode-optout.json
+              dest: configs/pi/gentle-ai/builtin-codemode-optout.json
+            - src: ~/.pi/gentle-ai/channel.json
+              dest: configs/pi/gentle-ai/channel.json
+            - src: ~/.pi/gentle-ai/double-esc-cancel.json
+              dest: configs/pi/gentle-ai/double-esc-cancel.json
+            - src: ~/.pi/gentle-ai/history-capture.json
+              dest: configs/pi/gentle-ai/history-capture.json
+            - src: ~/.pi/gentle-ai/keymaps.json
+              dest: configs/pi/gentle-ai/keymaps.json
+            - src: ~/.pi/gentle-ai/models.json
+              dest: configs/pi/gentle-ai/models.json
+            - src: ~/.pi/gentle-ai/notifications.json
+              dest: configs/pi/gentle-ai/notifications.json
+            - src: ~/.pi/gentle-ai/persona.json
+              dest: configs/pi/gentle-ai/persona.json
+            - src: ~/.pi/gentle-ai/profile-fallbacks.json
+              dest: configs/pi/gentle-ai/profile-fallbacks.json
+            - src: ~/.pi/gentle-ai/profiles.json
+              dest: configs/pi/gentle-ai/profiles.json
+            - src: ~/.pi/gentle-ai/profiles.export.json
+              dest: configs/pi/gentle-ai/profiles.export.json
+            - src: ~/.pi/gentle-ai/star-prompt.json
+              dest: configs/pi/gentle-ai/star-prompt.json
+            - src: ~/.pi/gentle-ai/vim.json
+              dest: configs/pi/gentle-ai/vim.json
+            - src: ~/.pi/gentle-ai/visual-customization.json
+              dest: configs/pi/gentle-ai/visual-customization.json
+            - src: ~/.pi/gentle-ai/visual-profiles.json
+              dest: configs/pi/gentle-ai/visual-profiles.json
         exclude:
             - sessions/**
             - web-search-cache/**
             - cc-cli-logs/**
             - '*.log'
+            - '*.bak*'
             - '*.tmp.*'
             - '*.cache.json'
             - crashes.json
@@ -475,6 +639,7 @@ apps:
             - auth.json
             - mcp-auth.json
             - mcp.json
+            - web-search.json
         requires:
             - node
         install:
@@ -577,9 +742,20 @@ apps:
               dest: configs/zsh/.zshrc
             - src: ~/.p10k.zsh
               dest: configs/zsh/.p10k.zsh
+            # Oh My Zsh custom folder: *.zsh files it sources, lib overrides,
+            # functions and completions. Plugins and themes are installed
+            # repositories (config_requires), and the examples ship with it.
+            - src: ~/.oh-my-zsh/custom
+              dest: configs/zsh/oh-my-zsh-custom
         exclude:
             - .zsh_history
             - .zsh_sessions/**
+            - plugins/**
+            - themes/**
+            - example.zsh
+            - example.zsh-theme
+            - '*.zwc'
+            - .DS_Store
         config_requires: [powerlevel10k, zsh-autosuggestions, zsh-syntax-highlighting, fzf, fd, bat, zoxide, atuin, carapace]
         install:
             arch:
@@ -793,6 +969,9 @@ apps:
     gga:
         description: Gentleman Guardian Angel AI code review
         profile: core,ai
+        paths:
+            - src: ~/.config/gga/config
+              dest: configs/gga/config
         install:
             brew: {manager: brew, package: gentleman-programming/tap/gga}
     gnupg:

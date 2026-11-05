@@ -3,11 +3,13 @@ package backup
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 
 	"github.com/kevnnard/dots/pkg/homepath"
@@ -20,6 +22,29 @@ type Result struct {
 	Skipped       []string `json:"skipped"`
 	SecretsMasked []string `json:"secrets_masked"`
 	Warnings      []string `json:"warnings"`
+}
+
+// RawSecretError reports a staging folder that already holds an unmasked
+// entry where a secret's template-only backup belongs, typically left by a
+// dots that copied the file as is. Restore prefers that entry to the
+// template, so backup refuses the folder instead of removing anything in it.
+type RawSecretError struct{ Path string }
+
+func (e *RawSecretError) Error() string {
+	return e.Path + " already holds an unmasked copy of a file that is now backed up as a template; nothing was removed or sent. Stage into a new empty folder: dots backup --out <new-folder>"
+}
+
+// checkNoRawSecret fails closed when anything, even a dangling symlink, sits
+// at the unmasked destination of a secret.
+func checkNoRawSecret(dest string) error {
+	_, err := os.Lstat(dest)
+	if err == nil {
+		return &RawSecretError{Path: dest}
+	}
+	if os.IsNotExist(err) {
+		return nil
+	}
+	return fmt.Errorf("cannot inspect %s: %w", dest, err)
 }
 
 type TotalResult struct {
@@ -65,10 +90,17 @@ func BackupApp(appName string, app manifest.AppConfig, destRepoDir string) (*Res
 
 		if info.IsDir() {
 			if err := copyDirectory(srcExpanded, destFull, app.Exclude, app.Secrets, res); err != nil {
+				var raw *RawSecretError
+				if errors.As(err, &raw) {
+					return res, raw
+				}
 				res.Warnings = append(res.Warnings, fmt.Sprintf("failed copying dir %s: %v", mapping.Src, err))
 			}
 		} else {
 			if isSecret(srcExpanded, app.Secrets) {
+				if err := checkNoRawSecret(destFull); err != nil {
+					return res, err
+				}
 				templateDest := destFull + ".template"
 				if strings.HasSuffix(destFull, ".env") {
 					templateDest = destFull + ".template"
@@ -100,13 +132,39 @@ func BackupAll(m *manifest.Manifest, destRepoDir string) (*TotalResult, error) {
 	for name, app := range m.Apps {
 		res, err := BackupApp(name, app, destRepoDir)
 		if err != nil {
-			total.Warnings = append(total.Warnings, fmt.Sprintf("error backing up %s: %v", name, err))
+			// A partial stage must never be reported, staged or sent as a backup.
+			return nil, err
 		}
 		total.Results[name] = res
 		total.Total += len(res.Copied) + len(res.SecretsMasked)
 	}
 
 	return total, nil
+}
+
+// MissingDefaultPaths lists, as "app: src", the config paths the built-in
+// inventory backs up for apps the manifest declares but does not map. A
+// manifest written by an older dots is never rewritten, so backup reports
+// them instead. Apps the manifest does not declare stay undeclared.
+func MissingDefaultPaths(m *manifest.Manifest) []string {
+	var missing []string
+	for name, shipped := range manifest.DefaultManifest().Apps {
+		app, ok := m.Apps[name]
+		if !ok {
+			continue
+		}
+		have := map[string]bool{}
+		for _, p := range app.Paths {
+			have[p.Src] = true
+		}
+		for _, p := range shipped.Paths {
+			if !have[p.Src] {
+				missing = append(missing, name+": "+p.Src)
+			}
+		}
+	}
+	sort.Strings(missing)
+	return missing
 }
 
 func copyDirectory(srcDir, destDir string, excludes, secrets []string, res *Result) error {
@@ -156,6 +214,9 @@ func copyDirectory(srcDir, destDir string, excludes, secrets []string, res *Resu
 		}
 
 		if isSecret(rel, secrets) || isSecret(path, secrets) {
+			if err := checkNoRawSecret(targetPath); err != nil {
+				return err
+			}
 			templateDest := targetPath + ".template"
 			if err := sanitizeSecretFile(path, templateDest); err != nil {
 				res.Warnings = append(res.Warnings, fmt.Sprintf("failed sanitizing secret %s: %v", path, err))

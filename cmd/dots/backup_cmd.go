@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/kevnnard/dots/pkg/backup"
+	"github.com/kevnnard/dots/pkg/manifest"
 	"github.com/kevnnard/dots/pkg/transfer"
 	"github.com/spf13/cobra"
 )
@@ -29,7 +30,19 @@ var backupCmd = &cobra.Command{
 	Long: `Copies configuration files and directories from the local machine into a staging
 directory (default ~/.cache/dots/backup, or --out). The repository is never written
 and nothing is committed or pushed: backups hold personal configs, and the repository
-is public. Sensitive files are sanitized into templates; credentials never travel.
+is public. Files the manifest names as secrets, and recognized key files such as
+.env, become masked templates; login files are not mapped. Detection goes by file
+name and key name, so it cannot prove that other scripts or settings are free of
+credentials: review the staged folder before sending it. If the staging folder
+already holds an unmasked copy where a template belongs (left by a dots that
+copied that file as is, such as web-search.json), backup stops without removing
+anything: stage into a new empty folder with --out.
+
+The built-in inventory maps personal configs with home-relative paths: the shell
+(the Oh My Zsh custom folder without the plugin and theme folders), editors,
+terminals and the AI agent homes (settings, instructions, prompts, extensions and
+named preference files). It does not map sessions, caches or telemetry. A manifest
+written by an older dots is never rewritten: backup lists the built-in paths it lacks.
 
 Move the backup to another machine over Taildrop:
   dots backup --send <device>   prints a short code
@@ -71,6 +84,7 @@ Move the backup to another machine over Taildrop:
 			if !ok {
 				return fmt.Errorf("app '%s' not found in manifest", targetApp)
 			}
+			printMissingDefaultPaths(repoDir, m, targetApp)
 			res, err := backup.BackupApp(targetApp, app, outDir)
 			if err != nil {
 				return err
@@ -79,6 +93,7 @@ Move the backup to another machine over Taildrop:
 			return nil
 		}
 
+		printMissingDefaultPaths(repoDir, m, "")
 		total, err := backup.BackupAll(m, outDir)
 		if err != nil {
 			return err
@@ -122,6 +137,26 @@ func resolveOutDir(out, repoDir string) (string, error) {
 		return "", err
 	}
 	return dir, nil
+}
+
+// printMissingDefaultPaths names the built-in config paths the manifest does
+// not map, for one app or, when only is empty, every declared app.
+func printMissingDefaultPaths(repoDir string, m *manifest.Manifest, only string) {
+	var lines []string
+	for _, entry := range backup.MissingDefaultPaths(m) {
+		if only == "" || strings.HasPrefix(entry, only+": ") {
+			lines = append(lines, entry)
+		}
+	}
+	if len(lines) == 0 {
+		return
+	}
+	fmt.Printf("ℹ️  %s does not map these built-in config paths, so they are not backed up\n", getManifestPath(repoDir))
+	fmt.Println("   (the manifest is never rewritten; add the paths you want to it):")
+	for _, l := range lines {
+		fmt.Printf("   - %s\n", l)
+	}
+	fmt.Println()
 }
 
 func printAppBackupResult(res *backup.Result) {
