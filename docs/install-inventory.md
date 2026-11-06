@@ -131,6 +131,7 @@ Gentleman Homebrew taps are unsupported there.
 | smartwindow | core | darwin: `cask kevnnard/tap/smartwindow` |  |
 | ssh | core | config-only |  |
 | tailscale | core | arch: `tailscale`, darwin: `cask tailscale`, debian: `script`, linux: `script`, ubuntu: `script`, winget: `Tailscale.Tailscale` |  |
+| terminal-browser | core | arch: `terminal-browser-bin`, brew: `cask terminal-browser`, darwin: `cask terminal-browser`, linux: `cask terminal-browser` |  |
 | tmux | core | apt: `tmux`, brew: `tmux`, dnf: `tmux`, pacman: `tmux` |  |
 | uv | core | brew: `uv`, dnf: `uv`, pacman: `uv`, winget: `astral-sh.uv` |  |
 | vercel | core | brew: `vercel`, default: `vercel` | node |

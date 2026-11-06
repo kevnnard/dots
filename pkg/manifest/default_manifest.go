@@ -320,6 +320,24 @@ apps:
             yay:
                 manager: yay
                 package: herdr-bin
+    terminal-browser:
+        description: Terminal-based web browser companion for AI agents
+        profile: core
+        paths:
+            - src: ~/.config/terminal-browser
+              dest: configs/terminal-browser
+        exclude:
+            - .DS_Store
+        install:
+            darwin:
+                manager: brew
+                cask: terminal-browser
+            linux:
+                manager: brew
+                cask: terminal-browser
+            arch:
+                manager: yay
+                package: terminal-browser-bin
     flashspace:
         description: Flashspace macOS workspace manager settings and profiles
         profile: core

@@ -108,6 +108,8 @@ cask "ngrok/ngrok/ngrok"
 cask "kevnnard/tap/smartwindow"
 # Mesh VPN based on WireGuard for secure cross-device networking
 cask "tailscale"
+# Terminal-based web browser companion for AI agents
+cask "terminal-browser"
 # Multiplayer code editor
 cask "zed"
 npm "@colbymchenry/codegraph"
