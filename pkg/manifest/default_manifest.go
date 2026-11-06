@@ -809,6 +809,7 @@ apps:
         exclude:
             - .zsh_history
             - .zsh_sessions/**
+            - .zshrc.local*
             - plugins/**
             - themes/**
             - example.zsh
