@@ -120,7 +120,6 @@ Gentleman Homebrew taps are unsupported there.
 | nvim | core | arch: `neovim`, brew: `neovim`, darwin: `neovim`, debian: `neovim`, dnf: `neovim`, scoop: `neovim`, ubuntu: `neovim`, winget: `Neovim.Neovim`, zypper: `neovim` |  |
 | ollama | ai (optional) | darwin: `cask ollama`, linux: `script`, pacman: `ollama`, winget: `Ollama.Ollama` |  |
 | openjdk-17 | core,mobile | brew: `openjdk@17`, pacman: `jdk17-openjdk` |  |
-| orca | ai | config-only |  |
 | pi | core,ai | default: `@earendil-works/pi-coding-agent` | node |
 | pnpm | core | brew: `pnpm`, darwin: `pnpm`, linux: `script`, pacman: `pnpm`, scoop: `pnpm`, winget: `pnpm.pnpm` |  |
 | postman | core (optional) | arch: `postman-bin`, darwin: `cask postman`, ubuntu: `script` |  |

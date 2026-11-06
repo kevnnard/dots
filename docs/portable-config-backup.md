@@ -60,7 +60,6 @@ Detection goes by file name and key name. It cannot prove that other files are f
 
 ## Not covered
 
-- **Orca settings.** Orca keeps them inside its profile data (`orca-data.json` and a SQLite store in the app data folder), mixed with managed accounts, workspace and session state, and telemetry. No safe export has been established, and Orca has no settings export command. `dots` copies only `~/.orca/agent-hooks`. Never copy the Orca data folder as is.
 - **CodexBar** (`~/.config/codexbar/config.json`): macOS only, and it stores provider keys and token accounts.
 - Your own files inside Oh My Zsh `custom/plugins` or `custom/themes`. Move them to a top-level `custom/*.zsh` file, or add their folders to the manifest.
 - Apps not in the manifest, and locations no loader documents.

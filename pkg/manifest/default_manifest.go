@@ -298,11 +298,17 @@ apps:
         paths:
             - src: ~/.config/herdr/config.toml
               dest: configs/herdr/config.toml
+            - src: ~/.config/herdr/plugins.json
+              dest: configs/herdr/plugins.json
+            - src: ~/.config/herdr/plugins
+              dest: configs/herdr/plugins
         exclude:
             - '*.sock*'
             - '*.log'
+            - .plugins.lock
             - session-history.json
             - session-snapshots/**
+            - 'plugins/.locks/**'
             - .DS_Store
         install:
             darwin:
@@ -314,15 +320,6 @@ apps:
             yay:
                 manager: yay
                 package: herdr-bin
-    orca:
-        description: Orca agent workspace and integration hooks
-        profile: ai
-        paths:
-            - src: ~/.orca/agent-hooks
-              dest: configs/orca/agent-hooks
-        exclude:
-            - '*.installed'
-            - .DS_Store
     flashspace:
         description: Flashspace macOS workspace manager settings and profiles
         profile: core

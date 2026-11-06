@@ -534,14 +534,14 @@ func TestApplyFilesRefusesSymlinkTargetOutsideHome(t *testing.T) {
 	root, home := isolatedHome(t)
 	repo := filepath.Join(root, "repo")
 	skills := filepath.Join(repo, "configs", "pi", "skills")
-	mustWrite(t, filepath.Join(home, ".agents", "skills", "orca-cli", "SKILL.md"), "skill\n")
+	mustWrite(t, filepath.Join(home, ".agents", "skills", "terminal-browser", "SKILL.md"), "skill\n")
 	if err := os.MkdirAll(skills, 0755); err != nil {
 		t.Fatal(err)
 	}
 	links := map[string]string{
-		"orca-cli": "../../../.agents/skills/orca-cli",
-		"abs":      "/etc",
-		"climb":    "../../../../../../etc",
+		"terminal-browser": "../../../.agents/skills/terminal-browser",
+		"abs":              "/etc",
+		"climb":            "../../../../../../etc",
 	}
 	for name, target := range links {
 		if err := os.Symlink(target, filepath.Join(skills, name)); err != nil {
@@ -554,8 +554,8 @@ func TestApplyFilesRefusesSymlinkTargetOutsideHome(t *testing.T) {
 		t.Fatal(err)
 	}
 	dest := filepath.Join(home, ".pi", "agent", "skills")
-	if link, err := os.Readlink(filepath.Join(dest, "orca-cli")); err != nil || link != links["orca-cli"] {
-		t.Errorf("orca-cli = %q %v, want the in-home link", link, err)
+	if link, err := os.Readlink(filepath.Join(dest, "terminal-browser")); err != nil || link != links["terminal-browser"] {
+		t.Errorf("terminal-browser = %q %v, want the in-home link", link, err)
 	}
 	for _, name := range []string{"abs", "climb"} {
 		if _, err := os.Lstat(filepath.Join(dest, name)); !os.IsNotExist(err) {

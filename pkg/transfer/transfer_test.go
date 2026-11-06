@@ -304,7 +304,7 @@ func TestArchiveCarriesSymlinksAndReceiveRecreatesThem(t *testing.T) {
 	if err := os.MkdirAll(skills, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink("../../../.agents/skills/orca-cli", filepath.Join(skills, "orca-cli")); err != nil {
+	if err := os.Symlink("../../../.agents/skills/terminal-browser", filepath.Join(skills, "terminal-browser")); err != nil {
 		t.Fatal(err)
 	}
 	src := filepath.Join(t.TempDir(), "dots-backup-links.tar.gz")
@@ -320,7 +320,7 @@ func TestArchiveCarriesSymlinksAndReceiveRecreatesThem(t *testing.T) {
 	if _, err := Receive(r, dest, sum); err != nil {
 		t.Fatal(err)
 	}
-	if link, err := os.Readlink(filepath.Join(dest, "configs", "pi", "skills", "orca-cli")); err != nil || link != "../../../.agents/skills/orca-cli" {
+	if link, err := os.Readlink(filepath.Join(dest, "configs", "pi", "skills", "terminal-browser")); err != nil || link != "../../../.agents/skills/terminal-browser" {
 		t.Fatalf("symlink not recreated: %q %v", link, err)
 	}
 }
