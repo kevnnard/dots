@@ -173,6 +173,8 @@ apps:
               dest: configs/gentle-shell/web-search.json
             - src: ~/.gentle-shell/agent/claude-bridge.json
               dest: configs/gentle-shell/claude-bridge.json
+            - src: ~/.gentle-shell/agent/subagents.json
+              dest: configs/gentle-shell/subagents.json
             - src: ~/.gentle-shell/agent/skills
               dest: configs/gentle-shell/skills
             - src: ~/.gentle-shell/agent/agents
@@ -274,12 +276,18 @@ apps:
             - web-search-cache/**
             - '*.log'
             - '*.bak*'
+            - '*.bk*'
             - '*.tmp.*'
             - '*.cache.json'
             - crashes.json
             - npm/**
             - bin/**
             - node_modules/**
+            - gentle-agents/**
+            - auth.json
+            - mcp-auth.json
+            - antigravity-accounts.json
+            - models-store.json
             - .git/**
             - .DS_Store
         secrets:
@@ -590,6 +598,10 @@ apps:
               dest: configs/pi/mcp.json
             - src: ~/.pi/agent/trust.json
               dest: configs/pi/trust.json
+            - src: ~/.pi/agent/claude-bridge.json
+              dest: configs/pi/claude-bridge.json
+            - src: ~/.pi/agent/subagents.json
+              dest: configs/pi/subagents.json
             - src: ~/.pi/agent/skills
               dest: configs/pi/skills
             - src: ~/.pi/agent/agents
@@ -661,12 +673,18 @@ apps:
             - cc-cli-logs/**
             - '*.log'
             - '*.bak*'
+            - '*.bk*'
             - '*.tmp.*'
             - '*.cache.json'
             - crashes.json
             - npm/**
             - bin/**
             - node_modules/**
+            - gentle-agents/**
+            - auth.json
+            - mcp-auth.json
+            - antigravity-accounts.json
+            - models-store.json
             - .git/**
             - .DS_Store
         secrets:
