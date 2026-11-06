@@ -121,6 +121,18 @@ else
 fi
 export PATH="$ANDROID_HOME/platform-tools:$PATH"
 
+# Display environment for headless GPU / WebGL tools (terminal-browser, etc.)
+if [[ -z "$DISPLAY" && -S /tmp/.X11-unix/X0 ]]; then
+  export DISPLAY=:0
+fi
+if [[ -z "$WAYLAND_DISPLAY" && -S "/run/user/$UID/wayland-1" ]]; then
+  export WAYLAND_DISPLAY=wayland-1
+  export XDG_RUNTIME_DIR="/run/user/$UID"
+elif [[ -z "$WAYLAND_DISPLAY" && -S "/run/user/$UID/wayland-0" ]]; then
+  export WAYLAND_DISPLAY=wayland-0
+  export XDG_RUNTIME_DIR="/run/user/$UID"
+fi
+
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
