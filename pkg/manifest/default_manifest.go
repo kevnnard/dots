@@ -302,6 +302,8 @@ apps:
               dest: configs/herdr/plugins.json
             - src: ~/.config/herdr/plugins
               dest: configs/herdr/plugins
+            - src: ~/.local/state/herdr/client/endpoints.json
+              dest: configs/herdr/endpoints.json
         exclude:
             - '*.sock*'
             - '*.log'
@@ -338,6 +340,30 @@ apps:
             arch:
                 manager: yay
                 package: terminal-browser-bin
+    btop:
+        description: Resource monitor (C++ continuation of bashtop and bpytop)
+        profile: core
+        paths:
+            - src: ~/.config/btop
+              dest: configs/btop
+        exclude:
+            - .DS_Store
+        install:
+            darwin:
+                manager: brew
+                package: btop
+            linux:
+                manager: brew
+                package: btop
+            arch:
+                manager: pacman
+                package: btop
+            debian:
+                manager: apt
+                package: btop
+            ubuntu:
+                manager: apt
+                package: btop
     flashspace:
         description: Flashspace macOS workspace manager settings and profiles
         profile: core

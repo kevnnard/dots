@@ -19,6 +19,8 @@ tap "tw93/tap", trusted: true
 brew "act"
 # Improved shell history for zsh, bash, fish and nushell
 brew "atuin"
+# Resource monitor. C++ version and continuation of bashtop and bpytop
+brew "btop"
 # Powerful, enterprise-ready, open source web server with automatic HTTPS
 brew "caddy"
 # Multi-shell multi-command argument completer

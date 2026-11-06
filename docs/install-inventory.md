@@ -76,6 +76,7 @@ Gentleman Homebrew taps are unsupported there.
 | bitwarden | core | darwin: `cask bitwarden`, pacman: `bitwarden`, winget: `Bitwarden.Bitwarden` |  |
 | brew | core | config-only |  |
 | bruno | core | darwin: `cask bruno`, winget: `Bruno.Bruno`, yay: `bruno-bin` |  |
+| btop | core | apt: `btop`, arch: `btop`, brew: `btop`, darwin: `btop`, debian: `btop`, linux: `btop`, pacman: `btop`, ubuntu: `btop` |  |
 | caddy | core,infra | apt: `caddy`, brew: `caddy`, dnf: `caddy`, pacman: `caddy`, winget: `CaddyServer.Caddy` |  |
 | carapace | core | brew: `carapace`, winget: `rsteube.Carapace`, yay: `carapace-bin` |  |
 | claude | core,ai | darwin: `cask claude-code`, default: `@anthropic-ai/claude-code` | node |
