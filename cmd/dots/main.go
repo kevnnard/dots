@@ -11,7 +11,7 @@ import (
 
 var (
 	dotfilesDirFlag string
-	version         = "1.5.3"
+	version         = "1.5.4"
 )
 
 var rootCmd = &cobra.Command{
