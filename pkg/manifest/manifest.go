@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -39,6 +40,26 @@ type AppConfig struct {
 	Exclude []string                 `yaml:"exclude,omitempty"`
 	Secrets []string                 `yaml:"secrets,omitempty"`
 	Install map[string]InstallRecipe `yaml:"install,omitempty"`
+	// PackageLinks is written only into transferred backups, never into the
+	// repository manifest: it carries the backed-up links that pointed into a
+	// package install, which an archive cannot hold as links.
+	PackageLinks []PackageLink `yaml:"package_links,omitempty"`
+}
+
+// PackageLink is a backed-up symlink into a resource of an installed package.
+// Path is the staged entry (slash-separated, below one of the app's path
+// dests); Resource is the unchanged path below the package version directory.
+// Every field is untrusted: restore re-resolves the link against the package
+// installed on the receiving machine (see pkg/packagelink).
+type PackageLink struct {
+	Path     string `yaml:"path"`
+	Manager  string `yaml:"manager"`
+	Kind     string `yaml:"kind"`
+	Package  string `yaml:"package"`
+	Version  string `yaml:"version,omitempty"`
+	Resource string `yaml:"resource"`
+	// Type is "dir" or "file" when the source resource could be inspected.
+	Type string `yaml:"type,omitempty"`
 }
 
 // MatchesProfile returns true if the app matches the requested profile.
@@ -105,6 +126,60 @@ func (m *Manifest) Save(filePath string) error {
 		return fmt.Errorf("writing manifest file: %w", err)
 	}
 
+	return nil
+}
+
+// WithPackageLinks returns the manifest YAML data with each named app's
+// package_links set to links[app], replacing any previous value. Everything
+// else in data is kept.
+func WithPackageLinks(data []byte, links map[string][]PackageLink) ([]byte, error) {
+	var doc yaml.Node
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		return nil, fmt.Errorf("unmarshaling manifest yaml: %w", err)
+	}
+	if doc.Kind != yaml.DocumentNode || len(doc.Content) != 1 {
+		return nil, fmt.Errorf("manifest is not a single YAML document")
+	}
+	apps := mappingValue(doc.Content[0], "apps")
+	if apps == nil {
+		return nil, fmt.Errorf("manifest declares no apps")
+	}
+	names := make([]string, 0, len(links))
+	for name := range links {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		app := mappingValue(apps, name)
+		if app == nil {
+			return nil, fmt.Errorf("manifest does not declare app %q", name)
+		}
+		var value yaml.Node
+		if err := value.Encode(links[name]); err != nil {
+			return nil, err
+		}
+		kept := app.Content[:0:0]
+		for i := 0; i+1 < len(app.Content); i += 2 {
+			if app.Content[i].Value != "package_links" {
+				kept = append(kept, app.Content[i], app.Content[i+1])
+			}
+		}
+		key := &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "package_links"}
+		app.Content = append(kept, key, &value)
+	}
+	return yaml.Marshal(&doc)
+}
+
+// mappingValue returns the mapping value of key in node, or nil.
+func mappingValue(node *yaml.Node, key string) *yaml.Node {
+	if node.Kind != yaml.MappingNode {
+		return nil
+	}
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		if node.Content[i].Value == key && node.Content[i+1].Kind == yaml.MappingNode {
+			return node.Content[i+1]
+		}
+	}
 	return nil
 }
 
