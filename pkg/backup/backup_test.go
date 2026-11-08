@@ -285,3 +285,37 @@ func TestBackupAllStopsOnRawSecretCopyInsideDirectory(t *testing.T) {
 		t.Error("no template may be written next to the raw copy")
 	}
 }
+
+func TestBackupTokenizesBrewPrefix(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	prefix := filepath.Join(t.TempDir(), "homebrew")
+	if err := os.MkdirAll(filepath.Join(prefix, "bin"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(prefix, "bin", "brew"), nil, 0755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOMEBREW_PREFIX", prefix)
+
+	srcFile := filepath.Join(home, ".tool", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(srcFile), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(srcFile, []byte(`command = "`+prefix+`/bin/engram"`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	app := manifest.AppConfig{Paths: []manifest.PathMapping{{Src: srcFile, Dest: "configs/tool/config.toml"}}}
+	repo := t.TempDir()
+	if _, err := BackupApp("tool", app, repo); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(repo, "configs/tool/config.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := `command = "__BREW_PREFIX__/bin/engram"`; string(data) != want {
+		t.Errorf("got %q, want %q", data, want)
+	}
+}

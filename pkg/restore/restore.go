@@ -329,6 +329,25 @@ func deployTemplate(g writeGuard, src, dest string, dryRun bool, res *ApplyResul
 		}
 	}
 	res.TemplatesInit = append(res.TemplatesInit, dest)
+	warnUnresolved(src, nil, dest, res)
+}
+
+// warnUnresolved reports a deployed file whose Homebrew prefix placeholder
+// stays unexpanded because no prefix is verified on this machine. data is the
+// content deployed in place of src, when it was repaired.
+func warnUnresolved(src string, data []byte, dest string, res *ApplyResult) {
+	if data == nil {
+		info, err := os.Stat(src)
+		if err != nil || info.Size() > 8<<20 {
+			return // larger files are copied verbatim
+		}
+		if data, err = os.ReadFile(src); err != nil {
+			return
+		}
+	}
+	if homepath.Unresolved(data) {
+		res.Warnings = append(res.Warnings, fmt.Sprintf("%s: no Homebrew prefix verified on this machine; %s left unexpanded", dest, homepath.BrewToken))
+	}
 }
 
 // placeFile restores one repository file to dest. An equivalent local file is
@@ -351,6 +370,7 @@ func placeFile(g writeGuard, src, dest string, opts ApplyOptions, res *ApplyResu
 	}
 	restored := func() {
 		res.Restored = append(res.Restored, dest)
+		warnUnresolved(src, fixed.data, dest, res)
 		if fixed.issue != "" {
 			res.NotRepaired = append(res.NotRepaired, fmt.Sprintf("%s: backup deployed without repair: %s", dest, fixed.issue))
 		}

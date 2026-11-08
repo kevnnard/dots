@@ -85,3 +85,27 @@ func TestStatusTreatsHomePlaceholderAsSynced(t *testing.T) {
 		t.Errorf("expected synced, got %+v", st.Paths)
 	}
 }
+
+func TestStatusIgnoresBrewPrefix(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	prefix := filepath.Join(t.TempDir(), "linuxbrew")
+	os.MkdirAll(filepath.Join(prefix, "bin"), 0755)
+	os.WriteFile(filepath.Join(prefix, "bin", "brew"), nil, 0755)
+	t.Setenv("HOMEBREW_PREFIX", prefix)
+	repoDir := t.TempDir()
+
+	local := filepath.Join(home, ".tool", "config.toml")
+	repoFile := filepath.Join(repoDir, "configs", "config.toml")
+	os.MkdirAll(filepath.Dir(local), 0755)
+	os.MkdirAll(filepath.Dir(repoFile), 0755)
+	os.WriteFile(local, []byte(`command = "`+prefix+`/bin/engram"`), 0644)
+	os.WriteFile(repoFile, []byte(`command = "__BREW_PREFIX__/bin/engram"`), 0644)
+
+	app := manifest.AppConfig{Paths: []manifest.PathMapping{{Src: local, Dest: "configs/config.toml"}}}
+	st := CheckAppStatus("tool", app, repoDir)
+	if len(st.Paths) != 1 || st.Paths[0].State != StateSynced {
+		t.Errorf("expected synced, got %+v", st.Paths)
+	}
+}

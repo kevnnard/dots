@@ -1,20 +1,26 @@
-// Package homepath keeps user-specific home directories out of versioned
-// dotfiles. Backups replace the current home with a placeholder and restores
-// expand it for the target machine, so configs travel between macOS, Linux and
-// Windows without hardcoded paths such as /Users/<name>.
+// Package homepath keeps machine-specific locations out of versioned
+// dotfiles. Backups replace the current home and the Homebrew prefix with
+// placeholders and restores expand them for the target machine, so configs
+// travel between macOS, Linux and Windows without hardcoded paths such as
+// /Users/<name> or /opt/homebrew.
 package homepath
 
 import (
 	"bytes"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 )
 
 // Token is the placeholder stored in the dotfiles repository.
 const Token = "__HOME__"
+
+// BrewToken is the placeholder stored for the Homebrew prefix.
+const BrewToken = "__BREW_PREFIX__"
 
 const (
 	binarySniffBytes = 8000
@@ -24,6 +30,41 @@ const (
 // Current returns the home directory of the running user.
 func Current() (string, error) {
 	return os.UserHomeDir()
+}
+
+// queriedBrewPrefix asks the brew on PATH for its prefix, once per process.
+var queriedBrewPrefix = sync.OnceValue(func() string {
+	brew, err := exec.LookPath("brew")
+	if err != nil {
+		return ""
+	}
+	out, err := exec.Command(brew, "--prefix").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+})
+
+// BrewPrefix returns the Homebrew prefix of this machine, or "" when none is
+// verified. A non-empty HOMEBREW_PREFIX is authoritative; otherwise brew
+// --prefix is asked. Either way the prefix must be an absolute directory
+// holding bin/brew, so a stale or guessed value is never used.
+func BrewPrefix() string {
+	prefix := os.Getenv("HOMEBREW_PREFIX")
+	if prefix == "" {
+		prefix = queriedBrewPrefix()
+	}
+	if prefix == "" || !filepath.IsAbs(prefix) {
+		return ""
+	}
+	prefix = filepath.Clean(prefix)
+	if prefix == filepath.Dir(prefix) {
+		return "" // a filesystem root is never a prefix
+	}
+	if info, err := os.Stat(filepath.Join(prefix, "bin", "brew")); err != nil || info.IsDir() {
+		return ""
+	}
+	return prefix
 }
 
 // IsText reports whether data looks like text (no NUL byte near the start).
@@ -56,20 +97,32 @@ func isNameByte(b byte) bool {
 		(b >= '0' && b <= '9') || (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z')
 }
 
-// Tokenize replaces occurrences of home with Token. Only whole path prefixes
-// are replaced (so /Users/dev never matches /Users/devx), and binary data is
-// returned unchanged.
+// Tokenize replaces occurrences of home with Token and of the Homebrew prefix
+// with BrewToken. Only whole path prefixes are replaced (so /Users/dev never
+// matches /Users/devx), the longest location first so a prefix inside home
+// keeps its own token, and binary data is returned unchanged.
 func Tokenize(data []byte, home string) []byte {
-	if home == "" || home == "/" || home == `\` || !IsText(data) {
+	if !IsText(data) {
 		return data
 	}
-	for _, v := range variants(home) {
-		data = replaceBounded(data, []byte(v))
+	type substitution struct{ needle, token string }
+	var subs []substitution
+	if home != "" && home != "/" && home != `\` {
+		for _, v := range variants(home) {
+			subs = append(subs, substitution{v, Token})
+		}
+	}
+	if prefix := BrewPrefix(); prefix != "" && prefix != home {
+		subs = append(subs, substitution{prefix, BrewToken})
+	}
+	sort.SliceStable(subs, func(i, j int) bool { return len(subs[i].needle) > len(subs[j].needle) })
+	for _, s := range subs {
+		data = replaceBounded(data, []byte(s.needle), s.token)
 	}
 	return data
 }
 
-func replaceBounded(data, needle []byte) []byte {
+func replaceBounded(data, needle []byte, token string) []byte {
 	if !bytes.Contains(data, needle) {
 		return data
 	}
@@ -87,7 +140,7 @@ func replaceBounded(data, needle []byte) []byte {
 		nextOK := end >= len(data) || !isNameByte(data[end])
 		out.Write(data[i:start])
 		if prevOK && nextOK {
-			out.WriteString(Token)
+			out.WriteString(token)
 		} else {
 			out.Write(needle)
 		}
@@ -96,14 +149,29 @@ func replaceBounded(data, needle []byte) []byte {
 	return out.Bytes()
 }
 
-// Expand replaces Token with home. Windows homes use forward slashes so the
-// result stays valid inside JSON and TOML strings.
+// Expand replaces Token with home and BrewToken with the Homebrew prefix.
+// Windows homes use forward slashes so the result stays valid inside JSON and
+// TOML strings. Without a verified prefix BrewToken is kept, so the file shows
+// what is missing instead of pointing at another machine's prefix.
 func Expand(data []byte, home string) []byte {
-	if home == "" || !IsText(data) || !bytes.Contains(data, []byte(Token)) {
+	if !IsText(data) {
 		return data
 	}
-	home = strings.ReplaceAll(home, `\`, "/")
-	return bytes.ReplaceAll(data, []byte(Token), []byte(home))
+	if home != "" && bytes.Contains(data, []byte(Token)) {
+		data = bytes.ReplaceAll(data, []byte(Token), []byte(strings.ReplaceAll(home, `\`, "/")))
+	}
+	if bytes.Contains(data, []byte(BrewToken)) {
+		if prefix := BrewPrefix(); prefix != "" {
+			data = bytes.ReplaceAll(data, []byte(BrewToken), []byte(prefix))
+		}
+	}
+	return data
+}
+
+// Unresolved reports whether Expand leaves BrewToken in data on this machine
+// because no Homebrew prefix is verified here.
+func Unresolved(data []byte) bool {
+	return IsText(data) && bytes.Contains(data, []byte(BrewToken)) && BrewPrefix() == ""
 }
 
 // Equivalent reports whether two file contents are the same once the current
