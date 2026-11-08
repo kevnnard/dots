@@ -14,6 +14,7 @@ import (
 
 	"github.com/kevnnard/dots/pkg/homepath"
 	"github.com/kevnnard/dots/pkg/manifest"
+	"github.com/kevnnard/dots/pkg/packagelink"
 )
 
 type Result struct {
@@ -76,6 +77,11 @@ func BackupApp(appName string, app manifest.AppConfig, destRepoDir string) (*Res
 			continue
 		}
 
+		destFull := filepath.Join(destRepoDir, mapping.Dest)
+		if stagePackageLink(srcExpanded, destFull, res) {
+			continue
+		}
+
 		info, err := os.Stat(srcExpanded)
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -85,8 +91,6 @@ func BackupApp(appName string, app manifest.AppConfig, destRepoDir string) (*Res
 			res.Warnings = append(res.Warnings, fmt.Sprintf("cannot stat %s: %v", mapping.Src, err))
 			continue
 		}
-
-		destFull := filepath.Join(destRepoDir, mapping.Dest)
 
 		if info.IsDir() {
 			if err := copyDirectory(srcExpanded, destFull, app.Exclude, app.Secrets, res); err != nil {
@@ -121,6 +125,38 @@ func BackupApp(appName string, app manifest.AppConfig, destRepoDir string) (*Res
 	}
 
 	return res, nil
+}
+
+// stagePackageLink stages a mapped source that is itself a link into an
+// installed package as that link, never as the package's contents. It
+// reports whether src was such a link; any other source is left to the copy.
+func stagePackageLink(src, dest string, res *Result) bool {
+	info, err := os.Lstat(src)
+	if err != nil || info.Mode()&os.ModeSymlink == 0 {
+		return false
+	}
+	target, err := os.Readlink(src)
+	if err != nil {
+		return false
+	}
+	if _, ok := packagelink.Parse(target); !ok {
+		return false
+	}
+	if existing, err := os.Lstat(dest); err == nil && existing.IsDir() {
+		res.Warnings = append(res.Warnings, fmt.Sprintf("%s is a directory in the staging folder; package link %s not staged", dest, src))
+		return true
+	}
+	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+		res.Warnings = append(res.Warnings, fmt.Sprintf("failed creating parent dir for symlink %s: %v", dest, err))
+		return true
+	}
+	_ = os.Remove(dest)
+	if err := os.Symlink(target, dest); err != nil {
+		res.Warnings = append(res.Warnings, fmt.Sprintf("failed creating symlink %s: %v", dest, err))
+		return true
+	}
+	res.Copied = append(res.Copied, dest)
+	return true
 }
 
 // BackupAll iterates through all apps declared in the manifest and backs them up.

@@ -44,6 +44,10 @@ terminals and the AI agent homes (settings, instructions, prompts, extensions an
 named preference files). It does not map sessions, caches or telemetry. A manifest
 written by an older dots is never rewritten: backup lists the built-in paths it lacks.
 
+Links into Homebrew casks and formulae are staged as links; --send carries them
+as package references, and restore points them at the package installed on the
+receiving machine. Other absolute links do not travel.
+
 Move the backup to another machine over Taildrop:
   dots backup --send <device>   prints a short code
   dots backup --receive <code>  on the other machine, then

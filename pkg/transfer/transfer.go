@@ -2,7 +2,8 @@
 // archive carries only the repository's configs/ tree and manifest.yaml. The
 // receiver accepts one archive, checks it against the code the sender printed
 // (the sha256 or its first MinCodeLength characters) before extracting, and
-// never overwrites an existing destination.
+// never overwrites an existing destination. Links into installed packages
+// travel as checked references in the archived manifest (see pkg/packagelink).
 package transfer
 
 import (
@@ -18,7 +19,11 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
+
+	"github.com/kevnnard/dots/pkg/manifest"
+	"github.com/kevnnard/dots/pkg/packagelink"
 )
 
 // ArchivePrefix names every archive so the receiver can pick it out of the inbox.
@@ -63,7 +68,9 @@ func (ExecRunner) Run(name string, args ...string) ([]byte, error) {
 // Archive writes manifest.yaml and configs/ from repo into out and returns the
 // sha256 of the written file. Relative symlinks travel as links (skills shared
 // through ~/.agents/skills); absolute ones, which would not be portable, and
-// other non-regular files are skipped.
+// other non-regular files are skipped. An absolute link into an installed
+// package is recorded instead as a reference in the archived manifest; the
+// staged manifest itself is not changed.
 func Archive(repo, out string) (string, error) {
 	if err := writeArchive(repo, out); err != nil {
 		return "", err
@@ -72,6 +79,10 @@ func Archive(repo, out string) (string, error) {
 }
 
 func writeArchive(repo, out string) (err error) {
+	manifestData, err := archivedManifest(repo)
+	if err != nil {
+		return err
+	}
 	f, err := os.Create(out)
 	if err != nil {
 		return err
@@ -83,7 +94,7 @@ func writeArchive(repo, out string) (err error) {
 	}()
 	gz := gzip.NewWriter(f)
 	tw := tar.NewWriter(gz)
-	if err := addFile(tw, repo, "manifest.yaml"); err != nil {
+	if err := addData(tw, "manifest.yaml", manifestData); err != nil {
 		return err
 	}
 	if err := addTree(tw, repo, "configs"); err != nil {
@@ -95,15 +106,100 @@ func writeArchive(repo, out string) (err error) {
 	return gz.Close()
 }
 
+// archivedManifest returns the staged manifest with, for each app, a
+// reference to every staged link into an installed package below the app's
+// paths. Without such links the manifest is returned unchanged.
+func archivedManifest(repo string) ([]byte, error) {
+	manifestPath := filepath.Join(repo, "manifest.yaml")
+	data, err := os.ReadFile(manifestPath)
+	if err != nil {
+		return nil, err
+	}
+	found, err := stagedPackageLinks(repo)
+	if err != nil || len(found) == 0 {
+		return data, err
+	}
+	m, err := manifest.Load(manifestPath)
+	if err != nil {
+		return nil, fmt.Errorf("cannot record package links: %w", err)
+	}
+	links := map[string][]manifest.PackageLink{}
+	for name, app := range m.Apps {
+		byPath := map[string]manifest.PackageLink{}
+		for _, l := range app.PackageLinks {
+			byPath[l.Path] = l
+		}
+		owned := false
+		for _, l := range found {
+			if packagelink.Owns(app, l.Path) {
+				byPath[l.Path] = l
+				owned = true
+			}
+		}
+		if !owned {
+			continue
+		}
+		paths := make([]string, 0, len(byPath))
+		for p := range byPath {
+			paths = append(paths, p)
+		}
+		sort.Strings(paths)
+		for _, p := range paths {
+			links[name] = append(links[name], byPath[p])
+		}
+	}
+	if len(links) == 0 {
+		return data, nil
+	}
+	return manifest.WithPackageLinks(data, links)
+}
+
+// stagedPackageLinks lists the staged links under configs/ whose absolute
+// target is a resource of a supported package. The target is only inspected
+// for its type, never read.
+func stagedPackageLinks(repo string) ([]manifest.PackageLink, error) {
+	var found []manifest.PackageLink
+	err := filepath.WalkDir(filepath.Join(repo, "configs"), func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.Type()&fs.ModeSymlink == 0 {
+			return err
+		}
+		target, err := os.Readlink(p)
+		if err != nil {
+			return err
+		}
+		link, ok := packagelink.Parse(target)
+		if !ok {
+			return nil
+		}
+		rel, err := filepath.Rel(repo, p)
+		if err != nil {
+			return err
+		}
+		link.Path = filepath.ToSlash(rel)
+		if info, err := os.Stat(p); err == nil && info.IsDir() {
+			link.Type = "dir"
+		} else if err == nil && info.Mode().IsRegular() {
+			link.Type = "file"
+		}
+		found = append(found, link)
+		return nil
+	})
+	return found, err
+}
+
 func addFile(tw *tar.Writer, root, rel string) error {
 	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
 	if err != nil {
 		return err
 	}
+	return addData(tw, rel, data)
+}
+
+func addData(tw *tar.Writer, rel string, data []byte) error {
 	if err := tw.WriteHeader(&tar.Header{Name: rel, Mode: 0o644, Size: int64(len(data)), Typeflag: tar.TypeReg}); err != nil {
 		return err
 	}
-	_, err = tw.Write(data)
+	_, err := tw.Write(data)
 	return err
 }
 
@@ -215,6 +311,10 @@ func Receive(r Runner, dest, code string) ([]string, error) {
 		return unclaimed, err
 	}
 	if err := extract(match, stage); err != nil {
+		os.RemoveAll(stage)
+		return unclaimed, err
+	}
+	if err := checkPackageLinks(stage); err != nil {
 		os.RemoveAll(stage)
 		return unclaimed, err
 	}
@@ -342,6 +442,34 @@ func extract(archive, root string) error {
 			return fmt.Errorf("unsupported entry type in archive: %q", h.Name)
 		}
 	}
+}
+
+// checkPackageLinks refuses an extracted backup whose manifest holds a
+// package link reference that is malformed, outside its app's paths, or at a
+// path where the archive itself holds an entry: archives never carry the
+// links that references stand for. An unreadable manifest is left to restore.
+func checkPackageLinks(root string) error {
+	m, err := manifest.Load(filepath.Join(root, "manifest.yaml"))
+	if err != nil {
+		return nil
+	}
+	names := make([]string, 0, len(m.Apps))
+	for name := range m.Apps {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		refs, problems := packagelink.Scoped(m.Apps[name])
+		if len(problems) > 0 {
+			return fmt.Errorf("unsafe package link reference in archive (app %s): %s; nothing was extracted", name, problems[0])
+		}
+		for p := range refs {
+			if _, err := os.Lstat(filepath.Join(root, filepath.FromSlash(p))); !os.IsNotExist(err) {
+				return fmt.Errorf("unsafe package link reference in archive (app %s): the archive holds an entry at %s; nothing was extracted", name, p)
+			}
+		}
+	}
+	return nil
 }
 
 // placeLinks creates the archive's symlinks once every file is written,
