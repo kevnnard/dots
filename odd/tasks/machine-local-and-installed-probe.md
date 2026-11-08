@@ -13,7 +13,7 @@ S4. Verify on Linux: new backup, transfer, restore; `~/.gitconfig` and both `sub
 
 T1 [done] S1-S2 | route: inline | keep_local flag, Effective merge, restore, manifest, docs, tests | commit: -
 T2 [done] S3 | route: explore (mw8eg4dk-e-rp5z) then inline | package-manager receipt probe | commit: -
-T3 [in_progress] S4 | route: parent, SSH | Linux verification | commit: evidence only
+T3 [done] S4 | route: parent, SSH | Linux verification | commit: evidence only
 
 ## Log
 
@@ -21,4 +21,4 @@ L1. User request: "si y ojo con esto Ojo con tus dots: volvieron a cambiar la cl
 L2. Design: keep_local forces Replace=false for that mapping only; the existing safe keep path reports the file. Backup still stages the file so a new machine gets a starting copy.
 L4. T1 RED: build failure (MachineLocal undefined) and manifest keep_local tests failing; GREEN restore/manifest; go vet + go test ./... pass. Help text, README, docs updated.
 L5. T2 explore: clean.NativeProbe queries all recipes (brew/pacman/npm/pnpm, private query/listed helpers, no apt); recommended receipt check after resolveRecipe in planStep with the real provided map, selected recipe only, bounded timeout, unknown = today's behavior.
-L6. T2 RED: clean/restore build failures (Installed, Receipts undefined), CLI test ran zsh despite pacman receipt; GREEN after wiring installReceipts(sys) (clean.NativeProbe.Installed via cleanExecutor) in CLI and TUI RunTUI. apt has no tested query: stays unknown -> today's behavior. go vet + go test ./... pass.\nL3. Engram mirror unavailable in this session; this file is authoritative.
+L6. T2 RED: clean/restore build failures (Installed, Receipts undefined), CLI test ran zsh despite pacman receipt; GREEN after wiring installReceipts(sys) (clean.NativeProbe.Installed via cleanExecutor) in CLI and TUI RunTUI. apt has no tested query: stays unknown -> today's behavior. go vet + go test ./... pass.\nL7. T3: Mac stage /Users/kevnnard/.cache/dots/local-refresh-20261108-172841.luGE/stage, Linux /home/kevnnard/.cache/dots/incoming/ssh-local-20261108-172841/stage, same fingerprint 97ab442c... (f2169 l10 d648); candidate sha 235fd082... Dry-run then real `restore --all --with-config --install-packages --replace-existing`: exit 0, "Finished without problems."; bitwarden, font-caskaydia-cove, font-iosevka-term "already installed, skipped"; "kept machine-specific file: /home/kevnnard/.gitconfig"; sha256sum -c of .gitconfig and both subagents.json OK (subagents already identical to backup); signingkey still the Linux key; no new .gitconfig .bk. 13 readiness items remain.\nL3. Engram mirror unavailable in this session; this file is authoritative.
