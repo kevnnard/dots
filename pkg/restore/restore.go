@@ -13,6 +13,7 @@ import (
 	"github.com/kevnnard/dots/pkg/detector"
 	"github.com/kevnnard/dots/pkg/homepath"
 	"github.com/kevnnard/dots/pkg/manifest"
+	"github.com/kevnnard/dots/pkg/packagelink"
 )
 
 type AppPlan struct {
@@ -95,6 +96,10 @@ type ApplyOptions struct {
 	// from the repository. Each one is replaced only after its timestamped
 	// safety backup succeeds. Without it such files are kept and reported.
 	Replace bool
+	// Packages resolves backed-up links into installed packages (see
+	// pkg/packagelink) against this machine. Nil refuses every link that
+	// points outside the mapping's root.
+	Packages *packagelink.Resolver
 }
 
 // ApplyAppFiles copies configuration files from the dotfiles repository to
@@ -107,12 +112,22 @@ func ApplyAppFiles(appName string, app manifest.AppConfig, repoDir string, dryRu
 // to the destination. Missing files are created, templates are only deployed
 // when absent, and existing files are handled according to opts.Replace.
 // Writes are confined to the mapping's authorized root (see newWriteGuard);
-// paths whose existing ancestry resolves outside it are refused.
+// paths whose existing ancestry resolves outside it are refused. Links into
+// installed packages, backed up as links or as the app's package link
+// references, are recreated only once opts.Packages confirms the resource.
+// An app with an unusable reference is refused before anything is written.
 func ApplyAppFilesWith(appName string, app manifest.AppConfig, repoDir string, opts ApplyOptions) (*ApplyResult, error) {
 	res := &ApplyResult{
 		AppName: appName,
 	}
 	dryRun := opts.DryRun
+	refs, problems := checkRefs(app, repoDir)
+	if len(problems) > 0 {
+		for _, p := range problems {
+			res.Warnings = append(res.Warnings, fmt.Sprintf("%s; no configuration of %s was restored", p, appName))
+		}
+		return res, nil
+	}
 
 	for _, mapping := range app.Paths {
 		repoPath := filepath.Join(repoDir, mapping.Dest)
@@ -126,8 +141,23 @@ func ApplyAppFilesWith(appName string, app manifest.AppConfig, repoDir string, o
 			res.Warnings = append(res.Warnings, fmt.Sprintf("%s not restored: %v", targetExpanded, err))
 			continue
 		}
+		pending := pendingRefs(refs, mapping.Dest, repoDir)
+		staged := filepath.ToSlash(filepath.Clean(mapping.Dest))
+		if rootLink(repoPath, refs[staged]) {
+			var ref *manifest.PackageLink
+			if link, ok := refs[staged]; ok {
+				ref = &link
+				delete(refs, staged)
+			}
+			placeSymlink(guard, repoPath, ref, targetExpanded, opts, res)
+			continue
+		}
 
 		info, err := os.Stat(repoPath)
+		if err != nil && len(pending) > 0 {
+			placePending(guard, pending, refs, mapping.Dest, targetExpanded, opts, res)
+			continue
+		}
 		if err != nil {
 			// Check if a .template exists instead
 			templatePath := repoPath + ".template"
@@ -159,7 +189,13 @@ func ApplyAppFilesWith(appName string, app manifest.AppConfig, repoDir string, o
 				destFile := filepath.Join(targetExpanded, rel)
 
 				if fInfo.Mode()&os.ModeSymlink != 0 {
-					placeSymlink(guard, path, destFile, opts, res)
+					staged := filepath.ToSlash(filepath.Join(mapping.Dest, rel))
+					var ref *manifest.PackageLink
+					if link, ok := refs[staged]; ok {
+						ref = &link
+						delete(refs, staged)
+					}
+					placeSymlink(guard, path, ref, destFile, opts, res)
 					return nil
 				}
 
@@ -191,9 +227,88 @@ func ApplyAppFilesWith(appName string, app manifest.AppConfig, repoDir string, o
 		} else {
 			placeFile(guard, repoPath, targetExpanded, opts, res)
 		}
+		placePending(guard, pending, refs, mapping.Dest, targetExpanded, opts, res)
 	}
 
 	return res, nil
+}
+
+// checkRefs returns the app's package link references keyed by staged path,
+// with every problem that makes them unusable: malformed, outside the app's
+// paths, given twice, or at a staged path holding anything but a link.
+func checkRefs(app manifest.AppConfig, repoDir string) (map[string]manifest.PackageLink, []string) {
+	refs, problems := packagelink.Scoped(app)
+	staged := make([]string, 0, len(refs))
+	for p := range refs {
+		staged = append(staged, p)
+	}
+	sort.Strings(staged)
+	for _, p := range staged {
+		info, err := os.Lstat(filepath.Join(repoDir, filepath.FromSlash(p)))
+		switch {
+		case os.IsNotExist(err), err == nil && info.Mode()&os.ModeSymlink != 0:
+		case err != nil:
+			problems = append(problems, fmt.Sprintf("%s: cannot inspect the backup entry for the package link reference: %v", p, err))
+		default:
+			problems = append(problems, fmt.Sprintf("%s: the backup holds an entry there that is not a link; package link reference refused", p))
+		}
+	}
+	return refs, problems
+}
+
+// rootLink reports whether the staged entry of a mapping is itself a link to
+// restore as a link: one into an installed package, or one a reference
+// stands for. Any other staged link keeps its earlier handling.
+func rootLink(repoPath string, ref manifest.PackageLink) bool {
+	info, err := os.Lstat(repoPath)
+	if err != nil || info.Mode()&os.ModeSymlink == 0 {
+		return false
+	}
+	if ref.Path != "" {
+		return true
+	}
+	raw, err := os.Readlink(repoPath)
+	if err != nil {
+		return false
+	}
+	_, ok := packagelink.Parse(raw)
+	return ok
+}
+
+// pendingRefs returns the staged paths of the references at or below dest
+// whose staged entry is missing, as after a transfer, which never carries
+// the links they stand for. A reference whose staged entry is a link is left
+// to that link.
+func pendingRefs(refs map[string]manifest.PackageLink, dest, repoDir string) []string {
+	var pending []string
+	for staged := range refs {
+		if !packagelink.Owns(manifest.AppConfig{Paths: []manifest.PathMapping{{Dest: dest}}}, staged) {
+			continue
+		}
+		if _, err := os.Lstat(filepath.Join(repoDir, filepath.FromSlash(staged))); os.IsNotExist(err) {
+			pending = append(pending, staged)
+		}
+	}
+	sort.Strings(pending)
+	return pending
+}
+
+// placePending recreates the links of the pending references at or below
+// the mapping's target, unless a staged link already consumed them.
+func placePending(g writeGuard, pending []string, refs map[string]manifest.PackageLink, dest, target string, opts ApplyOptions, res *ApplyResult) {
+	root := filepath.ToSlash(filepath.Clean(dest))
+	for _, staged := range pending {
+		link, ok := refs[staged]
+		if !ok {
+			continue
+		}
+		delete(refs, staged)
+		at := target
+		if staged != root {
+			at = filepath.Join(target, filepath.FromSlash(strings.TrimPrefix(staged, root+"/")))
+		}
+		placeSymlink(g, "", &link, at, opts, res)
+	}
 }
 
 func deployTemplate(g writeGuard, src, dest string, dryRun bool, res *ApplyResult) {
@@ -342,22 +457,26 @@ func writeNew(dest string, data []byte) error {
 	return err
 }
 
-// placeSymlink recreates a repository symlink at dest. An existing link or
-// regular file is only replaced when authorized and after its safety backup
-// succeeds; directories are never removed.
-func placeSymlink(g writeGuard, src, dest string, opts ApplyOptions, res *ApplyResult) {
-	linkTarget, err := os.Readlink(src)
-	if err != nil {
-		res.Warnings = append(res.Warnings, fmt.Sprintf("cannot read symlink %s: %v", src, err))
-		return
+// placeSymlink recreates at dest the repository symlink src, or with no src
+// the link of a package link reference. An existing link or regular file is
+// only replaced when authorized and after its safety backup succeeds;
+// directories are never removed.
+func placeSymlink(g writeGuard, src string, ref *manifest.PackageLink, dest string, opts ApplyOptions, res *ApplyResult) {
+	raw := ""
+	if src != "" {
+		var err error
+		if raw, err = os.Readlink(src); err != nil {
+			res.Warnings = append(res.Warnings, fmt.Sprintf("cannot read symlink %s: %v", src, err))
+			return
+		}
 	}
 	if err := g.check(filepath.Dir(dest)); err != nil {
 		res.Warnings = append(res.Warnings, fmt.Sprintf("%s not restored: %v", dest, err))
 		return
 	}
-	// A restored link must point inside home, never to an absolute path.
-	if filepath.IsAbs(linkTarget) || !within(g.root, filepath.Join(filepath.Dir(dest), linkTarget)) {
-		res.Warnings = append(res.Warnings, fmt.Sprintf("%s not restored: link points outside %s: %s", dest, g.root, linkTarget))
+	linkTarget, err := symlinkTarget(g, raw, ref, dest, opts.Packages)
+	if err != nil {
+		res.Warnings = append(res.Warnings, fmt.Sprintf("%s not restored: %v", dest, err))
 		return
 	}
 	info, err := os.Lstat(dest)
@@ -407,6 +526,37 @@ func placeSymlink(g writeGuard, src, dest string, opts ApplyOptions, res *ApplyR
 		}
 	}
 	res.Restored = append(res.Restored, dest)
+}
+
+// symlinkTarget returns where the restored link at dest points. A backed-up
+// link inside the root is kept as it is. A link into an installed package,
+// backed up as is or as a reference, points to the same resource of the
+// package installed on this machine once packages confirms it. Anything
+// else, including a reference that contradicts the backed-up link, is refused.
+func symlinkTarget(g writeGuard, raw string, ref *manifest.PackageLink, dest string, packages *packagelink.Resolver) (string, error) {
+	if ref == nil && raw != "" && !filepath.IsAbs(raw) && within(g.root, filepath.Join(filepath.Dir(dest), raw)) {
+		return raw, nil
+	}
+	link := ref
+	if raw != "" {
+		parsed, ok := packagelink.Parse(raw)
+		switch {
+		case ref != nil && (!ok || !packagelink.Same(parsed, *ref)):
+			return "", fmt.Errorf("package link reference contradicts the backed-up link %s", raw)
+		case !ok:
+			return "", fmt.Errorf("link points outside %s: %s", g.root, raw)
+		case ref == nil:
+			link = &parsed
+		}
+	}
+	if packages == nil {
+		return "", fmt.Errorf("link points outside %s: package link to %s is not resolved here", g.root, packagelink.Describe(*link))
+	}
+	target, err := packages.Resolve(*link)
+	if err != nil {
+		return "", fmt.Errorf("package link to %s (%s) cannot be confirmed on this machine: %v", packagelink.Describe(*link), link.Resource, err)
+	}
+	return target, nil
 }
 
 // sameContent reports whether the local file already matches the repository

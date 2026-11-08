@@ -53,10 +53,38 @@ Detection goes by file name and key name. It cannot prove that other files are f
 
 `dots backup` reads the manifest in your dotfiles directory and never rewrites it. When that manifest declares an app but lacks a built-in location for it, backup lists the missing locations as `app: ~/path` before copying. Add the locations you want to the manifest. Apps your manifest does not declare are not listed.
 
+## Links into installed packages
+
+Some configs link into a package install, such as a skill folder that links to `/opt/homebrew/Caskroom/<cask>/<version>/...`. These links follow the package to the new machine automatically, whether the link is a child of a backed-up folder or the mapped file or folder itself. No per-app setup is needed beyond the app's normal install recipe.
+
+| Step | What happens |
+|:---|:---|
+| `dots backup` | Stages the link as it is. |
+| `dots backup --send` | Absolute links never travel as links. A link into a supported package travels as a reference in the archived `manifest.yaml`: app, staged path, package, source version, resource path below the version folder, and whether it is a folder or a file. The staged folder is not changed. |
+| `dots backup --receive` | Refuses the archive, and extracts nothing, if a reference is malformed, sits outside its app's paths, or sits where the archive holds an entry. |
+| `dots restore --with-config` | After the installs, asks the package manager here, read-only, where the package is installed. Then links the same resource of the installed version. An existing different link or file is kept, or with `--replace-existing` replaced after its `.bk` safety backup. A staged folder copied as is (for example over SSH) still holds the absolute links, and they are resolved the same way. |
+
+**Supported:** Homebrew casks (`Caskroom`) and formulae, dependencies included (`Cellar`). The source prefix does not matter: Apple silicon, Intel, Linuxbrew and custom prefixes all work, and the prefix of the receiving machine comes from `brew --caskroom` and `brew --cellar`.
+
+A link is restored only when all of these hold. Otherwise restore reports the link as not restored, names the package and the reason, and fails. The resolver only issues read-only Homebrew queries, not installation or update commands; Homebrew may consult its cached or API metadata. Missing resources are not guessed.
+
+- `brew` runs on this machine.
+- `brew info --json=v2` lists the package as installed, in exactly one version. With several formula versions, the linked one is used.
+- The same resource path exists in the installed version, as the same type (folder or file).
+- The package and version folders do not alias another package or version. The Homebrew root itself may be a symlink.
+- Once every link is followed, the resource stays inside that package's version folder.
+- The reference agrees with the staged link, when both exist.
+
+Malformed, duplicate, out-of-scope references or references colliding with staged files or folders cause the whole affected app to be refused before any of its configuration is written. Existing targets and safety backups remain unchanged. Other failures, such as a missing package resource, are reported per link.
+
+The destination is checked like any other restored file: no parent folder may lead out of home, not even into the package. Confirming the package authorizes that one link, never a write inside the package. An existing destination directory is never replaced.
+
+**Not resolved:** other managers, and other Homebrew paths such as `/opt/homebrew/opt/<formula>`, `bin` or `share`. A resource that moved or was renamed between versions is not found. Relink these by hand.
+
 ## Before restoring on a new machine
 
 - Install Oh My Zsh **before** restoring zsh. Its installer stops when `~/.oh-my-zsh` already exists, and restoring `custom` creates that folder.
-- Paths under your home are rewritten for the new machine. Paths outside it are copied as they are. For example, a macOS `~/.codex/config.toml` can name `/opt/homebrew/bin/engram`, a `~/Library/Application Support/...` folder or a macOS `.app`; fix those by hand on Linux.
+- Paths under your home are rewritten for the new machine. Links into Homebrew packages are resolved (see [Links into installed packages](#links-into-installed-packages)). Other paths outside home are copied as they are. For example, a macOS `~/.codex/config.toml` can name `/opt/homebrew/bin/engram`, a `~/Library/Application Support/...` folder or a macOS `.app`; fix those by hand on Linux.
 
 ## Not covered
 

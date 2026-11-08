@@ -11,6 +11,7 @@ import (
 
 	"github.com/kevnnard/dots/pkg/detector"
 	"github.com/kevnnard/dots/pkg/manifest"
+	"github.com/kevnnard/dots/pkg/packagelink"
 )
 
 // ExecRequest is one install command the runner asks to execute.
@@ -119,6 +120,9 @@ type RunOptions struct {
 	Stderr io.Writer
 	// Readiness tunes the read-only end-of-run readiness scan.
 	Readiness ReadinessOptions
+	// Packages resolves backed-up package links on this machine. Nil uses
+	// the read-only queries of the real package managers.
+	Packages *packagelink.Resolver
 }
 
 // RunResult is the outcome of a whole run, in plan order.
@@ -146,6 +150,9 @@ func Run(m *manifest.Manifest, selected []string, sys *detector.SystemInfo, opts
 	exe := opts.Exec
 	if exe == nil {
 		exe = ShellExecutor
+	}
+	if opts.Packages == nil {
+		opts.Packages = packagelink.NewResolver(packagelink.ExecRunner{})
 	}
 	res := &RunResult{DryRun: opts.DryRun, WithConfig: opts.WithConfig, InstallPackages: opts.InstallPackages, Explicit: opts.Explicit}
 	outcome := map[string]InstallOutcome{}
@@ -223,7 +230,7 @@ func deployConfigs(m *manifest.Manifest, res *RunResult, outcome map[string]Inst
 			r.ConfigReason = fmt.Sprintf("%s is %s", dep, why)
 			continue
 		}
-		files, err := ApplyAppFilesWith(r.AppName, app, opts.RepoDir, ApplyOptions{DryRun: opts.DryRun, Replace: opts.ReplaceExisting})
+		files, err := ApplyAppFilesWith(r.AppName, app, opts.RepoDir, ApplyOptions{DryRun: opts.DryRun, Replace: opts.ReplaceExisting, Packages: opts.Packages})
 		if err != nil {
 			r.Config = ConfigFailed
 			r.ConfigReason = err.Error()

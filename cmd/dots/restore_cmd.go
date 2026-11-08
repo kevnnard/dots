@@ -5,6 +5,7 @@ import (
 
 	"github.com/kevnnard/dots/pkg/detector"
 	"github.com/kevnnard/dots/pkg/manifest"
+	"github.com/kevnnard/dots/pkg/packagelink"
 	"github.com/kevnnard/dots/pkg/restore"
 	"github.com/kevnnard/dots/pkg/transfer"
 	"github.com/spf13/cobra"
@@ -23,6 +24,8 @@ var (
 	detectSystem                           = detector.Detect
 	installProbe    restore.InstalledProbe = restore.CommandProbe
 	installExecutor restore.Executor       = restore.ShellExecutor
+	// Read-only package manager queries that resolve package links.
+	packageQuery packagelink.Runner = packagelink.ExecRunner{}
 )
 
 var restoreCmd = &cobra.Command{
@@ -37,6 +40,16 @@ only deployed with --with-config, after every package the config needs is
 installed. Existing local files that differ are kept unless --replace-existing
 is also given, in which case each one gets a timestamped .bk safety backup
 before it is replaced.
+
+Backed-up links stay links. A relative link must stay inside home. A link into
+a Homebrew cask (Caskroom) or formula, dependencies included (Cellar), from any
+prefix (Apple silicon, Intel, Linuxbrew, custom) is pointed at the same resource
+of the package installed here, found with read-only brew queries after the
+installs: the package must be installed in one unambiguous version and the
+resource must exist inside it. Anything else, or any link that cannot be
+confirmed, is not restored and the run reports it; nothing is installed or
+guessed for it. Other managers and layouts (such as /opt/homebrew/opt) are not
+resolved.
 
 --received restores the last backup taken with ` + "`dots backup --receive <code>`" + `
 and implies --with-config: dots restore --received --all --dry-run, then
@@ -114,6 +127,7 @@ the command to check it.`,
 			DryRun:          dryRunFlag,
 			Explicit:        len(args) > 0,
 			Probe:           installProbe,
+			Packages:        packagelink.NewResolver(packageQuery),
 			Exec: func(req restore.ExecRequest) error {
 				fmt.Fprintf(out, "▶ [%s] %s\n", req.AppName, req.Command)
 				return installExecutor(req)
