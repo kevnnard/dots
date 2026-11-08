@@ -533,8 +533,16 @@ func configLines(s StepResult) []string {
 	for _, f := range s.Files.LocalBackups {
 		lines = append(lines, "      🛡️ safety backup: "+f)
 	}
+	machineLocal := map[string]bool{}
+	for _, f := range s.Files.MachineLocal {
+		machineLocal[f] = true
+	}
 	for _, f := range s.Files.Kept {
-		lines = append(lines, "      ▲ kept local file: "+f)
+		if machineLocal[f] {
+			lines = append(lines, "      ▲ kept machine-specific file: "+f)
+		} else {
+			lines = append(lines, "      ▲ kept local file: "+f)
+		}
 	}
 	for _, f := range s.Files.Repaired {
 		lines = append(lines, "      🩹 repaired backup content: "+f)

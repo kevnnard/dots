@@ -43,3 +43,45 @@ func TestEffectiveNeverOverridesLocalPackageNames(t *testing.T) {
 		t.Fatalf("local package overridden: %q", got)
 	}
 }
+
+// A local manifest written before keep_local existed still keeps the shipped
+// machine-specific files on restore, without dropping its own mappings.
+func TestEffectiveAddsShippedKeepLocal(t *testing.T) {
+	local := &Manifest{Apps: map[string]AppConfig{
+		"git": {Paths: []PathMapping{
+			{Src: "~/.gitconfig", Dest: "configs/git/.gitconfig"},
+			{Src: "~/.my-git-extra", Dest: "configs/git/extra"},
+		}},
+	}}
+
+	eff, _ := Effective(local)
+
+	paths := eff.Apps["git"].Paths
+	if len(paths) != 2 || !paths[0].KeepLocal || paths[1].KeepLocal {
+		t.Fatalf("paths = %+v", paths)
+	}
+	if local.Apps["git"].Paths[0].KeepLocal {
+		t.Error("the local manifest must not be modified")
+	}
+}
+
+func TestShippedMachineSpecificFilesAreKeepLocal(t *testing.T) {
+	want := map[string]bool{
+		"git ~/.gitconfig":                                  true,
+		"pi ~/.pi/agent/subagents.json":                     true,
+		"gentle-shell ~/.gentle-shell/agent/subagents.json": true,
+	}
+	m := DefaultManifest()
+	for name, app := range m.Apps {
+		for _, p := range app.Paths {
+			key := name + " " + p.Src
+			if p.KeepLocal != want[key] {
+				t.Errorf("%s keep_local = %v", key, p.KeepLocal)
+			}
+			delete(want, key)
+		}
+	}
+	if len(want) != 0 {
+		t.Errorf("missing mappings: %v", want)
+	}
+}

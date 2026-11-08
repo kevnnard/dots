@@ -39,7 +39,9 @@ By default apps keep their stock configuration: configs in the repository are
 only deployed with --with-config, after every package the config needs is
 installed. Existing local files that differ are kept unless --replace-existing
 is also given, in which case each one gets a timestamped .bk safety backup
-before it is replaced.
+before it is replaced. Machine-specific files (keep_local in the manifest:
+~/.gitconfig with its signing key, the Pi and Gentle Shell subagents.json) are
+deployed only where missing and never replaced, even with --replace-existing.
 
 Backed-up links stay links. A relative link must stay inside home. A link into
 a Homebrew cask (Caskroom) or formula, dependencies included (Cellar), from any

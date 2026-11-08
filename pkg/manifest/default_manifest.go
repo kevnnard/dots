@@ -182,6 +182,7 @@ apps:
               dest: configs/gentle-shell/claude-bridge.json
             - src: ~/.gentle-shell/agent/subagents.json
               dest: configs/gentle-shell/subagents.json
+              keep_local: true
             - src: ~/.gentle-shell/agent/skills
               dest: configs/gentle-shell/skills
             - src: ~/.gentle-shell/agent/agents
@@ -435,6 +436,7 @@ apps:
         paths:
             - src: ~/.gitconfig
               dest: configs/git/.gitconfig
+              keep_local: true
             - src: ~/.config/git
               dest: configs/git/config_dir
         exclude:
@@ -609,6 +611,7 @@ apps:
               dest: configs/pi/claude-bridge.json
             - src: ~/.pi/agent/subagents.json
               dest: configs/pi/subagents.json
+              keep_local: true
             - src: ~/.pi/agent/skills
               dest: configs/pi/skills
             - src: ~/.pi/agent/agents

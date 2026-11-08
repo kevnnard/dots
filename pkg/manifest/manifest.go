@@ -13,6 +13,10 @@ import (
 type PathMapping struct {
 	Src  string `yaml:"src"`
 	Dest string `yaml:"dest"`
+	// KeepLocal marks a machine-specific file (a signing key, per-machine
+	// models): restore deploys it only where it is missing and never replaces
+	// an existing copy, even with --replace-existing.
+	KeepLocal bool `yaml:"keep_local,omitempty"`
 }
 
 type InstallRecipe struct {

@@ -36,6 +36,9 @@ type ApplyResult struct {
 	// repaired; NotRepaired lists known problems left in place.
 	Repaired    []string `json:"repaired,omitempty"`
 	NotRepaired []string `json:"not_repaired,omitempty"`
+	// MachineLocal lists the Kept files their mapping marks keep_local: they
+	// stay as they are on this machine even with Replace.
+	MachineLocal []string `json:"machine_local,omitempty"`
 }
 
 // PlanApp generates an installation plan for a single application based on current system.
@@ -100,6 +103,9 @@ type ApplyOptions struct {
 	// pkg/packagelink) against this machine. Nil refuses every link that
 	// points outside the mapping's root.
 	Packages *packagelink.Resolver
+	// machineLocal is set for a keep_local mapping, whose kept files are
+	// reported as machine-specific.
+	machineLocal bool
 }
 
 // ApplyAppFiles copies configuration files from the dotfiles repository to
@@ -129,7 +135,12 @@ func ApplyAppFilesWith(appName string, app manifest.AppConfig, repoDir string, o
 		return res, nil
 	}
 
+	shared := opts
 	for _, mapping := range app.Paths {
+		opts := shared
+		if mapping.KeepLocal {
+			opts.Replace, opts.machineLocal = false, true
+		}
 		repoPath := filepath.Join(repoDir, mapping.Dest)
 		targetExpanded, err := manifest.ExpandPath(mapping.Src)
 		if err != nil {
@@ -393,6 +404,9 @@ func placeFile(g writeGuard, src, dest string, opts ApplyOptions, res *ApplyResu
 		return
 	case !opts.Replace:
 		res.Kept = append(res.Kept, dest)
+		if opts.machineLocal {
+			res.MachineLocal = append(res.MachineLocal, dest)
+		}
 		reportKeptRepair(repair, dest, res)
 		return
 	}
