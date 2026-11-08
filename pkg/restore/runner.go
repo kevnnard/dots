@@ -113,6 +113,7 @@ type RunOptions struct {
 	// installed on this platform is then a problem rather than a skip.
 	Explicit bool
 	Probe    InstalledProbe
+	Receipts ReceiptProbe
 	Exec     Executor
 	// Stdin, Stdout and Stderr are passed to every ExecRequest.
 	Stdin  io.Reader
@@ -143,7 +144,7 @@ type RunResult struct {
 // deployed only if the app and all its requires and config_requires are
 // installed.
 func Run(m *manifest.Manifest, selected []string, sys *detector.SystemInfo, opts RunOptions) (*RunResult, error) {
-	steps, err := BuildPlan(m, selected, sys, PlanOptions{WithConfig: opts.WithConfig, Probe: opts.Probe})
+	steps, err := BuildPlan(m, selected, sys, PlanOptions{WithConfig: opts.WithConfig, Probe: opts.Probe, Receipts: opts.Receipts})
 	if err != nil {
 		return nil, err
 	}

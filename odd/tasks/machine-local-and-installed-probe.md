@@ -12,8 +12,8 @@ S4. Verify on Linux: new backup, transfer, restore; `~/.gitconfig` and both `sub
 ## Tasks
 
 T1 [done] S1-S2 | route: inline | keep_local flag, Effective merge, restore, manifest, docs, tests | commit: -
-T2 [in_progress] S3 | route: explore (mw8eg4dk-e-rp5z) then inline | package-manager receipt probe | commit: -
-T3 [pending] S4 | route: parent, SSH | Linux verification | commit: evidence only
+T2 [done] S3 | route: explore (mw8eg4dk-e-rp5z) then inline | package-manager receipt probe | commit: -
+T3 [in_progress] S4 | route: parent, SSH | Linux verification | commit: evidence only
 
 ## Log
 
@@ -21,4 +21,4 @@ L1. User request: "si y ojo con esto Ojo con tus dots: volvieron a cambiar la cl
 L2. Design: keep_local forces Replace=false for that mapping only; the existing safe keep path reports the file. Backup still stages the file so a new machine gets a starting copy.
 L4. T1 RED: build failure (MachineLocal undefined) and manifest keep_local tests failing; GREEN restore/manifest; go vet + go test ./... pass. Help text, README, docs updated.
 L5. T2 explore: clean.NativeProbe queries all recipes (brew/pacman/npm/pnpm, private query/listed helpers, no apt); recommended receipt check after resolveRecipe in planStep with the real provided map, selected recipe only, bounded timeout, unknown = today's behavior.
-L3. Engram mirror unavailable in this session; this file is authoritative.
+L6. T2 RED: clean/restore build failures (Installed, Receipts undefined), CLI test ran zsh despite pacman receipt; GREEN after wiring installReceipts(sys) (clean.NativeProbe.Installed via cleanExecutor) in CLI and TUI RunTUI. apt has no tested query: stays unknown -> today's behavior. go vet + go test ./... pass.\nL3. Engram mirror unavailable in this session; this file is authoritative.

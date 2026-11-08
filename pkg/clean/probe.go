@@ -59,6 +59,18 @@ func (p NativeProbe) Probe(name string, app manifest.AppConfig) (Evidence, error
 	return ev, nil
 }
 
+// Installed reports whether the package manager confirms that recipe's exact
+// package is installed. Only that recipe is asked; script recipes, managers
+// without a tested query and failed or unparsable queries report false, so
+// the caller keeps its own detection.
+func (p NativeProbe) Installed(r manifest.InstallRecipe) bool {
+	if p.Sys == nil || p.Exec == nil || !filepath.IsAbs(p.Home) {
+		return false
+	}
+	owners, err := p.query(r)
+	return err == nil && len(owners) > 0
+}
+
 func (p NativeProbe) has(m detector.PackageManager) bool { return p.Sys.HasManager(m) }
 
 func (p NativeProbe) query(r manifest.InstallRecipe) ([]Owner, error) {

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/kevnnard/dots/pkg/clean"
 	"github.com/kevnnard/dots/pkg/detector"
 	"github.com/kevnnard/dots/pkg/manifest"
 	"github.com/kevnnard/dots/pkg/packagelink"
@@ -34,6 +35,8 @@ var restoreCmd = &cobra.Command{
 	Long: `Detects the current operating system and package managers, plans the selected
 apps with their dependencies in order, skips apps that are already installed and,
 with --install-packages, runs the install commands from the dotfiles repository.
+An app is already installed when its check commands or paths exist, or when the
+package manager (pacman, brew, npm, pnpm) confirms the package of the selected recipe.
 
 By default apps keep their stock configuration: configs in the repository are
 only deployed with --with-config, after every package the config needs is
@@ -129,6 +132,7 @@ the command to check it.`,
 			DryRun:          dryRunFlag,
 			Explicit:        len(args) > 0,
 			Probe:           installProbe,
+			Receipts:        installReceipts(sys),
 			Packages:        packagelink.NewResolver(packageQuery),
 			Exec: func(req restore.ExecRequest) error {
 				fmt.Fprintf(out, "▶ [%s] %s\n", req.AppName, req.Command)
@@ -180,4 +184,15 @@ func init() {
 	restoreCmd.Flags().BoolVar(&receivedFlag, "received", false, "Restore the last backup received with dots backup --receive (implies --with-config)")
 	restoreCmd.Flags().BoolVar(&replaceExistingFlag, "replace-existing", false, "With --with-config, replace differing local files after a .bk safety backup")
 	rootCmd.AddCommand(restoreCmd)
+}
+
+// installReceipts asks this machine's package manager, read-only and through
+// the same executor clean uses, whether the recipe restore selected is
+// already installed, so a package found under another name is not reinstalled.
+func installReceipts(sys *detector.SystemInfo) restore.ReceiptProbe {
+	home, err := cleanHome()
+	if err != nil {
+		home = ""
+	}
+	return clean.NativeProbe{Sys: sys, Exec: cleanExecutor, Home: home}.Installed
 }

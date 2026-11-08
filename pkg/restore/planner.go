@@ -37,6 +37,10 @@ type Step struct {
 // InstalledProbe reports whether an app is already present on the machine.
 type InstalledProbe func(name string, app manifest.AppConfig) bool
 
+// ReceiptProbe reports whether this machine's package manager confirms the
+// recipe's package is installed. Unknown answers must be false.
+type ReceiptProbe func(recipe manifest.InstallRecipe) bool
+
 // PlanOptions tunes BuildPlan.
 type PlanOptions struct {
 	// WithConfig also selects each app's config_requires, for restores that
@@ -44,6 +48,10 @@ type PlanOptions struct {
 	WithConfig bool
 	// Probe detects existing installs. Nil treats nothing as installed.
 	Probe InstalledProbe
+	// Receipts asks the package manager about the recipe this plan selects,
+	// for apps Probe did not find (a Linux package under another command
+	// name, fonts outside the checked paths). Nil skips it.
+	Receipts ReceiptProbe
 }
 
 // Select returns the sorted non-optional apps matching profile ("" or "all"
@@ -130,7 +138,7 @@ func BuildPlan(m *manifest.Manifest, selected []string, sys *detector.SystemInfo
 		app := m.Apps[name]
 		// Only hard requirements gate the package itself; config_requires
 		// order the plan and gate configuration deployment in Run.
-		step := planStep(name, app, app.Requires, sys, provided, status, opts.Probe)
+		step := planStep(name, app, app.Requires, sys, provided, status, opts.Probe, opts.Receipts)
 		step.Requested = requested[name]
 		if step.Status == StatusInstall || step.Status == StatusInstalled {
 			for _, p := range app.Provides {
@@ -143,7 +151,7 @@ func BuildPlan(m *manifest.Manifest, selected []string, sys *detector.SystemInfo
 	return steps, nil
 }
 
-func planStep(name string, app manifest.AppConfig, deps []string, sys *detector.SystemInfo, provided map[string]bool, status map[string]PlanStatus, probe InstalledProbe) Step {
+func planStep(name string, app manifest.AppConfig, deps []string, sys *detector.SystemInfo, provided map[string]bool, status map[string]PlanStatus, probe InstalledProbe, receipts ReceiptProbe) Step {
 	step := Step{AppName: name, Description: app.Description}
 	if len(app.Install) == 0 {
 		step.Status = StatusConfigOnly
@@ -152,6 +160,13 @@ func planStep(name string, app manifest.AppConfig, deps []string, sys *detector.
 	if probe != nil && probe(name, app) {
 		step.Status = StatusInstalled
 		return step
+	}
+	if receipts != nil {
+		if recipe, _, ok := resolveRecipe(app.Install, sys, provided); ok && receipts(recipe) {
+			step.Status = StatusInstalled
+			step.Manager = recipe.Manager
+			return step
+		}
 	}
 	for _, dep := range deps {
 		switch status[dep] {

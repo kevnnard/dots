@@ -73,6 +73,9 @@ type Model struct {
 	// Probe and Exec detect installed apps and run install commands.
 	Probe restore.InstalledProbe
 	Exec  restore.Executor
+	// Receipts asks the package manager about each selected recipe (see
+	// restore.PlanOptions). Nil skips it.
+	Receipts restore.ReceiptProbe
 	// Suspend hands the terminal to a blocking command and resumes the TUI
 	// when it returns. It is tea.Exec; tests inject a fake terminal.
 	Suspend func(tea.ExecCommand, tea.ExecCallback) tea.Cmd
@@ -427,6 +430,7 @@ func (m Model) startRestore() (tea.Model, tea.Cmd) {
 		InstallPackages: true,
 		Explicit:        m.explicit,
 		Probe:           m.Probe,
+		Receipts:        m.Receipts,
 	}
 	c := &installRun{run: func(stdin io.Reader, stdout, stderr io.Writer) (*restore.RunResult, error) {
 		o := opts

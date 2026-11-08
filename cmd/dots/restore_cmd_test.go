@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/kevnnard/dots/pkg/clean"
 	"github.com/kevnnard/dots/pkg/detector"
 	"github.com/kevnnard/dots/pkg/manifest"
 	"github.com/kevnnard/dots/pkg/restore"
@@ -23,6 +25,19 @@ type cliFixture struct {
 	calls        []restore.ExecRequest
 	fail         map[string]bool
 	installed    map[string]bool
+	// receipts holds the packages pacman -Q reports installed.
+	receipts map[string]bool
+}
+
+// Run answers pacman -Q for the fixture's receipts; any other query fails.
+func (f *cliFixture) Run(_ context.Context, argv []string) (clean.Result, error) {
+	if len(argv) == 3 && argv[0] == "pacman" && argv[1] == "-Q" {
+		if f.receipts[argv[2]] {
+			return clean.Result{Stdout: []byte(argv[2] + " 1.0-1\n")}, nil
+		}
+		return clean.Result{Stderr: []byte("error: package '" + argv[2] + "' was not found"), ExitCode: 1}, nil
+	}
+	return clean.Result{}, errors.New("unexpected query")
 }
 
 func pacman(pkg string) map[string]manifest.InstallRecipe {
@@ -48,6 +63,7 @@ func newCLIFixture(t *testing.T) *cliFixture {
 		target:    filepath.Join(root, "home", ".zshrc"),
 		fail:      map[string]bool{},
 		installed: map[string]bool{},
+		receipts:  map[string]bool{},
 	}
 	f.m = &manifest.Manifest{Version: "1.0.0", Apps: map[string]manifest.AppConfig{
 		"zsh": {
@@ -69,8 +85,11 @@ func newCLIFixture(t *testing.T) *cliFixture {
 		t.Fatal(err)
 	}
 
-	oldDetect, oldProbe, oldExec := detectSystem, installProbe, installExecutor
-	t.Cleanup(func() { detectSystem, installProbe, installExecutor = oldDetect, oldProbe, oldExec })
+	oldDetect, oldProbe, oldExec, oldQuery := detectSystem, installProbe, installExecutor, cleanExecutor
+	t.Cleanup(func() {
+		detectSystem, installProbe, installExecutor, cleanExecutor = oldDetect, oldProbe, oldExec, oldQuery
+	})
+	cleanExecutor = f
 	detectSystem = archSystem
 	installProbe = func(name string, _ manifest.AppConfig) bool { return f.installed[name] }
 	installExecutor = f.exec
@@ -123,6 +142,18 @@ func TestRestoreStockInstallKeepsStockConfig(t *testing.T) {
 	}
 	if !strings.Contains(out, "stock configuration") {
 		t.Errorf("output must state configs were not restored:\n%s", out)
+	}
+}
+
+func TestRestoreSkipsPackageItsManagerReportsInstalled(t *testing.T) {
+	f := newCLIFixture(t)
+	f.receipts["zsh"] = true
+	out, err := runRestore(t, "zsh", "-i", "--dir", f.repo)
+	if err != nil {
+		t.Fatalf("exit error: %v\n%s", err, out)
+	}
+	if f.ran() != "" {
+		t.Errorf("ran %q, want nothing: pacman reports zsh installed", f.ran())
 	}
 }
 

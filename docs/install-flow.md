@@ -20,7 +20,13 @@ pulls `node` first).
 
 For every app in plan order:
 
-1. Already present (`check` commands or paths found): skipped, never reinstalled.
+1. Already present: skipped, never reinstalled. An app is present when its
+   `check` commands or paths are found, or when the package manager confirms
+   the package of the recipe this platform selects (read-only `pacman -Q`,
+   `brew list --versions`, `npm ls -g`, `pnpm ls -g`). That second check
+   finds packages installed under another command name or path, such as
+   `bitwarden` on Arch (`bitwarden-desktop`) or fonts in `/usr/share/fonts`.
+   A failed or unclear answer counts as not installed, as before.
 2. No install recipe needed (config-only app): nothing to run.
 3. No recipe for this platform, or the recipe's package manager is missing:
    reported as *unsupported* / *manager-missing* and skipped.
