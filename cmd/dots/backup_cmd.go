@@ -60,9 +60,9 @@ A full backup (no app named) also discovers what the manifest does not
 declare: Homebrew formulae installed on request, casks and taps (on macOS, compared
 with the manifest recipes and the repository Brewfiles) and ~/.config entries no
 manifest path covers. Each is added to the staged manifest only, never the
-repository one, with the systems it works on: casks and formulae without Linux
-bottles get os [darwin]; formulae with Linux bottles, taps and configs get
-[darwin, linux]. The run prints them as a "New:" list. Folders that may hold
+repository one, with the systems it works on: casks and formulae with only macOS
+bottles or a macOS requirement get os [darwin]; formulae with Linux bottles or
+built from source, taps and configs get [darwin, linux]. The run prints them as a "New:" list. Folders that may hold
 credentials or caches (gcloud, configstore, github-copilot, gh-copilot, gh, any
 name containing "cache") are listed under "Skipped:" and not copied. A discovery
 error is reported and the manifest is staged unchanged.

@@ -35,7 +35,8 @@ const infoJSON = `{"formulae":[
  {"name":"ripgrep","full_name":"ripgrep","tap":"homebrew/core","bottle":{"stable":{"files":{"arm64_sonoma":{},"x86_64_linux":{}}}},"requirements":[]},
  {"name":"mas","full_name":"mas","tap":"homebrew/core","bottle":{"stable":{"files":{"arm64_sonoma":{},"sonoma":{}}}},"requirements":[]},
  {"name":"swiftfmt","full_name":"swiftfmt","tap":"homebrew/core","bottle":{},"requirements":[{"name":"macos"}]},
- {"name":"fpm","full_name":"acme/tools/fpm","tap":"acme/tools","bottle":{},"requirements":[{"name":"linux"}]}
+ {"name":"fpm","full_name":"acme/tools/fpm","tap":"acme/tools","bottle":{},"requirements":[{"name":"linux"}]},
+ {"name":"gotool","full_name":"acme/tools/gotool","tap":"acme/tools","bottle":{},"requirements":[]}
 ],"casks":[
  {"token":"godot-mono","full_token":"godot-mono","tap":"homebrew/cask"},
  {"token":"menubar","full_token":"acme/apps/menubar","tap":"acme/apps"}
@@ -53,10 +54,10 @@ func brewFixture(t *testing.T) (*manifest.Manifest, Options, *fakeExec) {
 		t.Fatal(err)
 	}
 	f := &fakeExec{t: t, out: map[string]string{
-		"brew list --formula --installed-on-request --full-name": "atuin\ngentleman-programming/tap/engram\njq\nripgrep\nmas\nswiftfmt\nghostly\nacme/tools/fpm\n",
+		"brew list --formula --installed-on-request --full-name": "atuin\ngentleman-programming/tap/engram\njq\nripgrep\nmas\nswiftfmt\nghostly\nacme/tools/fpm\nacme/tools/gotool\n",
 		"brew list --cask": "smartwindow\ncodexbar\ngodot-mono\nmenubar\n",
 		"brew tap":         "gentleman-programming/tap\nkevnnard/tap\nsteipete/tap\nacme/tools\nacme/apps\nlonely/tap\nhomebrew/core\n",
-		"brew info --json=v2 acme/tools/fpm ghostly mas ripgrep swiftfmt godot-mono menubar": infoJSON,
+		"brew info --json=v2 acme/tools/fpm acme/tools/gotool ghostly mas ripgrep swiftfmt godot-mono menubar": infoJSON,
 	}}
 	return m, Options{Exec: f, Brewfiles: []string{brewfile}}, f
 }
@@ -70,8 +71,9 @@ func TestPackagesNotDeclaredAreClassifiedBySystem(t *testing.T) {
 	both, mac := []string{"darwin", "linux"}, []string{"darwin"}
 	want := []Item{
 		{Name: "acme/apps/menubar", Kind: "cask", OS: mac},
-		{Name: "acme/tools/fpm", Kind: "formula", OS: both}, // linux requirement
-		{Name: "ghostly", Kind: "formula", OS: mac},         // no data
+		{Name: "acme/tools/fpm", Kind: "formula", OS: both},    // linux requirement
+		{Name: "acme/tools/gotool", Kind: "formula", OS: both}, // built from source, no macOS requirement
+		{Name: "ghostly", Kind: "formula", OS: mac},            // no data
 		{Name: "godot-mono", Kind: "cask", OS: mac},
 		{Name: "lonely/tap", Kind: "tap", OS: both},
 		{Name: "mas", Kind: "formula", OS: mac},      // macOS-only bottles

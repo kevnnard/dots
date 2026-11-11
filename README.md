@@ -404,7 +404,7 @@ mytool:
 | `os` | path | The same, for one mapping. |
 | `src_os` | path | Per-system source: on a listed system, backup reads from and restore deploys to that source instead of `src`. `dest` is unchanged. |
 
-A full `dots backup` writes these fields itself for what it discovers: casks and formulae without Linux bottles get `os: [darwin]`; formulae with Linux bottles, taps and `~/.config` entries get `os: [darwin, linux]`. They go into the staged manifest, never into the repository.
+A full `dots backup` writes these fields itself for what it discovers: casks and formulae with only macOS bottles or a macOS requirement get `os: [darwin]`; formulae with Linux bottles or built from source (such as Go tools from a personal tap), taps and `~/.config` entries get `os: [darwin, linux]`. They go into the staged manifest, never into the repository.
 
 ### Portable home paths
 Absolute home directories are never versioned. `dots backup` stores them as `__HOME__` and `dots restore` expands them for the target machine, so `/Users/you/...` on macOS, `/home/you/...` on Linux and `C:/Users/you/...` on Windows all share the same config. `npm` global recipes install under `~/.local` to avoid `sudo`.

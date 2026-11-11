@@ -299,7 +299,10 @@ func markTap(taps map[string]bool, name string) {
 }
 
 // formulaOS: Linux bottles or a Linux requirement mean the formula works on
-// both systems; macOS-only bottles, a macOS requirement or no data mean macOS.
+// both systems; macOS-only bottles or a macOS requirement mean macOS. A
+// formula with no bottles and no macOS requirement builds from source, so it
+// works wherever Homebrew does (a Go tool from a personal tap, for example).
+// A formula brew info did not describe stays macOS.
 func formulaOS(files map[string]json.RawMessage, reqs []struct {
 	Name string `json:"name"`
 }) []string {
@@ -308,12 +311,19 @@ func formulaOS(files map[string]json.RawMessage, reqs []struct {
 			return both
 		}
 	}
+	macOnly := len(files) > 0
 	for _, r := range reqs {
-		if r.Name == "linux" {
+		switch r.Name {
+		case "linux":
 			return both
+		case "macos", "xcode":
+			macOnly = true
 		}
 	}
-	return macOS
+	if macOnly {
+		return macOS
+	}
+	return both
 }
 
 func addApp(res *Result, key, kind, display string, osList []string, app manifest.AppConfig) {

@@ -27,7 +27,8 @@ Each item gets the systems it works on:
 |:---|:---|
 | Cask (for example `smartwindow`) | `[darwin]` |
 | Formula with a Linux bottle or a `linux` requirement | `[darwin, linux]` |
-| Other formula, or no `brew info` data | `[darwin]` |
+| Formula built from source (no bottles) without a `macos` or `xcode` requirement, such as a Go tool from a personal tap | `[darwin, linux]` |
+| Formula with only macOS bottles or a `macos`/`xcode` requirement, or no `brew info` data | `[darwin]` |
 | Tap, `~/.config` entry | `[darwin, linux]` |
 
 The run prints them after the copies:
