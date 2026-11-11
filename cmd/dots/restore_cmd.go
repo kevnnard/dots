@@ -48,6 +48,17 @@ before it is replaced. Machine-specific files (keep_local in the manifest:
 ~/.gitconfig with its signing key, the Pi and Gentle Shell subagents.json) are
 deployed only where missing and never replaced, even with --replace-existing.
 
+Apps and paths carry an optional os list (darwin, linux, windows). An app or
+path whose list excludes this system is skipped and reported as "not for
+<system>", not as a failure; a path's src_os entry for this system replaces
+its source. Entries without an os list apply everywhere.
+
+A full --with-config restore (no app named) imports the backup's Engram
+memories (configs/engram/memories.json) with engram import; memories already
+present are skipped by engram, so importing twice adds nothing. --dry-run only
+says it would import. A missing export or a missing engram is reported, not a
+failure; a failing import makes the command exit nonzero.
+
 Backed-up links stay links. A relative link must stay inside home. A link into
 a Homebrew cask (Caskroom) or formula, dependencies included (Cellar), from any
 prefix (Apple silicon, Intel, Linuxbrew, custom) is pointed at the same resource

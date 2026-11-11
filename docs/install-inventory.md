@@ -33,6 +33,7 @@ embedded Brewfiles are byte copies of the repository files, enforced by tests.
 | `unsupported` | No recipe targets this platform (for example macOS-only apps on Linux). |
 | `manager-missing` | A recipe targets this platform but its manager is absent (for example `yay` on plain Arch). |
 | `blocked` | A required app is unsupported, missing its manager or blocked. |
+| `not-for-os` | The app's `os` list excludes this system; reported as `not for <system>`, never a failure. |
 
 Unknown references and dependency cycles are errors, never silently ignored.
 Homebrew casks are only eligible on macOS.

@@ -54,6 +54,23 @@ terminals and the AI agent homes (settings, instructions, prompts, extensions an
 named preference files). It does not map sessions, caches or telemetry. A manifest
 written by an older dots is never rewritten: backup lists the built-in paths it lacks.
 
+Apps and paths whose os list excludes this system are not backed up.
+
+A full backup (no app named) also discovers what the manifest does not
+declare: Homebrew formulae installed on request, casks and taps (on macOS, compared
+with the manifest recipes and the repository Brewfiles) and ~/.config entries no
+manifest path covers. Each is added to the staged manifest only, never the
+repository one, with the systems it works on: casks and formulae without Linux
+bottles get os [darwin]; formulae with Linux bottles, taps and configs get
+[darwin, linux]. The run prints them as a "New:" list. Folders that may hold
+credentials or caches (gcloud, configstore, github-copilot, gh-copilot, gh, any
+name containing "cache") are listed under "Skipped:" and not copied. A discovery
+error is reported and the manifest is staged unchanged.
+
+With engram installed, a full backup exports every Engram memory
+(engram export --all) to configs/engram/memories.json in the stage, so --send
+carries it. Without engram this is reported, not a failure.
+
 Links into Homebrew casks and formulae are staged as links; --send carries them
 as package references, and restore points them at the package installed on the
 receiving machine. Other absolute links do not travel.

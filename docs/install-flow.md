@@ -137,7 +137,11 @@ nonzero, and the TUI shows the problem list instead of a success line, when:
 - a config is incomplete or failed;
 - an explicitly named app cannot be installed on this platform.
 
-Unsupported apps in a profile run are listed as skips, not failures.
+Unsupported apps in a profile run are listed as skips, not failures. So are
+apps and config paths whose `os` list excludes this system (`not for
+<system>`); an app that requires one of them is blocked. A failing Engram
+import during a full `--with-config` restore also exits nonzero; see
+[Engram memories](portable-config-backup.md#engram-memories).
 
 ## Readiness report
 

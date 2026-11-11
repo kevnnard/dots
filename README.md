@@ -206,6 +206,9 @@ dots status
 
 # Stage a backup of all apps in ~/.cache/dots/backup (never in the repo, never pushed).
 # A manifest from an older dots is not rewritten: backup lists the built-in paths it lacks.
+# It also lists undeclared Homebrew packages and ~/.config entries under "New:" (with the
+# systems each works on) and adds them to the staged manifest only; credential and cache
+# folders are listed under "Skipped:". With engram installed, it exports Engram memories.
 dots backup
 
 # Stage a single app
@@ -376,6 +379,32 @@ pi:
   install:
     default: { manager: npm, package: "@earendil-works/pi-coding-agent" }
 ```
+
+### Systems an app or path works on
+
+An app or a path mapping may declare `os:` with a subset of `darwin`, `linux`, `windows`. A path may also declare `src_os:`, the source to use on a given system. Without `os:` an entry applies everywhere, so older manifests load unchanged; an unknown system name is a load error.
+
+```yaml
+smartwindow:
+  os: [darwin]                     # a cask: macOS only
+  install:
+    darwin: { manager: brew, cask: kevnnard/tap/smartwindow }
+mytool:
+  paths:
+    - src: ~/Library/Application Support/mytool
+      dest: configs/mytool
+      src_os:
+        linux: ~/.config/mytool
+        windows: ~/AppData/Roaming/mytool
+```
+
+| Field | On | Effect |
+|:---|:---|:---|
+| `os` | app | `restore` skips the app on other systems and reports it as `not for <system>`, not as a failure. `status` and `backup` ignore it there. |
+| `os` | path | The same, for one mapping. |
+| `src_os` | path | Per-system source: on a listed system, backup reads from and restore deploys to that source instead of `src`. `dest` is unchanged. |
+
+A full `dots backup` writes these fields itself for what it discovers: casks and formulae without Linux bottles get `os: [darwin]`; formulae with Linux bottles, taps and `~/.config` entries get `os: [darwin, linux]`. They go into the staged manifest, never into the repository.
 
 ### Portable home paths
 Absolute home directories are never versioned. `dots backup` stores them as `__HOME__` and `dots restore` expands them for the target machine, so `/Users/you/...` on macOS, `/home/you/...` on Linux and `C:/Users/you/...` on Windows all share the same config. `npm` global recipes install under `~/.local` to avoid `sudo`.

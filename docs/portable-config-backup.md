@@ -6,7 +6,72 @@ The Homebrew prefix travels the same way. Inside text files the source machine's
 
 Some files belong to one machine: `~/.gitconfig` holds that machine's signing key, and each `subagents.json` picks the models available there. The manifest marks them `keep_local: true`. Backup still stages them, so a new machine gets a starting copy, but restore deploys them only where they are missing and never replaces an existing one, even with `--replace-existing`; the summary lists them as `kept machine-specific file`. A manifest written by an older dots gets these flags from the built-in inventory at restore.
 
+An app or path can be limited to some systems with `os:` and given a per-system source with `src_os:` (see [Per-system apps and paths](#per-system-apps-and-paths)). Backup skips what is not for the running system.
+
 The coverage is not complete; see [Not covered](#not-covered).
+
+## Discovery
+
+A full `dots backup` (CLI or TUI, no app named) also looks for what the manifest does not declare. It only reads: the repository and its `manifest.yaml` are never written.
+
+| Source | Counts as declared | Added to the staged manifest as |
+|:---|:---|:---|
+| `brew leaves --installed-on-request`, `brew list --cask`, `brew tap` (macOS, when `brew` is on PATH) | A manifest `brew` recipe or an app of the same name, or a `brew`/`cask`/`tap` line in a repository `Brewfile*` | An app with a `brew` install recipe. A tap gets its own `tap-<user>-<repo>` app only when no new package uses it. |
+| `~/.config/<entry>` | Any manifest `src` or `src_os` that is, contains or lies inside the entry | A config-only app with path `~/.config/<entry>` -> `configs/<entry>`, backed up now with the usual secret masking and the excludes `.DS_Store`, `cache/**`, `Cache/**`, `logs/**`, `*.log`. An entry named like a declared app extends that app instead. |
+
+The staged `Brewfile` from `brew bundle dump` is not the basis: it lists everything installed, so nothing would ever be new.
+
+Each item gets the systems it works on:
+
+| Item | `os` |
+|:---|:---|
+| Cask (for example `smartwindow`) | `[darwin]` |
+| Formula with a Linux bottle or a `linux` requirement | `[darwin, linux]` |
+| Other formula, or no `brew info` data | `[darwin]` |
+| Tap, `~/.config` entry | `[darwin, linux]` |
+
+The run prints them after the copies:
+
+```text
+New:
+  - kevnnard/tap/smartwindow (cask): darwin
+  - ripgrep (formula): darwin, linux
+  - mytool (config): darwin, linux
+Skipped:
+  - gcloud: may hold credentials
+```
+
+`gcloud`, `configstore`, `github-copilot`, `gh-copilot` and `gh` (its `hosts.yml` holds a token) are skipped as `may hold credentials`, and any entry whose name contains `cache` as `cache`; none is copied. Hidden entries are ignored. If a Homebrew listing fails, backup prints `Discovery skipped: <error>` and stages the manifest unchanged. Review the staged manifest and copy what you want to keep into your own manifest.
+
+## Engram memories
+
+| Step | What happens |
+|:---|:---|
+| `dots backup` (full) | With `engram` on PATH, runs `engram export <stage>/configs/engram/memories.json --all` and makes the file private (`0600`). `--send` carries it. Without engram: `Engram not installed: memories not exported`, not a failure; a failing export is listed as a warning. |
+| `dots restore --with-config` (no app named, including `--received`) | Runs `engram import` on that file. Engram skips memories it already holds, so importing the same export twice adds nothing. A missing export or a missing engram is reported, not a failure; a failing import makes the command exit nonzero. The file is never copied into home. |
+| `--dry-run` | Prints `Engram: would import memories from <file>` and imports nothing. |
+
+Backing up or restoring named apps leaves memories alone.
+
+## Per-system apps and paths
+
+```yaml
+smartwindow:
+  os: [darwin]
+  install:
+    darwin: { manager: brew, cask: kevnnard/tap/smartwindow }
+mytool:
+  paths:
+    - src: ~/Library/Application Support/mytool
+      dest: configs/mytool
+      os: [darwin, linux]
+      src_os:
+        linux: ~/.config/mytool
+```
+
+- `os` (app or path): a subset of `darwin`, `linux`, `windows`. Elsewhere, `restore` skips the entry and reports it as `not for <system>` without failing; `status` and `backup` ignore it. No `os` means every system.
+- `src_os` (path): the source on that system, for both backup and restore. `dest` stays the same, so one staged copy serves every system.
+- An unknown system name in either field makes the manifest fail to load.
 
 ## What is mapped
 
@@ -94,4 +159,4 @@ The destination is checked like any other restored file: no parent folder may le
 
 - **CodexBar** (`~/.config/codexbar/config.json`): macOS only, and it stores provider keys and token accounts.
 - Your own files inside Oh My Zsh `custom/plugins` or `custom/themes`. Move them to a top-level `custom/*.zsh` file, or add their folders to the manifest.
-- Apps not in the manifest, and locations no loader documents.
+- Apps not in the manifest outside Homebrew and `~/.config` (see [Discovery](#discovery)), and locations no loader documents.
