@@ -2,9 +2,7 @@ package restore
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -17,24 +15,19 @@ import (
 
 // repairOutcome is the result of one known content repair.
 type repairOutcome struct {
-	data     []byte // repaired content; nil when nothing changed
-	applied  string // what the repair changed
-	issue    string // known problem left unchanged
-	conflict string // Engram conflict detail; blocks installs while present
+	data    []byte // repaired content; nil when nothing changed
+	applied string // what the repair changed
+	issue   string // known problem left unchanged
 }
 
 // knownRepair is the migration for one file, named relative to the home.
 type knownRepair struct {
 	rel string
 	fix func([]byte) repairOutcome
-	// preflight makes a conflict in the existing local file block the
-	// owning app's install until an authorized replacement repairs it.
-	preflight bool
 }
 
 var knownRepairs = []knownRepair{
 	{rel: ".zshrc", fix: repairZshrc},
-	{rel: ".pi/agent/settings.json", fix: repairPiSettings, preflight: true},
 }
 
 // repairFor returns the known repair for a target path, if any.
@@ -118,160 +111,4 @@ func repairZshrc(data []byte) repairOutcome {
 		data:    bytes.Join(lines, nil),
 		applied: fmt.Sprintf("guarded %d legacy plugin or tool lines", n),
 	}
-}
-
-const (
-	engramPackage   = "npm:gentle-engram"
-	obsoleteEngram  = "npm:gentle-engram@0.3.0"
-	unknownConflict = "conflicting Engram package declarations in an unrecognized combination left unchanged; keep a single declaration manually"
-)
-
-// repairPiSettings removes the obsolete npm:gentle-engram@0.3.0 declaration
-// only when the sole other Engram declaration is the canonical unversioned
-// object filtered to +index.ts. Only that element and its separator are cut,
-// so every other byte stays as written.
-func repairPiSettings(data []byte) repairOutcome {
-	if !json.Valid(data) {
-		return repairOutcome{issue: "not valid JSON; left unchanged"}
-	}
-	base, packages, ok := topLevelValue(data, "packages")
-	if !ok {
-		return repairOutcome{}
-	}
-	dec := json.NewDecoder(bytes.NewReader(packages))
-	if tok, err := dec.Token(); err != nil || tok != json.Delim('[') {
-		return repairOutcome{}
-	}
-	var starts, ends []int
-	var engram []int
-	obsolete, canonical := -1, false
-	for dec.More() {
-		var raw json.RawMessage
-		if err := dec.Decode(&raw); err != nil {
-			return repairOutcome{}
-		}
-		end := int(dec.InputOffset())
-		starts, ends = append(starts, end-len(raw)), append(ends, end)
-		source, isCanonical := engramDeclaration(raw)
-		if source == "" {
-			continue
-		}
-		engram = append(engram, len(starts)-1)
-		if source == obsoleteEngram {
-			obsolete = len(starts) - 1
-		}
-		canonical = canonical || isCanonical
-	}
-	if len(engram) < 2 {
-		return repairOutcome{}
-	}
-	if len(engram) != 2 || obsolete < 0 || !canonical {
-		return repairOutcome{issue: unknownConflict, conflict: "unrecognized combination"}
-	}
-	cutFrom, cutTo := starts[obsolete], ends[obsolete]
-	switch {
-	case obsolete > 0:
-		cutFrom = ends[obsolete-1]
-	case len(starts) > 1:
-		cutTo = starts[1]
-	}
-	out := append(append([]byte{}, data[:base+cutFrom]...), data[base+cutTo:]...)
-	return repairOutcome{
-		data:     out,
-		applied:  "removed obsolete duplicate " + obsoleteEngram + " package declaration",
-		conflict: "obsolete duplicate " + obsoleteEngram,
-	}
-}
-
-// engramDeclaration returns the Engram source a package entry declares, if
-// any, and whether it is exactly the canonical filtered object.
-func engramDeclaration(raw json.RawMessage) (string, bool) {
-	var s string
-	if json.Unmarshal(raw, &s) == nil {
-		if s == engramPackage || strings.HasPrefix(s, engramPackage+"@") {
-			return s, false
-		}
-		return "", false
-	}
-	var obj map[string]json.RawMessage
-	if json.Unmarshal(raw, &obj) != nil || json.Unmarshal(obj["source"], &s) != nil {
-		return "", false
-	}
-	if s != engramPackage && !strings.HasPrefix(s, engramPackage+"@") {
-		return "", false
-	}
-	var ext []string
-	canonical := s == engramPackage && len(obj) == 2 &&
-		json.Unmarshal(obj["extensions"], &ext) == nil && len(ext) == 1 && ext[0] == "+index.ts"
-	return s, canonical
-}
-
-// topLevelValue returns the offset and raw bytes of key in a top-level JSON
-// object. A missing or repeated key reports false.
-func topLevelValue(data []byte, key string) (int, json.RawMessage, bool) {
-	dec := json.NewDecoder(bytes.NewReader(data))
-	if tok, err := dec.Token(); err != nil || tok != json.Delim('{') {
-		return 0, nil, false
-	}
-	found := false
-	var base int
-	var value json.RawMessage
-	for dec.More() {
-		tok, err := dec.Token()
-		if err != nil {
-			return 0, nil, false
-		}
-		var raw json.RawMessage
-		if err := dec.Decode(&raw); err != nil {
-			return 0, nil, false
-		}
-		if tok != key {
-			continue
-		}
-		if found {
-			return 0, nil, false
-		}
-		found, value, base = true, raw, int(dec.InputOffset())-len(raw)
-	}
-	return base, value, found
-}
-
-// persistRepaired swaps target for data with perm. Tests replace it to
-// inject write failures.
-var persistRepaired = func(target string, data []byte, perm os.FileMode) error {
-	return replaceWith(target, func(tmp string) error {
-		if err := writeNew(tmp, data); err != nil {
-			return err
-		}
-		return os.Chmod(tmp, perm)
-	})
-}
-
-// repairLocal applies repaired content to an existing regular local file
-// confined to its write guard. The file is only changed after its safety
-// backup succeeds, and the result is read back to prove the conflict is gone.
-func repairLocal(target string, info os.FileInfo, data []byte, repair *knownRepair) (string, error) {
-	if !info.Mode().IsRegular() {
-		return "", fmt.Errorf("%s is not a regular file", target)
-	}
-	guard, err := newWriteGuard(target)
-	if err == nil {
-		err = guard.check(target)
-	}
-	if err != nil {
-		return "", err
-	}
-	bk, err := backupExisting(target)
-	if err != nil {
-		return "", fmt.Errorf("safety backup failed: %v", err)
-	}
-	if err := persistRepaired(target, data, info.Mode().Perm()); err != nil {
-		return "", fmt.Errorf("%v; original kept, safety backup %s", err, bk)
-	}
-	got, err := os.ReadFile(target)
-	after, statErr := os.Lstat(target)
-	if err != nil || statErr != nil || !bytes.Equal(got, data) || after.Mode().Perm() != info.Mode().Perm() || repair.fix(got).conflict != "" {
-		return "", fmt.Errorf("repaired content did not persist; safety backup %s", bk)
-	}
-	return bk, nil
 }

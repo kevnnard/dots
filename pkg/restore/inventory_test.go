@@ -76,8 +76,8 @@ func loadRepoManifest(t *testing.T) *manifest.Manifest {
 
 func TestEveryBrewfileDeclarationHasExactlyOneOwner(t *testing.T) {
 	decls := declarations(t)
-	if len(decls) != 63 {
-		t.Errorf("expected 63 distinct Brewfile declarations, got %d", len(decls))
+	if len(decls) != 60 {
+		t.Errorf("expected 60 distinct Brewfile declarations, got %d", len(decls))
 	}
 	own := owners(loadRepoManifest(t))
 	var keys []string

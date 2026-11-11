@@ -1,11 +1,9 @@
 package restore
 
 import (
-	"os"
 	"os/exec"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/kevnnard/dots/pkg/manifest"
@@ -56,41 +54,6 @@ source ~/.custom-plugin.zsh
 `
 
 const zshRepairNote = "guarded 9 legacy plugin or tool lines"
-
-const conflictingPiSettings = `{
-  "defaultModel": "x",
-  "packages": [
-    "npm:gentle-pi",
-    {
-      "source": "npm:gentle-engram",
-      "extensions": [
-        "+index.ts"
-      ]
-    },
-    "npm:pi-btw",
-    "npm:gentle-engram@0.3.0"
-  ],
-  "theme": "t"
-}
-`
-
-const repairedPiSettings = `{
-  "defaultModel": "x",
-  "packages": [
-    "npm:gentle-pi",
-    {
-      "source": "npm:gentle-engram",
-      "extensions": [
-        "+index.ts"
-      ]
-    },
-    "npm:pi-btw"
-  ],
-  "theme": "t"
-}
-`
-
-const piRepairNote = "removed obsolete duplicate npm:gentle-engram@0.3.0 package declaration"
 
 // repairFixture maps one backed-up file to a target inside an isolated HOME.
 func repairFixture(t *testing.T, homeRel, dest, backup string) (manifest.AppConfig, string, string) {
@@ -193,92 +156,14 @@ func TestApplyReplacesStaleLocalZshrcWithRepairedBackupAfterSafetyBackup(t *test
 	}
 }
 
-func TestApplyRemovesOnlyKnownObsoleteEngramDuplicate(t *testing.T) {
-	app, repo, target := repairFixture(t, ".pi/agent/settings.json", "configs/pi/settings.json", conflictingPiSettings)
-
-	res, err := ApplyAppFilesWith("pi", app, repo, ApplyOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := readOrEmpty(target); got != repairedPiSettings {
-		t.Fatalf("deployed settings:\n%s", got)
-	}
-	if want := []string{target + ": " + piRepairNote}; !reflect.DeepEqual(res.Repaired, want) {
-		t.Errorf("repaired = %q", res.Repaired)
-	}
-
-	res, err = ApplyAppFilesWith("pi", app, repo, ApplyOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(res.Restored, []string{target}) || len(res.Repaired)+len(res.Kept)+len(res.NotRepaired) != 0 {
-		t.Errorf("rerun = %+v", res)
-	}
-}
-
-func TestRepairPiSettingsTriangulation(t *testing.T) {
-	canonical := `{"source":"npm:gentle-engram","extensions":["+index.ts"]}`
-	cases := []struct {
-		name, in, want, applied, issue string
-	}{
-		{"duplicate first", `{"packages":["npm:gentle-engram@0.3.0",` + canonical + `,"npm:x"]}`,
-			`{"packages":[` + canonical + `,"npm:x"]}`, piRepairNote, ""},
-		{"single declaration", `{"packages":[` + canonical + `]}`, "", "", ""},
-		{"other version", `{"packages":[` + canonical + `,"npm:gentle-engram@0.4.0"]}`, "", "",
-			"conflicting Engram package declarations in an unrecognized combination left unchanged; keep a single declaration manually"},
-		{"different filter", `{"packages":[{"source":"npm:gentle-engram","extensions":["-index.ts"]},"npm:gentle-engram@0.3.0"]}`, "", "",
-			"conflicting Engram package declarations in an unrecognized combination left unchanged; keep a single declaration manually"},
-		{"invalid json", `{"packages":[`, "", "", "not valid JSON; left unchanged"},
-		{"no packages", `{"theme":"t"}`, "", "", ""},
-	}
-	for _, c := range cases {
-		out := repairPiSettings([]byte(c.in))
-		if string(out.data) != c.want || out.applied != c.applied || out.issue != c.issue {
-			t.Errorf("%s: data=%q applied=%q issue=%q", c.name, out.data, out.applied, out.issue)
-		}
-	}
-}
-
-func TestApplyPreservesUnknownPiConflictAndInvalidJSON(t *testing.T) {
-	for _, backup := range []string{
-		`{"packages":[{"source":"npm:gentle-engram","extensions":["+index.ts"]},"npm:gentle-engram@0.4.0"]}`,
-		`{"packages": [`,
-	} {
-		app, repo, target := repairFixture(t, ".pi/agent/settings.json", "configs/pi/settings.json", backup)
-		res, err := ApplyAppFilesWith("pi", app, repo, ApplyOptions{})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if readOrEmpty(target) != backup {
-			t.Errorf("backup bytes changed on deployment: %q", readOrEmpty(target))
-		}
-		if len(res.Repaired) != 0 || len(res.NotRepaired) != 1 || !strings.HasPrefix(res.NotRepaired[0], target+": backup deployed without repair: ") {
-			t.Errorf("repaired=%q not repaired=%q", res.Repaired, res.NotRepaired)
-		}
-		if strings.Contains(strings.Join(res.NotRepaired, ""), "0.4.0") {
-			t.Error("diagnostics must not echo configuration values")
-		}
-	}
-}
-
 func TestApplyLeavesUnknownFilesWithSimilarContentUntouched(t *testing.T) {
-	app, repo, target := repairFixture(t, ".config/tool/settings.json", "configs/tool/settings.json", conflictingPiSettings)
+	app, repo, target := repairFixture(t, ".config/tool/zshrc", "configs/tool/zshrc", legacyZshrc)
 	res, err := ApplyAppFilesWith("tool", app, repo, ApplyOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if readOrEmpty(target) != conflictingPiSettings || len(res.Repaired)+len(res.NotRepaired) != 0 {
+	if readOrEmpty(target) != legacyZshrc || len(res.Repaired)+len(res.NotRepaired) != 0 {
 		t.Errorf("unknown file changed: repaired=%q not repaired=%q", res.Repaired, res.NotRepaired)
-	}
-}
-
-func TestCheckedInPiSettingsHaveNoEngramConflict(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", "..", "configs", "pi", "settings.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if out := repairPiSettings(data); out.data != nil || out.issue != "" || out.conflict != "" {
-		t.Errorf("checked-in Pi settings need repair: applied=%q issue=%q", out.applied, out.issue)
 	}
 }
 

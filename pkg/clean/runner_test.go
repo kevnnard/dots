@@ -10,7 +10,7 @@ import (
 )
 
 const removeAllSummary = `Package cleanup plan:
-  remove pi: pnpm remove -g @earendil-works/pi-coding-agent
+  remove codex: pnpm remove -g @openai/codex
   remove claude: brew uninstall --cask claude-code
   remove node: brew uninstall --formula node
 3 to remove, 0 blocked
@@ -19,7 +19,7 @@ const removeAllSummary = `Package cleanup plan:
 func removeAll() *fakeProbe {
 	return &fakeProbe{ev: map[string]Evidence{
 		"node":   brewOwned("node"),
-		"pi":     {Present: true, Owners: []Owner{{Manager: "pnpm", Package: "@earendil-works/pi-coding-agent"}}},
+		"codex":  {Present: true, Owners: []Owner{{Manager: "pnpm", Package: "@openai/codex"}}},
 		"claude": {Present: true, Owners: []Owner{{Manager: "brew", Cask: "claude-code"}}},
 	}}
 }
@@ -32,7 +32,7 @@ func runner(t *testing.T, f *fakeProbe, out map[string]Result) (PackageRunner, *
 
 func TestRunnerDeniesWithoutConfirmation(t *testing.T) {
 	f := removeAll()
-	p := plan(t, Request{Packages: []string{"node", "pi", "claude"}}, f)
+	p := plan(t, Request{Packages: []string{"node", "codex", "claude"}}, f)
 	for name, confirm := range map[string]func(string) bool{
 		"default": nil,
 		"decline": func(s string) bool { return false },
@@ -74,11 +74,11 @@ Dry run: nothing was changed.
 
 func TestRunnerRechecksAndRunsDependentsFirst(t *testing.T) {
 	f := removeAll()
-	p := plan(t, Request{Packages: []string{"node", "pi", "claude"}}, f)
+	p := plan(t, Request{Packages: []string{"node", "codex", "claude"}}, f)
 	r, e, out := runner(t, f, map[string]Result{
-		"pnpm remove -g @earendil-works/pi-coding-agent": {},
-		"brew uninstall --cask claude-code":              {},
-		"brew uninstall --formula node":                  {},
+		"pnpm remove -g @openai/codex":      {},
+		"brew uninstall --cask claude-code": {},
+		"brew uninstall --formula node":     {},
 	})
 	var seen string
 	r.Confirm = func(s string) bool { seen = s; return true }
@@ -89,38 +89,38 @@ func TestRunnerRechecksAndRunsDependentsFirst(t *testing.T) {
 	if seen != removeAllSummary {
 		t.Fatalf("confirmation saw %q", seen)
 	}
-	if got := strings.Join(e.calls, ";"); got != "pnpm remove -g @earendil-works/pi-coding-agent;brew uninstall --cask claude-code;brew uninstall --formula node" {
+	if got := strings.Join(e.calls, ";"); got != "pnpm remove -g @openai/codex;brew uninstall --cask claude-code;brew uninstall --formula node" {
 		t.Fatalf("calls = %s", got)
 	}
-	if !f.called["pi"] || !f.called["claude"] || !f.called["node"] {
+	if !f.called["codex"] || !f.called["claude"] || !f.called["node"] {
 		t.Fatalf("preflight recheck skipped: %v", f.called)
 	}
-	if !strings.HasSuffix(out.String(), "removed pi\nremoved claude\nremoved node\n") {
+	if !strings.HasSuffix(out.String(), "removed codex\nremoved claude\nremoved node\n") {
 		t.Fatalf("output = %s", out)
 	}
 }
 
 func TestRunnerStopsAfterFailureOrChangedOwnership(t *testing.T) {
 	f := removeAll()
-	p := plan(t, Request{Packages: []string{"node", "pi", "claude"}}, f)
+	p := plan(t, Request{Packages: []string{"node", "codex", "claude"}}, f)
 	r, e, out := runner(t, f, map[string]Result{
-		"pnpm remove -g @earendil-works/pi-coding-agent": {ExitCode: 1, Stderr: []byte("token=abc")},
+		"pnpm remove -g @openai/codex": {ExitCode: 1, Stderr: []byte("token=abc")},
 	})
 	r.Confirm = func(string) bool { return true }
 	rep, err := r.Run(context.Background(), p)
 	if err == nil || len(e.calls) != 1 || rep.Items[2].Outcome != OutcomeNotRun {
 		t.Fatalf("report %+v, err %v, calls %v", rep, err, e.calls)
 	}
-	tail := "failed pi: exit status 1\nnot-run claude: stopped after an earlier failure\nnot-run node: stopped after an earlier failure\n"
+	tail := "failed codex: exit status 1\nnot-run claude: stopped after an earlier failure\nnot-run node: stopped after an earlier failure\n"
 	if !strings.HasSuffix(out.String(), tail) || strings.Contains(out.String(), "token") {
 		t.Fatalf("output = %s", out)
 	}
 
-	f.ev["pi"] = Evidence{Present: true, Owners: []Owner{{Manager: "npm", Package: "@earendil-works/pi-coding-agent", Prefix: "/x"}}}
+	f.ev["codex"] = Evidence{Present: true, Owners: []Owner{{Manager: "npm", Package: "@openai/codex", Prefix: "/x"}}}
 	r, e, out = runner(t, f, nil)
 	r.Confirm = func(string) bool { return true }
 	if _, err := r.Run(context.Background(), p); err == nil || len(e.calls) != 0 ||
-		!strings.Contains(out.String(), "failed pi: ownership changed since the plan") {
+		!strings.Contains(out.String(), "failed codex: ownership changed since the plan") {
 		t.Fatalf("changed owner: err %v, calls %v, output %s", err, e.calls, out)
 	}
 }
@@ -133,7 +133,7 @@ func TestRunnerRejectsTamperedPlanBeforeConfirmation(t *testing.T) {
 		"no owner": func(p *Plan) { p.Packages[0].Owner = nil },
 		"unknown":  func(p *Plan) { p.Packages[0].AppName = "ghost" },
 	} {
-		p := plan(t, Request{Packages: []string{"node", "pi", "claude"}}, f)
+		p := plan(t, Request{Packages: []string{"node", "codex", "claude"}}, f)
 		tamper(p)
 		r, e, out := runner(t, f, nil)
 		r.Confirm = func(string) bool { t.Fatalf("%s: tampered plan reached confirmation", name); return true }

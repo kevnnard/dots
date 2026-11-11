@@ -533,7 +533,7 @@ func TestApplyFilesFollowsParentSymlinkInsideHome(t *testing.T) {
 func TestApplyFilesRefusesSymlinkTargetOutsideHome(t *testing.T) {
 	root, home := isolatedHome(t)
 	repo := filepath.Join(root, "repo")
-	skills := filepath.Join(repo, "configs", "pi", "skills")
+	skills := filepath.Join(repo, "configs", "gentle-shell", "skills")
 	mustWrite(t, filepath.Join(home, ".agents", "skills", "terminal-browser", "SKILL.md"), "skill\n")
 	if err := os.MkdirAll(skills, 0755); err != nil {
 		t.Fatal(err)
@@ -548,12 +548,12 @@ func TestApplyFilesRefusesSymlinkTargetOutsideHome(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	app := manifest.AppConfig{Paths: []manifest.PathMapping{{Src: "~/.pi/agent/skills", Dest: "configs/pi/skills"}}}
-	res, err := ApplyAppFilesWith("pi", app, repo, ApplyOptions{})
+	app := manifest.AppConfig{Paths: []manifest.PathMapping{{Src: "~/.gentle-shell/agent/skills", Dest: "configs/gentle-shell/skills"}}}
+	res, err := ApplyAppFilesWith("gentle-shell", app, repo, ApplyOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	dest := filepath.Join(home, ".pi", "agent", "skills")
+	dest := filepath.Join(home, ".gentle-shell", "agent", "skills")
 	if link, err := os.Readlink(filepath.Join(dest, "terminal-browser")); err != nil || link != links["terminal-browser"] {
 		t.Errorf("terminal-browser = %q %v, want the in-home link", link, err)
 	}

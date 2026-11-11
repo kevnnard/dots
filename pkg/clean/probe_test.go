@@ -38,10 +38,10 @@ func exit1(stdout string) Result   { return Result{Stdout: []byte(stdout), ExitC
 
 const (
 	npmPrefix = "npm prefix -g"
-	npmLocal  = "npm ls -g --prefix /home/u/.local --depth=0 --json @earendil-works/pi-coding-agent"
-	npmGlobal = "npm ls -g --prefix /usr/local --depth=0 --json @earendil-works/pi-coding-agent"
-	pnpmLs    = "pnpm ls -g --depth=0 --json @earendil-works/pi-coding-agent"
-	piJSON    = `{"dependencies":{"@earendil-works/pi-coding-agent":{"version":"1.0.0"}}}`
+	npmLocal  = "npm ls -g --prefix /home/u/.local --depth=0 --json @openai/codex"
+	npmGlobal = "npm ls -g --prefix /usr/local --depth=0 --json @openai/codex"
+	pnpmLs    = "pnpm ls -g --depth=0 --json @openai/codex"
+	codexJSON = `{"dependencies":{"@openai/codex":{"version":"1.0.0"}}}`
 )
 
 func nativeProbe(t *testing.T, sys *detector.SystemInfo, out map[string]Result) (NativeProbe, *fakeExec) {
@@ -103,19 +103,19 @@ func TestProbeArchQueriesPacmanDatabaseForYayRecipes(t *testing.T) {
 }
 
 func TestProbeNpmReportsExactPrefixAndAmbiguity(t *testing.T) {
-	pi := fixture().Apps["pi"]
+	codex := fixture().Apps["codex"]
 	p, _ := nativeProbe(t, darwin(), map[string]Result{
-		npmPrefix: ok("/usr/local\n"), npmGlobal: exit1("{}"), npmLocal: ok(piJSON), pnpmLs: ok("[]"),
+		npmPrefix: ok("/usr/local\n"), npmGlobal: exit1("{}"), npmLocal: ok(codexJSON), pnpmLs: ok("[]"),
 	})
-	ev, err := p.Probe("pi", pi)
-	if want := []Owner{{Manager: "npm", Package: "@earendil-works/pi-coding-agent", Prefix: "/home/u/.local"}}; err != nil || !reflect.DeepEqual(ev.Owners, want) {
-		t.Fatalf("pi = %+v, %v", ev, err)
+	ev, err := p.Probe("codex", codex)
+	if want := []Owner{{Manager: "npm", Package: "@openai/codex", Prefix: "/home/u/.local"}}; err != nil || !reflect.DeepEqual(ev.Owners, want) {
+		t.Fatalf("codex = %+v, %v", ev, err)
 	}
 	p, _ = nativeProbe(t, darwin(), map[string]Result{
-		npmPrefix: ok("/usr/local\n"), npmGlobal: exit1("{}"), npmLocal: ok(piJSON),
-		pnpmLs: ok(`[{"path":"/home/u/.pnpm","dependencies":{"@earendil-works/pi-coding-agent":{"version":"1.0.0"}}}]`),
+		npmPrefix: ok("/usr/local\n"), npmGlobal: exit1("{}"), npmLocal: ok(codexJSON),
+		pnpmLs: ok(`[{"path":"/home/u/.pnpm","dependencies":{"@openai/codex":{"version":"1.0.0"}}}]`),
 	})
-	if ev, err := p.Probe("pi", pi); err != nil || len(ev.Owners) != 2 {
+	if ev, err := p.Probe("codex", codex); err != nil || len(ev.Owners) != 2 {
 		t.Fatalf("npm and pnpm records = %+v, %v, want both owners", ev, err)
 	}
 }
@@ -126,10 +126,10 @@ func TestProbeUncertainQueriesAreErrorsNotAbsence(t *testing.T) {
 		"npm problems":   {npmPrefix: ok("/usr/local\n"), npmGlobal: exit1(`{"problems":["invalid"]}`), npmLocal: exit1("{}"), pnpmLs: ok("[]")},
 		"relative":       {npmPrefix: ok("usr/local\n")},
 		"pnpm failure":   {npmPrefix: ok("/usr/local\n"), npmGlobal: exit1("{}"), npmLocal: exit1("{}"), pnpmLs: {ExitCode: 1}},
-		"missing marker": {npmPrefix: ok("/usr/local\n"), npmGlobal: exit1(`{"dependencies":{"@earendil-works/pi-coding-agent":{"missing":true}}}`), npmLocal: exit1("{}"), pnpmLs: ok("[]")},
+		"missing marker": {npmPrefix: ok("/usr/local\n"), npmGlobal: exit1(`{"dependencies":{"@openai/codex":{"missing":true}}}`), npmLocal: exit1("{}"), pnpmLs: ok("[]")},
 	} {
 		p, _ := nativeProbe(t, darwin(), out)
-		if ev, err := p.Probe("pi", fixture().Apps["pi"]); err == nil {
+		if ev, err := p.Probe("codex", fixture().Apps["codex"]); err == nil {
 			t.Fatalf("%s: evidence %+v accepted", name, ev)
 		}
 	}

@@ -152,40 +152,40 @@ func TestRunConfigIncompleteWhenPluginFailsEvenIfHostInstalled(t *testing.T) {
 func TestRunPropagatesInstallFailureToDependents(t *testing.T) {
 	m := npmToolManifest()
 	fx := &fakeExec{fail: map[string]bool{"node": true}}
-	res, err := Run(m, []string{"pi", "zed"}, plainArch(), RunOptions{
+	res, err := Run(m, []string{"codex", "zed"}, plainArch(), RunOptions{
 		InstallPackages: true, Probe: noneInstalled, Exec: fx.run,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got := fx.apps(); got != "node,zed" {
-		t.Errorf("ran %s, want node,zed (pi blocked, zed unrelated)", got)
+		t.Errorf("ran %s, want node,zed (codex blocked, zed unrelated)", got)
 	}
 	if s := resultByName(t, res, "node"); s.Install != OutcomeFailed || s.Error == "" {
 		t.Errorf("node = %+v", s)
 	}
-	if s := resultByName(t, res, "pi"); s.Install != OutcomeBlocked || !strings.Contains(s.Reason, "node") {
-		t.Errorf("pi = %+v", s)
+	if s := resultByName(t, res, "codex"); s.Install != OutcomeBlocked || !strings.Contains(s.Reason, "node") {
+		t.Errorf("codex = %+v", s)
 	}
 	if s := resultByName(t, res, "zed"); s.Install != OutcomeInstalled {
 		t.Errorf("zed = %+v", s)
 	}
 	if len(res.Problems()) != 2 {
-		t.Errorf("problems = %v, want node failure and pi blocked", res.Problems())
+		t.Errorf("problems = %v, want node failure and codex blocked", res.Problems())
 	}
 }
 
 func TestRunSkipsAlreadyInstalledApps(t *testing.T) {
 	fx := &fakeExec{}
 	probe := func(name string, _ manifest.AppConfig) bool { return name == "node" }
-	res, err := Run(npmToolManifest(), []string{"pi"}, plainArch(), RunOptions{
+	res, err := Run(npmToolManifest(), []string{"codex"}, plainArch(), RunOptions{
 		InstallPackages: true, Probe: probe, Exec: fx.run,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := fx.apps(); got != "pi" {
-		t.Errorf("ran %s, want only pi", got)
+	if got := fx.apps(); got != "codex" {
+		t.Errorf("ran %s, want only codex", got)
 	}
 	if s := resultByName(t, res, "node"); s.Install != OutcomeAlreadyInstalled {
 		t.Errorf("node = %+v", s)

@@ -180,16 +180,14 @@ func TestBackupStagesPortablePersonalConfigs(t *testing.T) {
 		".oh-my-zsh/custom/example.zsh",
 		".oh-my-zsh/custom/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh",
 		".oh-my-zsh/custom/themes/powerlevel10k/powerlevel10k.zsh-theme",
-		".pi/agent/skills/review/SKILL.md",
-		".pi/agent/extensions/rtk.ts",
-		".pi/agent/extensions/rtk.ts.bak-linux-guard",
-		".pi/agent/APPEND_SYSTEM.md",
-		".pi/agent/prompts/review.md",
-		".pi/gentle-ai/vim.json",
-		".pi/gentle-ai/persona.json",
-		".pi/gentle-ai/channel.json",
-		".pi/gentle-ai/telemetry.json",
-		".pi/gentle-ai/scratch/note.md",
+		".gentle-shell/agent/skills/review/SKILL.md",
+		".gentle-shell/agent/extensions/rtk.ts",
+		".gentle-shell/agent/extensions/rtk.ts.bak-linux-guard",
+		".gentle-shell/agent/prompts/review.md",
+		".gentle-shell/gentle-ai/vim.json",
+		".gentle-shell/gentle-ai/persona.json",
+		".gentle-shell/gentle-ai/telemetry.json",
+		".gentle-shell/gentle-ai/scratch/note.md",
 		".gentle-shell/agent/settings.json",
 		".gentle-shell/agent/APPEND_SYSTEM.md",
 		".gentle-shell/config/gentle-ai/star-prompt.json",
@@ -205,7 +203,7 @@ func TestBackupStagesPortablePersonalConfigs(t *testing.T) {
 	}
 
 	staged := map[string]bool{}
-	for _, app := range []string{"zsh", "pi", "gentle-shell", "gga", "claude", "codex"} {
+	for _, app := range []string{"zsh", "gentle-shell", "gga", "claude", "codex"} {
 		stage := stageApp(t, repo, app)
 		filepath.Walk(stage, func(p string, info os.FileInfo, err error) error {
 			if err == nil && !info.IsDir() {
@@ -220,13 +218,11 @@ func TestBackupStagesPortablePersonalConfigs(t *testing.T) {
 		"configs/zsh/.zshrc",
 		"configs/zsh/oh-my-zsh-custom/aliases.zsh",
 		"configs/zsh/oh-my-zsh-custom/lib/history.zsh",
-		"configs/pi/skills/review/SKILL.md",
-		"configs/pi/extensions/rtk.ts",
-		"configs/pi/APPEND_SYSTEM.md",
-		"configs/pi/prompts/review.md",
-		"configs/pi/gentle-ai/vim.json",
-		"configs/pi/gentle-ai/persona.json",
-		"configs/pi/gentle-ai/channel.json",
+		"configs/gentle-shell/skills/review/SKILL.md",
+		"configs/gentle-shell/extensions/rtk.ts",
+		"configs/gentle-shell/prompts/review.md",
+		"configs/gentle-shell/gentle-ai/vim.json",
+		"configs/gentle-shell/gentle-ai/persona.json",
 		"configs/gentle-shell/settings.json",
 		"configs/gentle-shell/APPEND_SYSTEM.md",
 		"configs/gentle-shell/config/gentle-ai/star-prompt.json",
@@ -291,9 +287,8 @@ func TestBackupMasksWebSearchCredentials(t *testing.T) {
 	repo := repoWithShippedManifest(t)
 	config := []byte(`{"provider":"brave","braveApiKey":"fixture-placeholder"}`)
 	writeTestFile(t, filepath.Join(home, ".gentle-shell/agent/web-search.json"), config)
-	writeTestFile(t, filepath.Join(home, ".pi/web-search.json"), config)
 
-	for app, dest := range map[string]string{"gentle-shell": "configs/gentle-shell/web-search.json", "pi": "configs/pi/web-search.json"} {
+	for app, dest := range map[string]string{"gentle-shell": "configs/gentle-shell/web-search.json"} {
 		stage := stageApp(t, repo, app)
 		if _, err := os.Stat(filepath.Join(stage, dest)); !os.IsNotExist(err) {
 			t.Errorf("%s: %s must not be copied as is", app, dest)
@@ -384,7 +379,7 @@ func TestBackupReportsBuiltInPathsMissingFromManifest(t *testing.T) {
 	if !strings.Contains(out, "zsh: ~/.oh-my-zsh/custom") {
 		t.Errorf("output must name the missing built-in path:\n%s", out)
 	}
-	if strings.Contains(out, "pi:") {
+	if strings.Contains(out, "gentle-shell:") {
 		t.Errorf("apps the manifest does not declare stay undeclared:\n%s", out)
 	}
 	if data, _ := os.ReadFile(filepath.Join(repo, "manifest.yaml")); string(data) != string(local) {

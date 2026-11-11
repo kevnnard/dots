@@ -41,7 +41,7 @@ var initCmd = &cobra.Command{
 		}
 
 		fmt.Printf("✓ Initialized dotfiles repository at: %s\n", repoDir)
-		fmt.Printf("✓ Manifest generated with %d default apps (nvim, pi, ghostty, zsh, git, pnpm, brew)\n", len(m.Apps))
+		fmt.Printf("✓ Manifest generated with %d default apps (nvim, gentle-shell, ghostty, zsh, git, pnpm, brew)\n", len(m.Apps))
 		fmt.Println("\nNext steps:")
 		fmt.Println("  dots status          # Check what is currently tracked vs local machine")
 		fmt.Println("  dots backup          # Copy your current configs to the dotfiles repo")

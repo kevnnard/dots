@@ -205,7 +205,7 @@ func TestGuidedStepDoneWhenStatusPasses(t *testing.T) {
 
 func TestGuidedStepWithoutStatusIsManualWithGuide(t *testing.T) {
 	env := &fakeEnv{outputs: map[string]string{}}
-	step := Step{ID: "linear", Title: "Linear MCP", Guide: "open pi and sign in to linear"}
+	step := Step{ID: "linear", Title: "Linear MCP", Guide: "open gentle-shell and sign in to linear"}
 	res := Execute(env, step, "")
 	if res.Status != StatusManual || !strings.Contains(res.Detail, "sign in to linear") || len(env.ran) != 0 {
 		t.Fatalf("got %+v ran=%v", res, env.ran)

@@ -143,12 +143,12 @@ func TestSanitizeJSONSecretFile(t *testing.T) {
 	destDir := filepath.Join(tmpDir, "dotfiles")
 	app := manifest.AppConfig{
 		Paths: []manifest.PathMapping{
-			{Src: jsonFile, Dest: "configs/pi/auth.json"},
+			{Src: jsonFile, Dest: "configs/gentle-shell/auth.json"},
 		},
 		Secrets: []string{"auth.json"},
 	}
 
-	res, err := BackupApp("pi", app, destDir)
+	res, err := BackupApp("gentle-shell", app, destDir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -157,7 +157,7 @@ func TestSanitizeJSONSecretFile(t *testing.T) {
 		t.Fatalf("expected 1 secret masked, got %d", len(res.SecretsMasked))
 	}
 
-	templatePath := filepath.Join(destDir, "configs/pi/auth.json.template")
+	templatePath := filepath.Join(destDir, "configs/gentle-shell/auth.json.template")
 	data, err := os.ReadFile(templatePath)
 	if err != nil {
 		t.Fatalf("expected template at %s: %v", templatePath, err)
@@ -226,15 +226,15 @@ func TestBackupStoresDirectorySymlinkAsSymlink(t *testing.T) {
 	destDir := filepath.Join(tmpDir, "dotfiles")
 	app := manifest.AppConfig{
 		Paths: []manifest.PathMapping{
-			{Src: skillsDir, Dest: "configs/pi/skills"},
+			{Src: skillsDir, Dest: "configs/gentle-shell/skills"},
 		},
 	}
 
-	if _, err := BackupApp("pi", app, destDir); err != nil {
+	if _, err := BackupApp("gentle-shell", app, destDir); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	stored := filepath.Join(destDir, "configs", "pi", "skills", "find-skills")
+	stored := filepath.Join(destDir, "configs", "gentle-shell", "skills", "find-skills")
 	info, err := os.Lstat(stored)
 	if err != nil {
 		t.Fatalf("missing stored entry: %v", err)

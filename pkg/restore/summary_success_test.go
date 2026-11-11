@@ -13,7 +13,7 @@ import (
 func TestSummaryReportsSuccessCounts(t *testing.T) {
 	fx := &fakeExec{}
 	probe := func(name string, _ manifest.AppConfig) bool { return name == "node" }
-	res, err := Run(npmToolManifest(), []string{"node", "pi"}, plainArch(), RunOptions{
+	res, err := Run(npmToolManifest(), []string{"node", "codex"}, plainArch(), RunOptions{
 		InstallPackages: true, Probe: probe, Exec: fx.run,
 	})
 	if err != nil {

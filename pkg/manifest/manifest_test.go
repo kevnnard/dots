@@ -14,7 +14,7 @@ func TestDefaultManifest(t *testing.T) {
 		t.Error("expected non-empty version")
 	}
 
-	expectedApps := []string{"nvim", "pi", "ghostty", "zsh", "git", "pnpm", "brew", "claude", "codex", "zed", "atuin", "flashspace", "gh", "ssh", "ollama", "gentle-ai", "engram", "herdr", "terminal-browser", "btop", "android-studio", "xcode", "tailscale", "mongodb-compass", "postman"}
+	expectedApps := []string{"nvim", "gentle-shell", "ghostty", "zsh", "git", "pnpm", "brew", "claude", "codex", "zed", "atuin", "flashspace", "gh", "ssh", "ollama", "gentle-ai", "engram", "herdr", "terminal-browser", "btop", "android-studio", "xcode", "tailscale", "mongodb-compass", "postman"}
 	for _, app := range expectedApps {
 		if _, ok := m.Apps[app]; !ok {
 			t.Errorf("expected default manifest to contain %s", app)
@@ -156,7 +156,7 @@ func TestGentleShellAgentHomeIsDeclared(t *testing.T) {
 	}
 }
 
-// gentle-pi keeps its preferences in a config home that also holds builds,
+// Gentle AI keeps its preferences in a config home that also holds builds,
 // scratch, telemetry and authority files, so only the named preference files
 // travel, never the folder. Sources: SHARED_CONFIG_FILES and the policy
 // readers of gentle-pi (lib/*-policy.ts, keymaps.ts, star-prompt.ts).
@@ -166,20 +166,19 @@ func TestGentleAIConfigHomesTravelOnlyPreferences(t *testing.T) {
 		prefs[f] = true
 	}
 	homes := map[string]string{
-		"~/.pi/gentle-ai/":                  "configs/pi/gentle-ai/",
 		"~/.gentle-shell/gentle-ai/":        "configs/gentle-shell/gentle-ai/",
 		"~/.gentle-shell/config/gentle-ai/": "configs/gentle-shell/config/gentle-ai/",
 	}
 	m := DefaultManifest()
 	for home, dest := range homes {
 		declared := map[string]bool{}
-		for _, app := range []string{"pi", "gentle-shell"} {
+		for _, app := range []string{"gentle-shell"} {
 			for _, p := range m.Apps[app].Paths {
 				if !strings.HasPrefix(p.Src, home) {
 					continue
 				}
 				name := strings.TrimPrefix(p.Src, home)
-				if !prefs[name] && !(home == "~/.pi/gentle-ai/" && name == "channel.json") {
+				if !prefs[name] {
 					t.Errorf("%s: %s is not a preference file", app, p.Src)
 				}
 				if p.Dest != dest+name {
@@ -206,7 +205,7 @@ func TestGentleAIConfigHomesTravelOnlyPreferences(t *testing.T) {
 
 // Every location a config loader reads is written with ~/, so the same
 // manifest maps to the home of any OS, and the agent homes cover the files
-// their loaders document (Pi docs/configuration.md).
+// their loaders document.
 func TestPersonalConfigLocationsArePortable(t *testing.T) {
 	m := DefaultManifest()
 	want := map[string][]string{
@@ -214,17 +213,10 @@ func TestPersonalConfigLocationsArePortable(t *testing.T) {
 		"gga":          {"~/.config/gga/config"},
 		"claude":       {"~/.claude/hooks", "~/.claude/output-styles", "~/.claude/commands", "~/.claude/keybindings.json"},
 		"codex":        {"~/.codex/engram-instructions.md", "~/.codex/engram-compact-prompt.md", "~/.codex/herdr-agent-state.sh"},
-		"pi":           {"~/.pi/agent/extensions"},
 		"gentle-shell": {},
 	}
-	for _, home := range []string{"pi", "gentle-shell"} {
-		for _, rel := range []string{"keybindings.json", "AGENTS.md", "AGENTS.override.md", "CLAUDE.md", "SYSTEM.md", "APPEND_SYSTEM.md", "prompts", "themes"} {
-			dir := "~/.pi/agent/"
-			if home == "gentle-shell" {
-				dir = "~/.gentle-shell/agent/"
-			}
-			want[home] = append(want[home], dir+rel)
-		}
+	for _, rel := range []string{"keybindings.json", "AGENTS.md", "AGENTS.override.md", "CLAUDE.md", "SYSTEM.md", "APPEND_SYSTEM.md", "prompts", "themes"} {
+		want["gentle-shell"] = append(want["gentle-shell"], "~/.gentle-shell/agent/"+rel)
 	}
 	for app, srcs := range want {
 		have := map[string]bool{}
@@ -256,5 +248,51 @@ func TestNoAppBacksUpLoginFiles(t *testing.T) {
 				t.Errorf("%s backs up the login file %s", name, p.Src)
 			}
 		}
+	}
+}
+
+func TestManifestSupportsOnlyGentleShellClaudeCodexAndAntigravity(t *testing.T) {
+	m := DefaultManifest()
+	for _, gone := range []string{"pi", "gemini-cli", "kilocode", "opencode"} {
+		if _, ok := m.Apps[gone]; ok {
+			t.Errorf("manifest still declares %s", gone)
+		}
+	}
+	for _, kept := range []string{"gentle-shell", "claude", "codex", "antigravity-cli"} {
+		if _, ok := m.Apps[kept]; !ok {
+			t.Errorf("manifest is missing %s", kept)
+		}
+	}
+	banned := []string{"pi-coding-agent", "gemini-cli", "kilocode", "opencode"}
+	for name, app := range m.Apps {
+		for _, p := range app.Paths {
+			if strings.HasPrefix(p.Src, "~/.pi/") || strings.HasPrefix(p.Dest, "configs/pi/") || strings.Contains(p.Src, "opencode") {
+				t.Errorf("%s backs up %s to %s", name, p.Src, p.Dest)
+			}
+		}
+		for os, r := range app.Install {
+			for _, b := range banned {
+				if strings.Contains(r.Package+r.Cask+r.Command, b) {
+					t.Errorf("%s installs %s on %s", name, b, os)
+				}
+			}
+		}
+	}
+	for file, data := range map[string]string{"Brewfile": DefaultCoreBrewfile, "Brewfile.ai": DefaultAIBrewfile} {
+		for _, b := range banned {
+			for _, line := range strings.Split(data, "\n") {
+				if !strings.HasPrefix(line, "#") && strings.Contains(line, b) {
+					t.Errorf("%s installs %s: %s", file, b, line)
+				}
+			}
+		}
+	}
+	gs := m.Apps["gentle-shell"]
+	excluded := false
+	for _, e := range gs.Exclude {
+		excluded = excluded || e == "antigravity-accounts.json"
+	}
+	if !excluded {
+		t.Error("gentle-shell must keep antigravity-accounts.json out of backups")
 	}
 }

@@ -88,13 +88,13 @@ flowchart TD
     end
 
     subgraph Mac["Machine A (has your configs)"]
-        HomeA["~/.config, ~/.zshrc, ~/.gentle-shell, ~/.pi, ~/.claude"]
+        HomeA["~/.config, ~/.zshrc, ~/.gentle-shell, ~/.claude, ~/.codex"]
         Stage["~/.cache/dots/backup (private, sanitized)"]
     end
 
     subgraph Linux["Machine B (new)"]
         Incoming["~/.cache/dots/incoming/CODE"]
-        HomeB["~/.config, ~/.zshrc, ~/.gentle-shell, ~/.pi, ~/.claude"]
+        HomeB["~/.config, ~/.zshrc, ~/.gentle-shell, ~/.claude, ~/.codex"]
         SafetyBackup["Safety backups (*.YYYYMMDD_HHMMSS.bk)"]
         PkgMgr["Package managers (Homebrew, pacman/yay, APT, pnpm)"]
     end
@@ -124,7 +124,7 @@ dots
 
   ❯ 🌟  Full Setup       (All Profiles: Core + Mobile + Infra + AI; optional apps via Custom)
     ⚡️  Core Only        (Workstation default: Shell, Neovim, Ghostty, Brew, Web)
-    🤖  AI & Agents      (Pi, Claude Code, Codex, and Ollama local runtime)
+    🤖  AI & Agents      (Gentle Shell, Claude Code, Codex, Antigravity, Ollama)
     📱  Mobile Dev       (React Native, OpenJDK 17, CocoaPods, Fastlane)
     🛠️   Custom Selection (Pick and choose individual apps with checkboxes)
 
@@ -159,7 +159,7 @@ Configurations and software packages are grouped into modular profiles. You can 
 | Profile | Focus | Included Tools & Applications | Default State |
 |:---|:---|:---|:---:|
 | **`core`** | **Daily Driver & Web** | • **Shell**: Zsh, Powerlevel10k, Atuin history, Zoxide, FZF, Carapace, Tmux<br/>• **Editors & Terminal**: Neovim (LazyVim setup), Ghostty (custom shaders & themes), Herdr process manager, Zed, Git, LazyGit<br/>• **Dev Runtimes**: Go, FNM (Node), PNPM, Python UV, .NET 9 SDK, Docker Desktop<br/>• **Productivity & Network**: Bruno (API Client), DBeaver (SQL), Tailscale (VPN Mesh), Bitwarden, SmartWindow, Nerd Fonts *(Optional: Postman, MongoDB Compass)* | **ON** |
-| **`ai`** | **AI Coding Agents** | • **Harness**: Gentle AI (`gentle-ai`), Engram Persistent Memory (`engram`)<br/>• **Agents**: Gentle Shell agent home (`~/.gentle-shell/agent`, same path on macOS and Linux; login files never travel, sign in with `/login`), Pi Agent Harness (`~/.pi`), Claude Code CLI (`~/.claude`), Codex CLI (`~/.codex`)<br/>• **Skills**: Full Gentleman agent skills catalog (`~/.agents/skills`)<br/>• **Local Models**: Ollama runtime (`ollama` cask / script) | **ON** *(Ollama optional)* |
+| **`ai`** | **AI Coding Agents** | • **Harness**: Gentle AI (`gentle-ai`), Engram Persistent Memory (`engram`)<br/>• **Agents**: Gentle Shell agent home (`~/.gentle-shell/agent`, same path on macOS and Linux; login files never travel, sign in with `/login`), Claude Code CLI (`~/.claude`), Codex CLI (`~/.codex`), Antigravity CLI (`agy`)<br/>• **Supported harnesses**: Gentle Shell, Claude Code, Codex and Antigravity only<br/>• **Skills**: Full Gentleman agent skills catalog (`~/.agents/skills`)<br/>• **Local Models**: Ollama runtime (`ollama` cask / script) | **ON** *(Ollama optional)* |
 | **`mobile`** | **Mobile Builds** | • OpenJDK 17 (`openjdk@17`)<br/>• CocoaPods (`cocoapods`)<br/>• Fastlane (`fastlane`) for React Native and native iOS/Android deployment | Optional |
 | **`infra`** | **Cloud & Devops** | • Caddy web server with automatic HTTPS (`caddy`)<br/>• Local SSL certificates (`mkcert`)<br/>• Local GitHub Actions runner (`act`) | Optional |
 
@@ -175,19 +175,19 @@ Detection goes by file name and key name. It cannot prove that other scripts, se
 Local Machine Config                       Private backup (~/.cache/dots/backup)
 ────────────────────                       ─────────────────────────────────────
 ~/.ssh/config (Host 165.232.145.129)  ──►  configs/ssh/config.template (Host YOUR_SERVER_HOST_OR_IP)
-~/.pi/agent/mcp.json (Linear / GCP)   ──►  configs/pi/mcp.json.template (lin_api_*** -> YOUR_LINEAR_KEY)
+~/.gentle-shell/agent/mcp.json        ──►  configs/gentle-shell/mcp.json.template (lin_api_*** -> YOUR_LINEAR_KEY)
 ~/.claude/mcp.json (Postgres URL)     ──►  configs/claude/mcp.json.template (postgres://... -> YOUR_POSTGRES_URL)
 ~/.env (API_KEY=sk-proj-12345)        ──►  configs/**/*.env.template (API_KEY=YOUR_API_KEY)
-~/.pi/web-search.json (API keys)      ──►  configs/pi/web-search.json.template (keys masked)
-~/.pi/agent/auth.json, mcp-auth.json  ──►  ⛔️ never copied (log in again on the new machine)
+~/.gentle-shell/agent/web-search.json ──►  configs/gentle-shell/web-search.json.template (keys masked)
+~/.gentle-shell/agent/auth.json, ...  ──►  ⛔️ never copied: auth.json, mcp-auth.json, antigravity-accounts.json
 ~/.ssh/id_ed25519                     ──►  ⛔️ never copied (engine exclusion filter)
 ```
 
 1. **AST-Level JSON Sanitization**: Detects and redacts Bearer tokens, OpenAI/Anthropic/Linear/GCP API keys, and connection strings while preserving JSON hierarchy and server arguments.
 2. **SSH Config Anonymization**: Preserves connection options, aliases, and timeouts, while masking private IP addresses and user accounts.
 3. **Template Preservation on Restore**: When running `restore`, existing local files are never overwritten with templates. New machines receive `.template` files as a clean scaffolding for credentials.
-4. **Local Files Are Kept**: `restore --with-config` keeps local files whose content differs from the backup and lists them. Only `--replace-existing` (TUI: `r`) replaces them, and each replacement happens only after `<file>.<YYYYMMDD_HHMMSS>.bk` was written successfully. Then the older safety copies of that same file are deleted so the 3 newest remain (see "Retention" below). Machine-specific files marked `keep_local: true` in the manifest (`~/.gitconfig`, which holds the git signing key, and the Pi and Gentle Shell `subagents.json`) are never replaced: restore deploys them only where they are missing and lists them as `kept machine-specific file`.
-5. **Readiness Report, Names Only**: every restore (CLI and TUI) ends with a per-app list of what is still missing: placeholder fields and unset environment variables by name, file and field (`env GH_MCP_TOKEN (mcpServers.github.env.GITHUB_TOKEN in ~/.pi/agent/mcp.json) → export GH_MCP_TOKEN=…`), pending logins (`codex login`, `/login` in `pi`) and missing MCP commands. Values are never printed, and nothing is validated online: what dots cannot prove is marked `not-verified` with the command to check it. See [docs/install-flow.md](docs/install-flow.md#readiness-report).
+4. **Local Files Are Kept**: `restore --with-config` keeps local files whose content differs from the backup and lists them. Only `--replace-existing` (TUI: `r`) replaces them, and each replacement happens only after `<file>.<YYYYMMDD_HHMMSS>.bk` was written successfully. Then the older safety copies of that same file are deleted so the 3 newest remain (see "Retention" below). Machine-specific files marked `keep_local: true` in the manifest (`~/.gitconfig`, which holds the git signing key, and the Gentle Shell `subagents.json`) are never replaced: restore deploys them only where they are missing and lists them as `kept machine-specific file`.
+5. **Readiness Report, Names Only**: every restore (CLI and TUI) ends with a per-app list of what is still missing: placeholder fields and unset environment variables by name, file and field (`env GH_MCP_TOKEN (mcpServers.github.env.GITHUB_TOKEN in ~/.gentle-shell/agent/mcp.json) → export GH_MCP_TOKEN=…`), pending logins (`codex login`, `/login` in `gentle-shell`) and missing MCP commands. Values are never printed, and nothing is validated online: what dots cannot prove is marked `not-verified` with the command to check it. See [docs/install-flow.md](docs/install-flow.md#readiness-report).
 
 ---
 
@@ -247,7 +247,7 @@ dots -d ~/.cache/dots/incoming/<code> restore --with-config
 # Install one app with the apps it requires (optional apps must be named)
 dots restore lazygit --install-packages
 
-# Restore and install AI & Agent stack (Pi, Claude, Codex, Ollama)
+# Restore and install AI & Agent stack (Gentle Shell, Claude, Codex, Ollama)
 dots restore --profile ai --install-packages
 
 # Restore Mobile stack (React Native / iOS / Android)
@@ -323,7 +323,7 @@ What to expect:
 3. **Older received backups** are removed after a successful receive: `~/.cache/dots/incoming` keeps the 3 newest, always including the one just received, and prints `🧹 Removed N older received backup(s)`. Only folders named by a received code that hold a `manifest.yaml` are removed; `latest`, `unclaimed/` and anything else stay.
 4. **Skills shared through `~/.agents/skills`** travel as relative symlinks; restore refuses any link that points outside home.
 5. **Local files are kept** when they differ from the backup, and the summary lists them. Add `--replace-existing` only after reviewing the dry run; every replaced file first gets a `.bk` copy.
-6. **Logins do not travel**: login files (`auth.json`, `mcp-auth.json`) are not mapped and `mcp.json` arrives as a template. Sign in again (Gentle Shell, Pi, Claude, Codex, Linear, Neon API key, Postgres); `dots setup` and the restore summary list each one.
+6. **Logins do not travel**: login files (`auth.json`, `mcp-auth.json`) are not mapped and `mcp.json` arrives as a template. Sign in again (Gentle Shell, Claude, Codex, Antigravity, Linear, Neon API key, Postgres); `dots setup` and the restore summary list each one.
 7. **Gentle Shell**: install the bundled Gentle Shell with its own installer (`dots setup` shows where), then `dots restore gentle-shell --received`.
 
 ## 🔁 Keep two machines in sync
@@ -409,10 +409,10 @@ nvim:
     apt:     { manager: apt,    package: neovim }
     winget:  { manager: winget, package: Neovim.Neovim }
     brew:    { manager: brew,   package: neovim }
-pi:
+codex:
   requires: [node]
   install:
-    default: { manager: npm, package: "@earendil-works/pi-coding-agent" }
+    default: { manager: npm, package: "@openai/codex" }
 ```
 
 ### Systems an app or path works on

@@ -579,7 +579,7 @@ func (m Model) View() string {
 		presets := []string{
 			"🌟  Full Setup       (All Profiles: Core + Mobile + Infra + AI; optional apps via Custom)",
 			"⚡️  Core Only        (Workstation default: Shell, Neovim, Ghostty, Brew, Web)",
-			"🤖  AI & Agents      (Pi, Claude Code, Codex, and Ollama local runtime)",
+			"🤖  AI & Agents      (Gentle Shell, Claude Code, Codex, Antigravity, Ollama)",
 			"📱  Mobile Dev       (React Native, OpenJDK 17, CocoaPods, Fastlane)",
 			"🛠️   Custom Selection (Pick and choose individual apps with checkboxes)",
 		}

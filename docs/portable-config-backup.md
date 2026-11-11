@@ -76,12 +76,12 @@ mytool:
 
 ## What is mapped
 
+Supported agent harnesses: Gentle Shell, Claude Code, Codex and Antigravity. Antigravity signs in through `agy` and Gentle Shell `/login`; its accounts file never travels.
+
 | App | Locations | Why |
 |:---|:---|:---|
 | zsh | `~/.zshrc`, `~/.p10k.zsh`, `~/.oh-my-zsh/custom` without `plugins/` and `themes/` | Oh My Zsh sources `$ZSH_CUSTOM/*.zsh`, lib overrides, functions and completions from `custom`. |
-| pi | `~/.pi/agent`: settings, models, MCP, trust (existing), skills, agents, chains, extensions, keybindings, `AGENTS.md`, `AGENTS.override.md`, `CLAUDE.md`, `SYSTEM.md`, `APPEND_SYSTEM.md`, prompts, themes | Pi's agent directory, as listed in Pi's `docs/configuration.md`. |
-| pi | `~/.pi/gentle-ai/<preference>.json`, `channel.json`, `~/.pi/web-search.json` (template) | Gentle AI preferences for Pi and the web search provider. |
-| gentle-shell | The same agent files under `~/.gentle-shell/agent` | Gentle Shell runs Pi with this agent directory. |
+| gentle-shell | `~/.gentle-shell/agent`: settings, models, MCP, trust (existing), `web-search.json` (template), skills, agents, chains, extensions, keybindings, `AGENTS.md`, `AGENTS.override.md`, `CLAUDE.md`, `SYSTEM.md`, `APPEND_SYSTEM.md`, prompts, themes | Gentle Shell's agent directory. Login files (`auth.json`, `mcp-auth.json`, `antigravity-accounts.json`) never travel. |
 | gentle-shell | `~/.gentle-shell/config/gentle-ai/<preference>.json`, `~/.gentle-shell/gentle-ai/<preference>.json` | Config homes of the bundled install and of the standalone launcher. |
 | claude | settings, MCP, `CLAUDE.md`, skills, agents, commands, output styles, hooks, keybindings | User-level Claude Code configuration. |
 | codex | config, hooks, `AGENTS.md`, rules, skills, and the files `config.toml` and `hooks.json` name (`engram-instructions.md`, `engram-compact-prompt.md`, `herdr-agent-state.sh`) | A restored config must find the files it points to. |
@@ -90,7 +90,7 @@ mytool:
 
 `<preference>` is one of: `animations`, `background-subagents`, `banner`, `builtin-codemode-optout`, `double-esc-cancel`, `history-capture`, `keymaps`, `models`, `notifications`, `persona`, `profile-fallbacks`, `profiles`, `profiles.export`, `star-prompt`, `vim`, `visual-customization`, `visual-profiles`. The model files (`models`, `profiles`, `profiles.export`, `profile-fallbacks`) hold agent-to-model routing only: their readers reject unknown keys, and they have no account or permission fields.
 
-`trust.json` (Pi and Gentle Shell) was mapped before this change and is unchanged. It is existing coverage, not a new grant: review it before you restore it on another machine.
+`trust.json` (Gentle Shell) was mapped before this change and is unchanged. It is existing coverage, not a new grant: review it before you restore it on another machine.
 
 A missing location is reported as `Skipped (does not exist)` and nothing else happens.
 

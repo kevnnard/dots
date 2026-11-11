@@ -149,17 +149,17 @@ func indexOf(list []string, name string) int {
 
 func TestPlanAllOrdersDependenciesFirst(t *testing.T) {
 	m := &manifest.Manifest{Apps: map[string]manifest.AppConfig{
-		"pi":   {Requires: []string{"pnpm"}},
-		"pnpm": {Requires: []string{"node"}},
-		"node": {},
-		"aaa":  {},
-		"zzz":  {Requires: []string{"ghost"}}, // unknown dependency is ignored
+		"codex": {Requires: []string{"pnpm"}},
+		"pnpm":  {Requires: []string{"node"}},
+		"node":  {},
+		"aaa":   {},
+		"zzz":   {Requires: []string{"ghost"}}, // unknown dependency is ignored
 	}}
 	names := planNames(PlanAll(m, omarchy()))
 	if len(names) != 5 {
 		t.Fatalf("expected 5 plans, got %v", names)
 	}
-	if !(indexOf(names, "node") < indexOf(names, "pnpm") && indexOf(names, "pnpm") < indexOf(names, "pi")) {
+	if !(indexOf(names, "node") < indexOf(names, "pnpm") && indexOf(names, "pnpm") < indexOf(names, "codex")) {
 		t.Errorf("dependencies must come first: %v", names)
 	}
 	again := planNames(PlanAll(m, omarchy()))

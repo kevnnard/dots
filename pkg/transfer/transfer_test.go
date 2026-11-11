@@ -300,7 +300,7 @@ func TestLatestReceivedRoundTrip(t *testing.T) {
 // Symlinks travel as links, so skills shared through ~/.agents/skills arrive.
 func TestArchiveCarriesSymlinksAndReceiveRecreatesThem(t *testing.T) {
 	repo := fixtureRepo(t)
-	skills := filepath.Join(repo, "configs", "pi", "skills")
+	skills := filepath.Join(repo, "configs", "gentle-shell", "skills")
 	if err := os.MkdirAll(skills, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -320,7 +320,7 @@ func TestArchiveCarriesSymlinksAndReceiveRecreatesThem(t *testing.T) {
 	if _, err := Receive(r, dest, sum); err != nil {
 		t.Fatal(err)
 	}
-	if link, err := os.Readlink(filepath.Join(dest, "configs", "pi", "skills", "terminal-browser")); err != nil || link != "../../../.agents/skills/terminal-browser" {
+	if link, err := os.Readlink(filepath.Join(dest, "configs", "gentle-shell", "skills", "terminal-browser")); err != nil || link != "../../../.agents/skills/terminal-browser" {
 		t.Fatalf("symlink not recreated: %q %v", link, err)
 	}
 }

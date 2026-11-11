@@ -67,8 +67,7 @@ func TestEffectiveAddsShippedKeepLocal(t *testing.T) {
 
 func TestShippedMachineSpecificFilesAreKeepLocal(t *testing.T) {
 	want := map[string]bool{
-		"git ~/.gitconfig":                                  true,
-		"pi ~/.pi/agent/subagents.json":                     true,
+		"git ~/.gitconfig": true,
 		"gentle-shell ~/.gentle-shell/agent/subagents.json": true,
 	}
 	m := DefaultManifest()

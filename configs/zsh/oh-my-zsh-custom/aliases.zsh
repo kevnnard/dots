@@ -87,7 +87,7 @@ alias vm="nvim ."
 alias ZTR="zellij --layout ~/.config/zellij/layouts/tr .kdl"
 alias ZQA="zellij --layout ~/.config/zellij/layouts/qa.kdl"
 
-# PI Gentle Shell
+# Gentle Shell
 alias gsl='gentle-shell'
 alias ga='gentle-ai'
 alias gu='gentle-ai sync; gentle-shell update --extensions'

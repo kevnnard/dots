@@ -126,9 +126,6 @@ cask "terminal-browser"
 # Multiplayer code editor
 cask "zed"
 npm "@colbymchenry/codegraph"
-npm "@earendil-works/pi-coding-agent"
-npm "@google/gemini-cli"
-npm "@kilocode/cli"
 npm "eas-cli"
 `
 

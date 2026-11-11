@@ -41,8 +41,8 @@ func npmToolManifest() *manifest.Manifest {
 		"node": {Provides: []string{"npm"}, Install: map[string]manifest.InstallRecipe{
 			"pacman": {Manager: "pacman", Package: "nodejs npm"},
 		}},
-		"pi": {Requires: []string{"node"}, Install: map[string]manifest.InstallRecipe{
-			"default": {Manager: "npm", Package: "@earendil-works/pi-coding-agent"},
+		"codex": {Requires: []string{"node"}, Install: map[string]manifest.InstallRecipe{
+			"default": {Manager: "npm", Package: "@openai/codex"},
 		}},
 		"zed": {Install: map[string]manifest.InstallRecipe{
 			"pacman": {Manager: "pacman", Package: "zed"},
@@ -51,19 +51,19 @@ func npmToolManifest() *manifest.Manifest {
 }
 
 func TestBuildPlanPullsDependencyClosureInOrder(t *testing.T) {
-	steps, err := BuildPlan(npmToolManifest(), []string{"pi"}, plainArch(), PlanOptions{})
+	steps, err := BuildPlan(npmToolManifest(), []string{"codex"}, plainArch(), PlanOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.Join(stepNames(steps), ","); got != "node,pi" {
-		t.Fatalf("plan = %s, want node,pi", got)
+	if got := strings.Join(stepNames(steps), ","); got != "node,codex" {
+		t.Fatalf("plan = %s, want node,codex", got)
 	}
 	if steps[0].Requested || !steps[1].Requested {
-		t.Errorf("node must be pulled as dependency and pi requested: %+v", steps)
+		t.Errorf("node must be pulled as dependency and codex requested: %+v", steps)
 	}
 	// npm is not on the system yet, but node earlier in the plan provides it.
-	if steps[1].Status != StatusInstall || !strings.Contains(steps[1].InstallCmd, "@earendil-works/pi-coding-agent") {
-		t.Errorf("pi step = %+v", steps[1])
+	if steps[1].Status != StatusInstall || !strings.Contains(steps[1].InstallCmd, "@openai/codex") {
+		t.Errorf("codex step = %+v", steps[1])
 	}
 }
 
@@ -119,15 +119,15 @@ func TestBuildPlanSkipsAppsTheProbeReportsInstalled(t *testing.T) {
 	probe := func(name string, _ manifest.AppConfig) bool { return name == "node" }
 	sys := plainArch()
 	sys.Managers = append(sys.Managers, detector.ManagerNpm)
-	steps, err := BuildPlan(npmToolManifest(), []string{"pi"}, sys, PlanOptions{Probe: probe})
+	steps, err := BuildPlan(npmToolManifest(), []string{"codex"}, sys, PlanOptions{Probe: probe})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if s := stepByName(t, steps, "node"); s.Status != StatusInstalled || s.InstallCmd != "" {
 		t.Errorf("node = %+v", s)
 	}
-	if s := stepByName(t, steps, "pi"); s.Status != StatusInstall {
-		t.Errorf("pi = %+v", s)
+	if s := stepByName(t, steps, "codex"); s.Status != StatusInstall {
+		t.Errorf("codex = %+v", s)
 	}
 }
 

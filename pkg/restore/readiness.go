@@ -97,10 +97,6 @@ var authRules = map[string][]authRule{
 	"claude": {{provider: "Claude Code session", action: "run `claude` and use /login if prompted"}},
 	"codex":  {{provider: "Codex session", file: "~/.codex/auth.json", action: "run `codex login`"}},
 	"gh":     {{provider: "GitHub CLI session", file: "~/.config/gh/hosts.yml", action: "run `gh auth login` (check with `gh auth status`)"}},
-	"pi": {
-		{provider: "Pi provider login", file: "~/.pi/agent/auth.json", perKey: true, action: "run `pi` and use /login"},
-		{provider: "Pi MCP OAuth", file: "~/.pi/agent/mcp-auth.json", perKey: true, action: "run `pi` and authenticate the MCP server when prompted"},
-	},
 	"gentle-shell": {
 		{provider: "Gentle Shell provider login", file: "~/.gentle-shell/agent/auth.json", perKey: true, action: "run `gentle-shell` and use /login"},
 		{provider: "Gentle Shell MCP OAuth", file: "~/.gentle-shell/agent/mcp-auth.json", perKey: true, action: "run `gentle-shell` and authenticate the MCP server when prompted"},
@@ -164,10 +160,10 @@ var trustedEntries = setOf(
 	"groq", "xai", "gemini", "deepseek",
 )
 
-// trustedProviders are the login providers of the Pi credentials template.
+// trustedProviders are the login providers of the Gentle Shell credentials.
 var trustedProviders = setOf(
 	"anthropic", "antigravity", "openai", "openai-codex", "github-copilot",
-	"google-gemini-cli", "google-antigravity", "google", "groq", "xai",
+	"google-antigravity", "google", "groq", "xai",
 	"openrouter", "mistral", "cerebras",
 )
 

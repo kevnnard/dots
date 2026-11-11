@@ -5,7 +5,7 @@ embedded Brewfiles are byte copies of the repository files, enforced by tests.
 
 ## Rules
 
-- Every `brew`, `cask` and `npm` line in `Brewfile*` (61 distinct declarations)
+- Every `brew`, `cask` and `npm` line in `Brewfile*` (60 distinct declarations)
   is owned by exactly one manifest app (`TestEveryBrewfileDeclarationHasExactlyOneOwner`).
 - The `brew`, `infra` and `mobile` apps only track their Brewfile; they no longer
   run `brew bundle`, so nothing is installed twice.
@@ -100,7 +100,6 @@ Gentleman Homebrew taps are unsupported there.
 | font-caskaydia-cove | core | darwin: `cask font-caskaydia-cove-nerd-font`, pacman: `ttf-cascadia-code-nerd` |  |
 | font-iosevka-term | core | darwin: `cask font-iosevka-term-nerd-font`, pacman: `ttf-iosevkaterm-nerd` |  |
 | fzf | core | apt: `fzf`, brew: `fzf`, dnf: `fzf`, pacman: `fzf`, winget: `junegunn.fzf` |  |
-| gemini-cli | core,ai | default: `@google/gemini-cli` | node |
 | gentle-ai | core,ai | brew: `gentleman-programming/tap/gentle-ai`, darwin: `gentleman-programming/tap/gentle-ai` |  |
 | gentleman-dots | core | brew: `gentleman-programming/tap/gentleman-dots` |  |
 | gga | core,ai | brew: `gentleman-programming/tap/gga` |  |
@@ -111,7 +110,6 @@ Gentleman Homebrew taps are unsupported there.
 | go | core | apt: `golang-go`, brew: `go`, dnf: `golang`, pacman: `go`, winget: `GoLang.Go` |  |
 | herdr | core,ai | brew: `herdr`, darwin: `herdr`, yay: `herdr-bin` |  |
 | infra | infra | config-only |  |
-| kilocode | core,ai | default: `@kilocode/cli` | node |
 | lazygit | core | apt: `lazygit`, brew: `lazygit`, pacman: `lazygit`, winget: `JesseDuffield.lazygit` |  |
 | mkcert | core,infra | apt: `mkcert`, brew: `mkcert`, dnf: `mkcert`, pacman: `mkcert`, winget: `FiloSottile.mkcert` |  |
 | mobile | mobile | config-only |  |
@@ -122,7 +120,6 @@ Gentleman Homebrew taps are unsupported there.
 | nvim | core | arch: `neovim`, brew: `neovim`, darwin: `neovim`, debian: `neovim`, dnf: `neovim`, scoop: `neovim`, ubuntu: `neovim`, winget: `Neovim.Neovim`, zypper: `neovim` |  |
 | ollama | ai (optional) | darwin: `cask ollama`, linux: `script`, pacman: `ollama`, winget: `Ollama.Ollama` |  |
 | openjdk-17 | core,mobile | brew: `openjdk@17`, pacman: `jdk17-openjdk` |  |
-| pi | core,ai | default: `@earendil-works/pi-coding-agent` | node |
 | pnpm | core | brew: `pnpm`, darwin: `pnpm`, linux: `script`, pacman: `pnpm`, scoop: `pnpm`, winget: `pnpm.pnpm` |  |
 | postman | core (optional) | arch: `postman-bin`, darwin: `cask postman`, ubuntu: `script` |  |
 | powerlevel10k | core | brew: `powerlevel10k`, yay: `zsh-theme-powerlevel10k` | zsh |

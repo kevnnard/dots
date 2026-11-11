@@ -595,119 +595,6 @@ apps:
             scoop:
                 manager: scoop
                 package: neovim
-    pi:
-        description: Pi coding agent harness settings, models, MCP servers, skills, and agents
-        profile: core,ai
-        paths:
-            - src: ~/.pi/agent/settings.json
-              dest: configs/pi/settings.json
-            - src: ~/.pi/agent/models.json
-              dest: configs/pi/models.json
-            - src: ~/.pi/agent/mcp.json
-              dest: configs/pi/mcp.json
-            - src: ~/.pi/agent/trust.json
-              dest: configs/pi/trust.json
-            - src: ~/.pi/agent/claude-bridge.json
-              dest: configs/pi/claude-bridge.json
-            - src: ~/.pi/agent/subagents.json
-              dest: configs/pi/subagents.json
-              keep_local: true
-            - src: ~/.pi/agent/skills
-              dest: configs/pi/skills
-            - src: ~/.pi/agent/agents
-              dest: configs/pi/agents
-            - src: ~/.pi/agent/chains
-              dest: configs/pi/chains
-            - src: ~/.pi/agent/extensions
-              dest: configs/pi/extensions
-            - src: ~/.pi/agent/keybindings.json
-              dest: configs/pi/keybindings.json
-            - src: ~/.pi/agent/AGENTS.md
-              dest: configs/pi/AGENTS.md
-            - src: ~/.pi/agent/AGENTS.override.md
-              dest: configs/pi/AGENTS.override.md
-            - src: ~/.pi/agent/CLAUDE.md
-              dest: configs/pi/CLAUDE.md
-            - src: ~/.pi/agent/SYSTEM.md
-              dest: configs/pi/SYSTEM.md
-            - src: ~/.pi/agent/APPEND_SYSTEM.md
-              dest: configs/pi/APPEND_SYSTEM.md
-            - src: ~/.pi/agent/prompts
-              dest: configs/pi/prompts
-            - src: ~/.pi/agent/themes
-              dest: configs/pi/themes
-            - src: ~/.pi/web-search.json
-              dest: configs/pi/web-search.json
-            # Gentle AI preferences for Pi. Only named preference files travel;
-            # the folder also holds builds, scratch, telemetry and permission
-            # authority (runtime-guardrails, permission-mode).
-            - src: ~/.pi/gentle-ai/animations.json
-              dest: configs/pi/gentle-ai/animations.json
-            - src: ~/.pi/gentle-ai/background-subagents.json
-              dest: configs/pi/gentle-ai/background-subagents.json
-            - src: ~/.pi/gentle-ai/banner.json
-              dest: configs/pi/gentle-ai/banner.json
-            - src: ~/.pi/gentle-ai/builtin-codemode-optout.json
-              dest: configs/pi/gentle-ai/builtin-codemode-optout.json
-            - src: ~/.pi/gentle-ai/channel.json
-              dest: configs/pi/gentle-ai/channel.json
-            - src: ~/.pi/gentle-ai/double-esc-cancel.json
-              dest: configs/pi/gentle-ai/double-esc-cancel.json
-            - src: ~/.pi/gentle-ai/history-capture.json
-              dest: configs/pi/gentle-ai/history-capture.json
-            - src: ~/.pi/gentle-ai/keymaps.json
-              dest: configs/pi/gentle-ai/keymaps.json
-            - src: ~/.pi/gentle-ai/models.json
-              dest: configs/pi/gentle-ai/models.json
-            - src: ~/.pi/gentle-ai/notifications.json
-              dest: configs/pi/gentle-ai/notifications.json
-            - src: ~/.pi/gentle-ai/persona.json
-              dest: configs/pi/gentle-ai/persona.json
-            - src: ~/.pi/gentle-ai/profile-fallbacks.json
-              dest: configs/pi/gentle-ai/profile-fallbacks.json
-            - src: ~/.pi/gentle-ai/profiles.json
-              dest: configs/pi/gentle-ai/profiles.json
-            - src: ~/.pi/gentle-ai/profiles.export.json
-              dest: configs/pi/gentle-ai/profiles.export.json
-            - src: ~/.pi/gentle-ai/star-prompt.json
-              dest: configs/pi/gentle-ai/star-prompt.json
-            - src: ~/.pi/gentle-ai/vim.json
-              dest: configs/pi/gentle-ai/vim.json
-            - src: ~/.pi/gentle-ai/visual-customization.json
-              dest: configs/pi/gentle-ai/visual-customization.json
-            - src: ~/.pi/gentle-ai/visual-profiles.json
-              dest: configs/pi/gentle-ai/visual-profiles.json
-        exclude:
-            - sessions/**
-            - web-search-cache/**
-            - cc-cli-logs/**
-            - '*.log'
-            - '*.bak*'
-            - '*.bk*'
-            - '*.tmp.*'
-            - '*.cache.json'
-            - crashes.json
-            - npm/**
-            - bin/**
-            - node_modules/**
-            - gentle-agents/**
-            - auth.json
-            - mcp-auth.json
-            - antigravity-accounts.json
-            - models-store.json
-            - .git/**
-            - .DS_Store
-        secrets:
-            - auth.json
-            - mcp-auth.json
-            - mcp.json
-            - web-search.json
-        requires:
-            - node
-        install:
-            default:
-                manager: npm
-                package: "@earendil-works/pi-coding-agent"
     ollama:
         description: Ollama local AI runtime and models runner
         profile: ai
@@ -843,7 +730,7 @@ apps:
                 manager: zypper
                 package: zsh
     node:
-        description: Node.js runtime (required by npm-based tools such as pi, claude and codex)
+        description: Node.js runtime (required by npm-based tools such as claude and codex)
         profile: core,ai,mobile,infra
         paths: []
         provides: [npm]
@@ -1018,13 +905,6 @@ apps:
             apt: {manager: apt, package: fzf}
             dnf: {manager: dnf, package: fzf}
             winget: {manager: winget, package: junegunn.fzf}
-    gemini-cli:
-        description: Google Gemini CLI
-        profile: core,ai
-        requires: [node]
-        check: [gemini]
-        install:
-            default: {manager: npm, package: "@google/gemini-cli"}
     gentleman-dots:
         description: Gentleman.Dots interactive installer
         install:
@@ -1054,12 +934,6 @@ apps:
             apt: {manager: apt, package: golang-go}
             dnf: {manager: dnf, package: golang}
             winget: {manager: winget, package: GoLang.Go}
-    kilocode:
-        description: Kilo Code CLI
-        profile: core,ai
-        requires: [node]
-        install:
-            default: {manager: npm, package: "@kilocode/cli"}
     lazygit:
         description: Terminal UI for git
         install:

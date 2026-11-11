@@ -17,8 +17,8 @@ func brewRecipe(pkg string) map[string]manifest.InstallRecipe {
 func fixture() *manifest.Manifest {
 	return &manifest.Manifest{Apps: map[string]manifest.AppConfig{
 		"node": {Install: brewRecipe("node")},
-		"pi": {Requires: []string{"node"}, Install: map[string]manifest.InstallRecipe{
-			"default": {Manager: "npm", Package: "@earendil-works/pi-coding-agent"},
+		"codex": {Requires: []string{"node"}, Install: map[string]manifest.InstallRecipe{
+			"default": {Manager: "npm", Package: "@openai/codex"},
 		}},
 		"claude": {
 			Requires: []string{"node"},
@@ -110,15 +110,15 @@ func TestCandidatesListEveryDeclaredAppIncludingOptional(t *testing.T) {
 
 func TestExactSelectionKeepsScopesIndependent(t *testing.T) {
 	f := &fakeProbe{ev: map[string]Evidence{
-		"pi": {Present: true, Owners: []Owner{{Manager: "npm", Package: "@earendil-works/pi-coding-agent", Prefix: "/home/u/.local"}}},
+		"codex": {Present: true, Owners: []Owner{{Manager: "npm", Package: "@openai/codex", Prefix: "/home/u/.local"}}},
 	}}
-	p := plan(t, Request{Packages: []string{"pi", "pi"}, Configs: []string{"zsh"}}, f)
-	if pkgNames(p) != "pi" {
-		t.Fatalf("packages = %s, want exactly pi (node must not be added)", pkgNames(p))
+	p := plan(t, Request{Packages: []string{"codex", "codex"}, Configs: []string{"zsh"}}, f)
+	if pkgNames(p) != "codex" {
+		t.Fatalf("packages = %s, want exactly codex (node must not be added)", pkgNames(p))
 	}
-	want := []string{"npm", "uninstall", "-g", "--prefix", "/home/u/.local", "@earendil-works/pi-coding-agent"}
-	if it := pkgItem(t, p, "pi"); it.Status != PackageRemove || !reflect.DeepEqual(it.Argv, want) {
-		t.Fatalf("pi = %+v", it)
+	want := []string{"npm", "uninstall", "-g", "--prefix", "/home/u/.local", "@openai/codex"}
+	if it := pkgItem(t, p, "codex"); it.Status != PackageRemove || !reflect.DeepEqual(it.Argv, want) {
+		t.Fatalf("codex = %+v", it)
 	}
 	if len(p.Configs) != 1 || p.Configs[0].AppName != "zsh" || p.Configs[0].Status != ConfigQuarantine {
 		t.Fatalf("configs = %+v, want only zsh", p.Configs)
@@ -131,11 +131,11 @@ func TestExactSelectionKeepsScopesIndependent(t *testing.T) {
 func TestSelectedDependentsComeBeforeTheirRuntime(t *testing.T) {
 	f := &fakeProbe{ev: map[string]Evidence{
 		"node":   brewOwned("node"),
-		"pi":     {Present: true, Owners: []Owner{{Manager: "pnpm", Package: "@earendil-works/pi-coding-agent"}}},
+		"codex":  {Present: true, Owners: []Owner{{Manager: "pnpm", Package: "@openai/codex"}}},
 		"claude": {Present: true, Owners: []Owner{{Manager: "brew", Cask: "claude-code"}}},
 	}}
-	p := plan(t, Request{Packages: []string{"node", "pi", "claude"}}, f)
-	if got := pkgNames(p); got != "pi,claude,node" {
+	p := plan(t, Request{Packages: []string{"node", "codex", "claude"}}, f)
+	if got := pkgNames(p); got != "codex,claude,node" {
 		t.Fatalf("order = %s, want dependents before node", got)
 	}
 	for _, it := range p.Packages {
@@ -150,13 +150,13 @@ func TestSelectedDependentsComeBeforeTheirRuntime(t *testing.T) {
 
 func TestRetainedDependentBlocksRuntime(t *testing.T) {
 	for name, f := range map[string]*fakeProbe{
-		"present":  {ev: map[string]Evidence{"node": brewOwned("node"), "pi": {Present: true}}},
+		"present":  {ev: map[string]Evidence{"node": brewOwned("node"), "codex": {Present: true}}},
 		"unknown":  {ev: map[string]Evidence{"node": brewOwned("node")}, errs: map[string]error{"claude": errors.New("query failed")}},
-		"selected": {ev: map[string]Evidence{"node": brewOwned("node"), "pi": {Present: true}}},
+		"selected": {ev: map[string]Evidence{"node": brewOwned("node"), "codex": {Present: true}}},
 	} {
 		req := Request{Packages: []string{"node"}}
 		if name == "selected" {
-			req.Packages = append(req.Packages, "pi") // pi has no owner, so it stays
+			req.Packages = append(req.Packages, "codex") // codex has no owner, so it stays
 		}
 		it := pkgItem(t, plan(t, req, f), "node")
 		if it.Status != PackageBlocked || it.Argv != nil || !strings.Contains(it.Reason, "required by") {
@@ -218,8 +218,8 @@ func TestPackageNamesStaySingleArguments(t *testing.T) {
 		t.Fatalf("flag-like package = %+v", it)
 	}
 	for _, prefix := range []string{"--global-style", "relative/dir"} {
-		f := &fakeProbe{ev: map[string]Evidence{"pi": {Present: true, Owners: []Owner{{Manager: "npm", Package: "@earendil-works/pi-coding-agent", Prefix: prefix}}}}}
-		if it := plan(t, Request{Packages: []string{"pi"}}, f).Packages[0]; it.Status != PackageBlocked || it.Argv != nil {
+		f := &fakeProbe{ev: map[string]Evidence{"codex": {Present: true, Owners: []Owner{{Manager: "npm", Package: "@openai/codex", Prefix: prefix}}}}}
+		if it := plan(t, Request{Packages: []string{"codex"}}, f).Packages[0]; it.Status != PackageBlocked || it.Argv != nil {
 			t.Fatalf("prefix %q = %+v", prefix, it)
 		}
 	}

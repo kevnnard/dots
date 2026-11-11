@@ -25,7 +25,7 @@ func platforms() map[string]*detector.SystemInfo {
 }
 
 // Tools needed on every platform to bootstrap a working workstation.
-var essentialApps = []string{"node", "pi", "claude", "codex", "git", "nvim"}
+var essentialApps = []string{"node", "claude", "codex", "git", "nvim"}
 
 func TestEssentialAppsHaveRecipeOnEveryPlatform(t *testing.T) {
 	m, err := manifest.Load("../manifest.yaml")
@@ -66,7 +66,7 @@ func TestNodeIsPlannedBeforeNpmTools(t *testing.T) {
 	for i, p := range restore.PlanAll(m, platforms()["omarchy"]) {
 		pos[p.AppName] = i
 	}
-	for _, tool := range []string{"pi", "claude", "codex"} {
+	for _, tool := range []string{"claude", "codex"} {
 		if pos["node"] >= pos[tool] {
 			t.Errorf("node (%d) must be planned before %s (%d)", pos["node"], tool, pos[tool])
 		}

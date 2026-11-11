@@ -50,7 +50,7 @@ of that same file so the 3 newest remain: only <file>.<YYYYMMDD_HHMMSS>.bk and
 timestamp in the name, then N; other names and directories are never touched,
 --dry-run deletes nothing, and the summary reports how many were removed.
 dots clean --backups is unchanged. Machine-specific files (keep_local in the manifest:
-~/.gitconfig with its signing key, the Pi and Gentle Shell subagents.json) are
+~/.gitconfig with its signing key, the Gentle Shell subagents.json) are
 deployed only where missing and never replaced, even with --replace-existing.
 
 Apps and paths carry an optional os list (darwin, linux, windows). An app or
@@ -78,11 +78,8 @@ resolved.
 and implies --with-config: dots restore --received --all --dry-run, then
 without --dry-run.
 
-Known legacy .zshrc plugin lines and the obsolete duplicate Pi Engram declaration
-are repaired in backup content before deployment. Other content is not repaired.
-With --with-config --replace-existing, the exact known local Pi Engram conflict
-is backed up and repaired before installers run. Otherwise that conflict blocks
-Pi installation; dry runs never repair files. Unknown conflicts are preserved.
+Known legacy .zshrc plugin lines are repaired in backup content before
+deployment. Other content is not repaired.
 
 The summary ends with a readiness report per app: missing keys (placeholder
 fields and unset environment variables, by name only), pending logins and

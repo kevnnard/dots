@@ -13,7 +13,7 @@
 | Everything | `--all` | Full Setup | Excluded |
 | Named apps | `dots restore <app>` | Custom Selection | Included when named or checked |
 
-Each selected app brings the apps it `requires`, in order (for example `pi`
+Each selected app brings the apps it `requires`, in order (for example `codex`
 pulls `node` first).
 
 ## Packages
@@ -81,12 +81,11 @@ only created where no file exists.
 
 ## Known legacy configuration repairs
 
-Restore adapts two recognized legacy configurations, including old backup copies:
+Restore adapts one recognized legacy configuration, including old backup copies:
 
 | File | Repair |
 |:---|:---|
 | `~/.zshrc` | Exact legacy initialization and plugin-loading lines gain availability checks; Powerlevel10k tries Homebrew and Arch system locations. A macOS-only `export PNPM_HOME="/Users/<you>/Library/pnpm"` (an absolute home path) becomes a switch that keeps that path on macOS and uses `${XDG_DATA_HOME:-$HOME/.local/share}/pnpm` elsewhere. Unknown shell statements stay unchanged. |
-| `~/.pi/agent/settings.json` | Remove the obsolete `npm:gentle-engram@0.3.0` string only when its single companion is the canonical `npm:gentle-engram` object with `extensions: ["+index.ts"]`. Other settings are preserved. |
 
 Source content is repaired before comparison and deployment. Existing different
 local files are still preserved by default; the summary says **repair not
@@ -94,30 +93,10 @@ applied**, rather than claiming success. Replacement still swaps the whole
 local file for the backed-up source, after a safety backup; it does not merge
 custom local settings.
 
-For the known conflicting **local Pi settings**, `--with-config
---replace-existing` additionally authorizes a narrow local repair **before any
-installer runs**, even if Pi is already installed. It backs up the original,
-removes only that obsolete duplicate, preserves permissions and unrelated
-settings, and checks the result before allowing installation. If an installer
-later fails, the repaired file and its backup remain; the summary names the
-backup to copy back for recovery. Without those flags, the conflict is reported
-and Pi installation is blocked. Dry runs never change it.
-
-Preview first, using the intended backup repository:
-
-```sh
-dots --dir /path/to/backup restore pi --install-packages --with-config --replace-existing --dry-run
-```
-
-After checking the preview, remove `--dry-run` only if replacing the declared
-Pi configurations from that backup is intended. In the TUI, enable both config
-restoration (`c`) and replacement (`r`); these authorize the same flow.
-
 This is **not** a general corrupt-file cleaner, a shell validator or a settings
-migration engine. Unrecognized package conflicts remain blocked; invalid JSON
-and unavailable files are not automatically repaired. Skill-directory versus
-symlink collisions remain refused. No external `gentle-ai` preflight, real login
-or installer validation is implied by the local tests. Existing filesystem
+migration engine. Invalid JSON and unavailable files are not automatically
+repaired. Skill-directory versus symlink collisions remain refused. No real
+login or installer validation is implied by the local tests. Existing filesystem
 check/write race limitations still apply.
 
 ## Moving to another machine: known pitfalls
@@ -137,8 +116,8 @@ the 3 newest received backups in `~/.cache/dots/incoming`, and sync removes its
 | Login files (`auth.json`, `mcp-auth.json`) keep OAuth identifiers even when masked | They never travel. Sign in again on the new machine (`dots setup` lists every login). |
 | `PNPM_HOME` pinned to `~/Library/pnpm` breaks pnpm on Linux | Repaired on restore (see above). |
 | Gentle Shell | Install the bundled Gentle Shell with its own installer (`dots setup` shows where), then `dots restore gentle-shell --received`. Do not use `gentle-ai shell install` on Linux, and never run `gentle-shell update` or `pi update` inside such a private install: gentle-ai 4.3.1 leaves it unlaunchable (gentle-ai#5812, #5808). If the installer finds a `gentle-shell` on `PATH` that pnpm or npm did not install, move that link aside first; do not delete the old install. |
-| Neon MCP sign-in fails with "Invalid redirect URI" | Use an API key from https://console.neon.tech instead: `"headers": {"Authorization": "Bearer <key>"}` on `mcpServers.neon` in `~/.gentle-shell/agent/mcp.json` and `~/.pi/agent/mcp.json`. `dots setup` shows this step. |
-| Engram inside Gentle Shell | Memory works through the `gentle-engram` extension and the shared server on `127.0.0.1:7437`. Gentle Shell points `ENGRAM_BIN` at its guard, so an `engram` MCP server in `~/.gentle-shell/agent/mcp.json` always fails there; keep it `"enabled": false`. Pi keeps its own. |
+| Neon MCP sign-in fails with "Invalid redirect URI" | Use an API key from https://console.neon.tech instead: `"headers": {"Authorization": "Bearer <key>"}` on `mcpServers.neon` in `~/.gentle-shell/agent/mcp.json`. `dots setup` shows this step. |
+| Engram inside Gentle Shell | Memory works through the `gentle-engram` extension and the shared server on `127.0.0.1:7437`. Gentle Shell points `ENGRAM_BIN` at its guard, so an `engram` MCP server in `~/.gentle-shell/agent/mcp.json` always fails there; keep it `"enabled": false`. |
 
 ## Results and exit code
 
@@ -165,12 +144,12 @@ in the CLI and the TUI. It lists what the user still has to do:
 |:---|:---|:---|
 | `missing` field | A field still holds a dots placeholder (`YOUR_…_HERE`) | JSON/YAML/TOML field path and file |
 | `missing` env | A referenced variable is not set in the environment dots runs in | `${NAME}`, `{env:NAME}`, `env_key`, `*_env_var`, `env_vars` |
-| `login-pending` | A credentials file still holds the dots template placeholders (left by an older dots; login files no longer travel in backups) | Codex `auth.json`, Pi `auth.json` / `mcp-auth.json` (per provider) |
+| `login-pending` | A credentials file still holds the dots template placeholders (left by an older dots; login files no longer travel in backups) | Codex `auth.json`, Gentle Shell `auth.json` / `mcp-auth.json` (per provider) |
 | `dependency-missing` | An MCP server `command` is not found on `PATH` | `mcpServers.<name>.command`, `[mcp_servers.<name>] command` |
 | `not-verified` | dots cannot tell; the action says how to check | Claude Code session, absent or filled credentials files, GitHub CLI, Copilot in Neovim, unreadable files |
 
 Each item names the variable, field and `~/` file plus the action (edit the
-field, `export NAME=…`, `codex login`, `/login` in `pi` or `claude`,
+field, `export NAME=…`, `codex login`, `/login` in `gentle-shell` or `claude`,
 `gh auth login`, `:Copilot auth`).
 
 No rule can tell from its shape alone whether a name is a secret, so names
@@ -191,12 +170,12 @@ read from a file or a manifest are printed only under an allow-list policy:
   its field and file and the action "set the variable this field
   references".
 - A declared file is printed as its `~/` path only when the built-in
-  inventory or the login rules declare it (`~/.pi/agent/mcp.json`, …). Any
+  inventory or the login rules declare it (`~/.gentle-shell/agent/mcp.json`, …). Any
   other file is shown as `path #N of <app>`, its position in that app's
   `paths` in the manifest.
 - Apps of the built-in inventory are named; any other app in the report is
   `app #N`, its position in the run.
-- Pi login entries print a known provider (`anthropic`, `openai-codex`, …)
+- Gentle Shell login entries print a known provider (`anthropic`, `openai-codex`, …)
   or `MCP server <name>` for a shipped server; any other entry is
   `provider entry #N`.
 - A missing MCP command is reported as `MCP server command` with its field

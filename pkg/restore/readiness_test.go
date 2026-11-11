@@ -1,7 +1,6 @@
 package restore
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -64,11 +63,11 @@ func (h *readinessHome) scan(m *manifest.Manifest, apps ...string) (*ReadinessRe
 	return r, strings.Join(r.Lines(false), "\n")
 }
 
-func piManifest() *manifest.Manifest {
+func gentleShellManifest() *manifest.Manifest {
 	return &manifest.Manifest{Apps: map[string]manifest.AppConfig{
-		"pi": {Paths: []manifest.PathMapping{
-			{Src: "~/.pi/agent/mcp.json", Dest: "configs/pi/mcp.json"},
-			{Src: "~/.pi/agent/auth.json", Dest: "configs/pi/auth.json"},
+		"gentle-shell": {Paths: []manifest.PathMapping{
+			{Src: "~/.gentle-shell/agent/mcp.json", Dest: "configs/gentle-shell/mcp.json"},
+			{Src: "~/.gentle-shell/agent/auth.json", Dest: "configs/gentle-shell/auth.json"},
 		}},
 		"codex": {Paths: []manifest.PathMapping{
 			{Src: "~/.codex/config.toml", Dest: "configs/codex/config.toml"},
@@ -107,7 +106,7 @@ func TestReadinessNamesMissingFieldsEnvAndCommandsWithoutValues(t *testing.T) {
 	h := newReadinessHome(t)
 	h.env["SET_TOKEN"] = "env-secret-value-123"
 	h.path["engram"] = true
-	h.write(".pi/agent/mcp.json", `{"mcpServers": {
+	h.write(".gentle-shell/agent/mcp.json", `{"mcpServers": {
 		"linear":  {"url": "https://mcp.linear.app/mcp", "headers": {"Authorization": "YOUR_AUTHORIZATION_HERE"}},
 		"github":  {"command": "engram", "env": {"GITHUB_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}", "OTHER": "${SET_TOKEN}", "DEF": "${WITH_DEFAULT:-x}"}},
 		"stitch":  {"headers": {"X-Goog-Api-Key": "AIzaRealLookingSecretValue987"}},
@@ -115,15 +114,15 @@ func TestReadinessNamesMissingFieldsEnvAndCommandsWithoutValues(t *testing.T) {
 	}}`)
 	h.write(".codex/config.toml", "[model_providers.azure]\nenv_key = \"AZURE_OPENAI_API_KEY\"\n\n[mcp_servers.docs]\ncommand = \"docs-mcp\"\nbearer_token_env_var = \"SET_TOKEN\"\n")
 
-	r, out := h.scan(piManifest(), "pi", "codex")
+	r, out := h.scan(gentleShellManifest(), "gentle-shell", "codex")
 
-	if it, ok := findItem(r, "pi", "mcpServers.linear.headers.Authorization"); !ok || it.State != ReadinessMissing || it.File != "~/.pi/agent/mcp.json" {
+	if it, ok := findItem(r, "gentle-shell", "mcpServers.linear.headers.Authorization"); !ok || it.State != ReadinessMissing || it.File != "~/.gentle-shell/agent/mcp.json" {
 		t.Errorf("placeholder field not reported")
 	}
-	if it, ok := findItem(r, "pi", "GITHUB_PERSONAL_ACCESS_TOKEN"); !ok || it.Kind != "env" || it.Field != "mcpServers.github.env.GITHUB_TOKEN" || !strings.Contains(it.Action, "export GITHUB_PERSONAL_ACCESS_TOKEN") {
+	if it, ok := findItem(r, "gentle-shell", "GITHUB_PERSONAL_ACCESS_TOKEN"); !ok || it.Kind != "env" || it.Field != "mcpServers.github.env.GITHUB_TOKEN" || !strings.Contains(it.Action, "export GITHUB_PERSONAL_ACCESS_TOKEN") {
 		t.Errorf("unset env reference not reported")
 	}
-	if it, ok := findDependency(r, "pi", "mcpServers.codegraph.command"); !ok || it.State != ReadinessDependencyMissing || it.File != "~/.pi/agent/mcp.json" {
+	if it, ok := findDependency(r, "gentle-shell", "mcpServers.codegraph.command"); !ok || it.State != ReadinessDependencyMissing || it.File != "~/.gentle-shell/agent/mcp.json" {
 		t.Errorf("missing MCP command not reported")
 	}
 	if it, ok := findItem(r, "codex", "AZURE_OPENAI_API_KEY"); !ok || it.File != "~/.codex/config.toml" || it.Field != "model_providers.azure.env_key" {
@@ -132,11 +131,11 @@ func TestReadinessNamesMissingFieldsEnvAndCommandsWithoutValues(t *testing.T) {
 	if _, ok := findDependency(r, "codex", "mcp_servers.<key #1>.command"); !ok {
 		t.Errorf("TOML MCP command not reported")
 	}
-	if _, ok := findDependency(r, "pi", "mcpServers.github.command"); ok {
+	if _, ok := findDependency(r, "gentle-shell", "mcpServers.github.command"); ok {
 		t.Errorf("a command found on PATH must not be reported")
 	}
 	for _, name := range []string{"SET_TOKEN", "WITH_DEFAULT", "mcpServers.stitch.headers.X-Goog-Api-Key"} {
-		if _, ok := findItem(r, "pi", name); ok {
+		if _, ok := findItem(r, "gentle-shell", name); ok {
 			t.Errorf("%s is satisfied and must not be reported", name)
 		}
 	}
@@ -151,18 +150,18 @@ func TestReadinessLoginPendingOnlyFromTemplateEvidence(t *testing.T) {
 	h := newReadinessHome(t)
 	// codex: the dots template is still in place, so no login was recorded.
 	h.write(".codex/auth.json", `{"OPENAI_API_KEY": null, "tokens": {"access_token": "YOUR_ACCESS_TOKEN_HERE"}}`)
-	// pi: one provider still templated, one with a real-looking session.
-	h.write(".pi/agent/auth.json", `{"anthropic": {"access": "YOUR_ACCESS_HERE"}, "openai|https://x": {"access": "real-session-token-456"}}`)
+	// gentle-shell: one provider still templated, one with a real-looking session.
+	h.write(".gentle-shell/agent/auth.json", `{"anthropic": {"access": "YOUR_ACCESS_HERE"}, "openai|https://x": {"access": "real-session-token-456"}}`)
 
-	r, out := h.scan(piManifest(), "codex", "pi", "claude")
+	r, out := h.scan(gentleShellManifest(), "codex", "gentle-shell", "claude")
 
 	if it, ok := findItem(r, "codex", "Codex session"); !ok || it.State != ReadinessLoginPending || it.Action != "run `codex login`" {
 		t.Errorf("templated codex auth must be login-pending")
 	}
-	if it, ok := findItem(r, "pi", "anthropic"); !ok || it.State != ReadinessLoginPending {
-		t.Errorf("templated pi provider must be login-pending")
+	if it, ok := findItem(r, "gentle-shell", "anthropic"); !ok || it.State != ReadinessLoginPending {
+		t.Errorf("templated gentle-shell provider must be login-pending")
 	}
-	if _, ok := findItem(r, "pi", "openai"); ok {
+	if _, ok := findItem(r, "gentle-shell", "openai"); ok {
 		t.Errorf("a provider with recorded credentials must not be login-pending")
 	}
 	if it, ok := findItem(r, "claude", "Claude Code session"); !ok || it.State != ReadinessNotVerified || !strings.Contains(it.Action, "/login") {
@@ -177,11 +176,11 @@ func TestReadinessAbsentCredentialsAreNotVerifiedNotInvalid(t *testing.T) {
 	h := newReadinessHome(t)
 	h.write(".codex/auth.json", `{"auth_mode": "chatgpt", "tokens": {"access_token": "eyJrealtoken"}}`)
 
-	r, out := h.scan(piManifest(), "pi", "codex")
+	r, out := h.scan(gentleShellManifest(), "gentle-shell", "codex")
 
-	it, ok := findItem(r, "pi", "Pi provider login")
+	it, ok := findItem(r, "gentle-shell", "Gentle Shell provider login")
 	if !ok || it.State != ReadinessNotVerified || !strings.Contains(it.Action, "/login") {
-		t.Errorf("absent pi auth file must be not-verified with the login action")
+		t.Errorf("absent gentle-shell auth file must be not-verified with the login action")
 	}
 	if it, ok := findItem(r, "codex", "Codex session"); !ok || it.State != ReadinessNotVerified || !strings.Contains(it.Detail, "validity not checked") {
 		t.Errorf("present credentials must be reported as unvalidated, never as ready or pending")
@@ -195,11 +194,11 @@ func TestReadinessAbsentCredentialsAreNotVerifiedNotInvalid(t *testing.T) {
 
 func TestReadinessMalformedConfigReportsSafeError(t *testing.T) {
 	h := newReadinessHome(t)
-	h.write(".pi/agent/mcp.json", `{"mcpServers": {"pg": {"env": {"URL": "postgres://admin:hunter2@db"}},,}}`)
+	h.write(".gentle-shell/agent/mcp.json", `{"mcpServers": {"pg": {"env": {"URL": "postgres://admin:hunter2@db"}},,}}`)
 
-	r, out := h.scan(piManifest(), "pi")
+	r, out := h.scan(gentleShellManifest(), "gentle-shell")
 
-	it, ok := findItem(r, "pi", "~/.pi/agent/mcp.json")
+	it, ok := findItem(r, "gentle-shell", "~/.gentle-shell/agent/mcp.json")
 	if !ok || it.State != ReadinessNotVerified || it.Detail != "not valid JSON; not scanned" {
 		t.Errorf("malformed config must be reported as not scanned")
 	}
@@ -216,25 +215,25 @@ func TestReadinessScansOnlyDeclaredFilesInsideTargetHome(t *testing.T) {
 	if err := os.WriteFile(outside, []byte(`{"key": "YOUR_OUTSIDE_KEY_HERE"}`), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(filepath.Join(h.home, ".pi", "agent"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(h.home, ".gentle-shell", "agent"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(outside, filepath.Join(h.home, ".pi", "agent", "mcp.json")); err != nil {
+	if err := os.Symlink(outside, filepath.Join(h.home, ".gentle-shell", "agent", "mcp.json")); err != nil {
 		t.Fatal(err)
 	}
-	h.write(".pi/agent/undeclared.json", `{"key": "YOUR_UNDECLARED_KEY_HERE"}`)
+	h.write(".gentle-shell/agent/undeclared.json", `{"key": "YOUR_UNDECLARED_KEY_HERE"}`)
 	h.write(".claude/settings.json", `{"a": "`+strings.Repeat("x", 64)+`", "b": "YOUR_BIG_KEY_HERE"}`)
 
 	o := h.opts()
 	o.MaxFileSize = 32
-	r := ScanReadiness(piManifest(), []StepResult{
-		{Step: Step{AppName: "pi"}, Install: OutcomeAlreadyInstalled},
+	r := ScanReadiness(gentleShellManifest(), []StepResult{
+		{Step: Step{AppName: "gentle-shell"}, Install: OutcomeAlreadyInstalled},
 		{Step: Step{AppName: "claude"}, Install: OutcomeAlreadyInstalled},
 		{Step: Step{AppName: "codex"}, Install: OutcomeUnsupported},
 	}, o)
 	out := strings.Join(r.Lines(false), "\n")
 
-	if it, ok := findItem(r, "pi", "~/.pi/agent/mcp.json"); !ok || !strings.Contains(it.Detail, "outside the target home") {
+	if it, ok := findItem(r, "gentle-shell", "~/.gentle-shell/agent/mcp.json"); !ok || !strings.Contains(it.Detail, "outside the target home") {
 		t.Errorf("symlink out of the target home must not be followed")
 	}
 	if it, ok := findItem(r, "claude", "~/.claude/settings.json"); !ok || !strings.Contains(it.Detail, "larger than 32 bytes") {
@@ -255,22 +254,22 @@ func TestReadinessScansOnlyDeclaredFilesInsideTargetHome(t *testing.T) {
 func TestRunAddsReadinessToSharedSummaryAndDryRunWritesNothing(t *testing.T) {
 	h := newReadinessHome(t)
 	t.Setenv("HOME", h.home)
-	h.write(".pi/agent/mcp.json", `{"mcpServers": {"stitch": {"headers": {"X-Goog-Api-Key": "YOUR_X_GOOG_API_KEY_HERE"}}}}`)
+	h.write(".gentle-shell/agent/mcp.json", `{"mcpServers": {"stitch": {"headers": {"X-Goog-Api-Key": "YOUR_X_GOOG_API_KEY_HERE"}}}}`)
 	repo := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(repo, "configs", "pi"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(repo, "configs", "gentle-shell"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(repo, "configs", "pi", "auth.json.template"), []byte(`{"anthropic": {"access": "YOUR_ACCESS_HERE"}}`), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(repo, "configs", "gentle-shell", "auth.json.template"), []byte(`{"anthropic": {"access": "YOUR_ACCESS_HERE"}}`), 0644); err != nil {
 		t.Fatal(err)
 	}
-	m := piManifest()
-	pi := m.Apps["pi"]
-	pi.Install = pacmanRecipe("pi")
-	m.Apps["pi"] = pi
+	m := gentleShellManifest()
+	gs := m.Apps["gentle-shell"]
+	gs.Install = pacmanRecipe("gentle-shell")
+	m.Apps["gentle-shell"] = gs
 	before := listTree(t, h.home)
 
 	fx := &fakeExec{}
-	res, err := Run(m, []string{"pi"}, plainArch(), RunOptions{
+	res, err := Run(m, []string{"gentle-shell"}, plainArch(), RunOptions{
 		RepoDir: repo, WithConfig: true, InstallPackages: true, DryRun: true,
 		Probe: noneInstalled, Exec: fx.run, Readiness: h.opts(),
 	})
@@ -283,11 +282,11 @@ func TestRunAddsReadinessToSharedSummaryAndDryRunWritesNothing(t *testing.T) {
 	if after := listTree(t, h.home); after != before {
 		t.Errorf("dry run wrote to the target home:\nbefore %s\nafter  %s", before, after)
 	}
-	if _, ok := findItem(res.Readiness, "pi", "mcpServers.stitch.headers.X-Goog-Api-Key"); !ok {
+	if _, ok := findItem(res.Readiness, "gentle-shell", "mcpServers.stitch.headers.X-Goog-Api-Key"); !ok {
 		t.Fatalf("run result has no readiness item")
 	}
 	summary := strings.Join(res.Summary(), "\n")
-	if !strings.Contains(summary, "🔑 Readiness (dry run") || !strings.Contains(summary, "field mcpServers.stitch.headers.X-Goog-Api-Key in ~/.pi/agent/mcp.json") {
+	if !strings.Contains(summary, "🔑 Readiness (dry run") || !strings.Contains(summary, "field mcpServers.stitch.headers.X-Goog-Api-Key in ~/.gentle-shell/agent/mcp.json") {
 		t.Errorf("shared summary must render the readiness report")
 	}
 	if strings.Contains(summary, "YOUR_X_GOOG_API_KEY_HERE") {
@@ -370,22 +369,22 @@ func canaryLeaks(r *ReadinessReport, lines []string) []string {
 
 func TestReadinessNeverEchoesDynamicKeysProvidersOrCommands(t *testing.T) {
 	h := newReadinessHome(t)
-	h.write(".pi/agent/mcp.json", canaryMCP)
-	h.write(".pi/agent/auth.json", canaryAuth)
-	h.write(".pi/agent/mcp-auth.json", canaryMCPAuth)
+	h.write(".gentle-shell/agent/mcp.json", canaryMCP)
+	h.write(".gentle-shell/agent/auth.json", canaryAuth)
+	h.write(".gentle-shell/agent/mcp-auth.json", canaryMCPAuth)
 	// A declared path and app name carrying control sequences.
 	h.write(".agent/x\x1b]0;SYNTHETIC_CANARY\x07.json", `{"broken":`)
 	m := &manifest.Manifest{Apps: map[string]manifest.AppConfig{
-		"pi": {Paths: []manifest.PathMapping{
-			{Src: "~/.pi/agent/mcp.json", Dest: "configs/pi/mcp.json"},
-			{Src: "~/.pi/agent/auth.json", Dest: "configs/pi/auth.json"},
-			{Src: "~/.pi/agent/mcp-auth.json", Dest: "configs/pi/mcp-auth.json"},
+		"gentle-shell": {Paths: []manifest.PathMapping{
+			{Src: "~/.gentle-shell/agent/mcp.json", Dest: "configs/gentle-shell/mcp.json"},
+			{Src: "~/.gentle-shell/agent/auth.json", Dest: "configs/gentle-shell/auth.json"},
+			{Src: "~/.gentle-shell/agent/mcp-auth.json", Dest: "configs/gentle-shell/mcp-auth.json"},
 		}},
 		"agent\x1b[2J": {Paths: []manifest.PathMapping{{Src: "~/.agent/x\x1b]0;SYNTHETIC_CANARY\x07.json", Dest: "configs/agent/x.json"}}},
 	}}
 
 	r := ScanReadiness(m, []StepResult{
-		{Step: Step{AppName: "pi"}, Install: OutcomeAlreadyInstalled},
+		{Step: Step{AppName: "gentle-shell"}, Install: OutcomeAlreadyInstalled},
 		{Step: Step{AppName: "agent\x1b[2J"}, Install: OutcomeAlreadyInstalled},
 	}, h.opts())
 	lines := r.Lines(false)
@@ -394,23 +393,23 @@ func TestReadinessNeverEchoesDynamicKeysProvidersOrCommands(t *testing.T) {
 		t.Errorf("canary or control character escaped into: %v", leaks)
 	}
 	// The user still learns what to do and where.
-	if it, ok := findItem(r, "pi", "mcpServers.stitch.headers.X-Goog-Api-Key"); !ok || it.State != ReadinessMissing || it.File != "~/.pi/agent/mcp.json" {
+	if it, ok := findItem(r, "gentle-shell", "mcpServers.stitch.headers.X-Goog-Api-Key"); !ok || it.State != ReadinessMissing || it.File != "~/.gentle-shell/agent/mcp.json" {
 		t.Errorf("trusted field path must stay readable")
 	}
-	if it, ok := findItem(r, "pi", "GITHUB_PERSONAL_ACCESS_TOKEN"); !ok || it.Kind != "env" || !strings.Contains(it.Action, "export GITHUB_PERSONAL_ACCESS_TOKEN") {
+	if it, ok := findItem(r, "gentle-shell", "GITHUB_PERSONAL_ACCESS_TOKEN"); !ok || it.Kind != "env" || !strings.Contains(it.Action, "export GITHUB_PERSONAL_ACCESS_TOKEN") {
 		t.Errorf("referenced variable name must stay readable")
 	}
-	if it, ok := findItem(r, "pi", "anthropic"); !ok || it.State != ReadinessLoginPending || it.File != "~/.pi/agent/auth.json" {
+	if it, ok := findItem(r, "gentle-shell", "anthropic"); !ok || it.State != ReadinessLoginPending || it.File != "~/.gentle-shell/agent/auth.json" {
 		t.Errorf("known provider must stay readable")
 	}
-	if it, ok := findItem(r, "pi", "MCP server linear"); !ok || it.State != ReadinessLoginPending || it.File != "~/.pi/agent/mcp-auth.json" {
+	if it, ok := findItem(r, "gentle-shell", "MCP server linear"); !ok || it.State != ReadinessLoginPending || it.File != "~/.gentle-shell/agent/mcp-auth.json" {
 		t.Errorf("known MCP OAuth entry must stay readable")
 	}
 	var deps, redactedFields, redactedProviders int
 	for _, a := range r.Apps {
 		for _, it := range a.Items {
 			switch {
-			case it.Kind == "dependency" && it.File == "~/.pi/agent/mcp.json" && strings.HasPrefix(it.Field, "mcpServers.") && strings.HasSuffix(it.Field, ".command"):
+			case it.Kind == "dependency" && it.File == "~/.gentle-shell/agent/mcp.json" && strings.HasPrefix(it.Field, "mcpServers.") && strings.HasSuffix(it.Field, ".command"):
 				deps++
 			case it.Kind == "field" && strings.Contains(it.Name, "<key #"):
 				redactedFields++
@@ -455,54 +454,6 @@ func TestReadinessLinesEscapeControlsOnEveryDisplayedPart(t *testing.T) {
 	}
 }
 
-// The shipped Pi credential templates must hold placeholders, never an
-// account identity or an OAuth secret. Failures name the field only.
-func TestPiCredentialTemplatesHoldNoIdentityValues(t *testing.T) {
-	for file, fields := range map[string][]string{
-		"../../configs/pi/auth.json.template":     {"antigravity.email", "antigravity.projectId", "openai.clientId", "openai-codex.accountId"},
-		"../../configs/pi/mcp-auth.json.template": {"*.codeVerifier", "*.clientInformation.client_id"},
-	} {
-		data, err := os.ReadFile(file)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var doc map[string]any
-		if err := json.Unmarshal(data, &doc); err != nil {
-			t.Fatalf("%s is not valid JSON", file)
-		}
-		for _, field := range fields {
-			found := 0
-			values := []any{any(doc)}
-			for _, part := range strings.Split(field, ".") {
-				var next []any
-				for _, v := range values {
-					m, _ := v.(map[string]any)
-					if part != "*" {
-						next = append(next, m[part])
-						continue
-					}
-					for _, c := range m {
-						next = append(next, c)
-					}
-				}
-				values = next
-			}
-			for _, v := range values {
-				if v == nil {
-					continue
-				}
-				found++
-				if s, ok := v.(string); !ok || !placeholderRe.MatchString(s) {
-					t.Errorf("%s: %s must be a YOUR_…_HERE placeholder", file, field)
-				}
-			}
-			if found == 0 {
-				t.Errorf("%s: %s not found", file, field)
-			}
-		}
-	}
-}
-
 // Secret-shaped canaries that are lexically valid variable, header and path
 // names. Shape alone cannot prove a name is not a secret, so none of them may
 // reach the structured result or the rendered report.
@@ -523,20 +474,20 @@ const secretNameTOML = "[model_providers.azure]\nenv_key = \"xoxbSYNTHCANARY0123
 func TestReadinessNeverEchoesSecretShapedNamesOrPaths(t *testing.T) {
 	h := newReadinessHome(t)
 	h.path["pg-mcp"], h.path["gh-mcp"] = true, true
-	h.write(".pi/agent/mcp.json", secretNameMCP)
+	h.write(".gentle-shell/agent/mcp.json", secretNameMCP)
 	h.write(".codex/config.toml", secretNameTOML)
 	secretPath := "~/.config/ghp_SYNTHCANARYpath0123/mcp.json"
 	h.write(".config/ghp_SYNTHCANARYpath0123/mcp.json", `{"key":"YOUR_KEY_HERE"}`)
 	m := &manifest.Manifest{Apps: map[string]manifest.AppConfig{
-		"pi":    {Paths: []manifest.PathMapping{{Src: "~/.pi/agent/mcp.json", Dest: "configs/pi/mcp.json"}}},
-		"codex": {Paths: []manifest.PathMapping{{Src: "~/.codex/config.toml", Dest: "configs/codex/config.toml"}}},
+		"gentle-shell": {Paths: []manifest.PathMapping{{Src: "~/.gentle-shell/agent/mcp.json", Dest: "configs/gentle-shell/mcp.json"}}},
+		"codex":        {Paths: []manifest.PathMapping{{Src: "~/.codex/config.toml", Dest: "configs/codex/config.toml"}}},
 		"tool": {Paths: []manifest.PathMapping{
 			{Src: "~/.config/tool/absent.json", Dest: "configs/tool/absent.json"},
 			{Src: secretPath, Dest: "configs/tool/mcp.json"},
 		}},
 	}}
 
-	r, out := h.scan(m, "pi", "codex", "tool")
+	r, out := h.scan(m, "gentle-shell", "codex", "tool")
 
 	// Failures name the part only: the report may carry the canary.
 	var leaks []string
@@ -557,11 +508,11 @@ func TestReadinessNeverEchoesSecretShapedNamesOrPaths(t *testing.T) {
 	}
 
 	// Conventional and known variable names stay useful.
-	if it, ok := findItem(r, "pi", "DATABASE_URL"); !ok || it.Field != "mcpServers.postgres.env.PGSQL_MCP_CONNECTION_STRING" ||
-		it.File != "~/.pi/agent/mcp.json" || !strings.Contains(it.Action, "export DATABASE_URL") {
+	if it, ok := findItem(r, "gentle-shell", "DATABASE_URL"); !ok || it.Field != "mcpServers.postgres.env.PGSQL_MCP_CONNECTION_STRING" ||
+		it.File != "~/.gentle-shell/agent/mcp.json" || !strings.Contains(it.Action, "export DATABASE_URL") {
 		t.Errorf("DATABASE_URL must be reported with its field, file and action")
 	}
-	if it, ok := findItem(r, "pi", "LINEAR_API_KEY"); !ok || it.Field != "mcpServers.postgres.env.LINEAR_API_KEY" {
+	if it, ok := findItem(r, "gentle-shell", "LINEAR_API_KEY"); !ok || it.Field != "mcpServers.postgres.env.LINEAR_API_KEY" {
 		t.Errorf("known service variable must be reported by name and field")
 	}
 	if _, ok := findItem(r, "codex", "GITHUB_PERSONAL_ACCESS_TOKEN"); !ok {
@@ -574,7 +525,7 @@ func TestReadinessNeverEchoesSecretShapedNamesOrPaths(t *testing.T) {
 			switch {
 			case it.Kind == "env" && it.Name == "<variable>" && it.File != "" && it.Field != "":
 				redactedEnv++
-			case it.Kind == "field" && strings.Contains(it.Name, "<key #") && it.File == "~/.pi/agent/mcp.json":
+			case it.Kind == "field" && strings.Contains(it.Name, "<key #") && it.File == "~/.gentle-shell/agent/mcp.json":
 				redactedFields++
 			}
 		}
@@ -651,16 +602,16 @@ const strictTOML = "[model_providers.azure]\nenv_key = \"SYNTH_CANARY_API_KEY\"\
 
 func TestReadinessStrictPolicyEchoesOnlyAllowListedNames(t *testing.T) {
 	h := newReadinessHome(t)
-	h.write(".pi/agent/mcp.json", strictMCP)
+	h.write(".gentle-shell/agent/mcp.json", strictMCP)
 	h.write(".codex/config.toml", strictTOML)
 	h.write(".config/synthcanaryapp/mcp.json", `{"key":"YOUR_KEY_HERE"}`)
 	m := &manifest.Manifest{Apps: map[string]manifest.AppConfig{
-		"pi":             {Paths: []manifest.PathMapping{{Src: "~/.pi/agent/mcp.json", Dest: "configs/pi/mcp.json"}}},
+		"gentle-shell":   {Paths: []manifest.PathMapping{{Src: "~/.gentle-shell/agent/mcp.json", Dest: "configs/gentle-shell/mcp.json"}}},
 		"codex":          {Paths: []manifest.PathMapping{{Src: "~/.codex/config.toml", Dest: "configs/codex/config.toml"}}},
 		"SYNTHCANARYAPP": {Paths: []manifest.PathMapping{{Src: "~/.config/synthcanaryapp/mcp.json", Dest: "configs/x/mcp.json"}}},
 	}}
 
-	r, out := h.scan(m, "pi", "codex", "SYNTHCANARYAPP")
+	r, out := h.scan(m, "gentle-shell", "codex", "SYNTHCANARYAPP")
 
 	var leaks []string
 	for ai, a := range r.Apps {
@@ -683,10 +634,10 @@ func TestReadinessStrictPolicyEchoesOnlyAllowListedNames(t *testing.T) {
 	}
 
 	// Allow-listed names stay readable.
-	if it, ok := findItem(r, "pi", "DATABASE_URL"); !ok || it.Field != "mcpServers.postgres.env.PGSQL_MCP_CONNECTION_STRING" || !strings.Contains(it.Action, "export DATABASE_URL") {
+	if it, ok := findItem(r, "gentle-shell", "DATABASE_URL"); !ok || it.Field != "mcpServers.postgres.env.PGSQL_MCP_CONNECTION_STRING" || !strings.Contains(it.Action, "export DATABASE_URL") {
 		t.Errorf("DATABASE_URL must stay readable with its field and action")
 	}
-	if _, ok := findItem(r, "pi", "mcpServers.linear.headers.Authorization"); !ok {
+	if _, ok := findItem(r, "gentle-shell", "mcpServers.linear.headers.Authorization"); !ok {
 		t.Errorf("known header must stay readable")
 	}
 	if _, ok := findItem(r, "codex", "GITHUB_PERSONAL_ACCESS_TOKEN"); !ok {
@@ -699,7 +650,7 @@ func TestReadinessStrictPolicyEchoesOnlyAllowListedNames(t *testing.T) {
 			switch {
 			case it.Kind == "env" && it.Name == "<variable>" && it.Field != "" && it.File != "":
 				envLabels++
-			case it.Kind == "field" && strings.Contains(it.Name, "<key #") && it.File == "~/.pi/agent/mcp.json":
+			case it.Kind == "field" && strings.Contains(it.Name, "<key #") && it.File == "~/.gentle-shell/agent/mcp.json":
 				keyLabels++
 			}
 		}

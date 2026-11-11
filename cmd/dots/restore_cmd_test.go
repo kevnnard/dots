@@ -436,8 +436,6 @@ func TestRestoreSummaryEscapesControlsFromManifestAndErrors(t *testing.T) {
 
 const (
 	legacyZshLine = "source $(dirname $BREW_BIN)/share/powerlevel10k/powerlevel10k.zsh-theme\n"
-	conflictingPi = `{"packages":["npm:x",{"source":"npm:gentle-engram","extensions":["+index.ts"]},"npm:gentle-engram@0.3.0"]}`
-	canonicalPi   = `{"packages":["npm:x",{"source":"npm:gentle-engram","extensions":["+index.ts"]}]}`
 )
 
 // staleZshFixture places the fixture target in an isolated HOME, where the
@@ -505,75 +503,6 @@ func TestRestoreDryRunReplaceWritesNothingAndRunsNoInstaller(t *testing.T) {
 	}
 	if data, _ := os.ReadFile(f.target); string(data) != "# mine\n"+legacyZshLine {
 		t.Errorf("dry run changed the local file: %q", data)
-	}
-}
-
-// piCLIFixture adds Pi, whose existing local settings carry the known
-// duplicate Engram declaration, and a plugin that requires it.
-func piCLIFixture(t *testing.T) (*cliFixture, string) {
-	t.Helper()
-	f := newCLIFixture(t)
-	home := filepath.Dir(f.target)
-	t.Setenv("HOME", home)
-	target := filepath.Join(home, ".pi", "agent", "settings.json")
-	os.MkdirAll(filepath.Dir(target), 0755)
-	os.WriteFile(target, []byte(conflictingPi), 0644)
-	backup := filepath.Join(f.repo, "configs", "pi", "settings.json")
-	os.MkdirAll(filepath.Dir(backup), 0755)
-	os.WriteFile(backup, []byte(canonicalPi), 0644)
-	f.m.Apps["pi"] = manifest.AppConfig{
-		Optional: true,
-		Paths:    []manifest.PathMapping{{Src: target, Dest: "configs/pi/settings.json"}},
-		Install:  pacman("pi"),
-	}
-	f.m.Apps["pi-plugin"] = manifest.AppConfig{Optional: true, Requires: []string{"pi"}, Install: pacman("pi-plugin")}
-	if err := f.m.Save(filepath.Join(f.repo, "manifest.yaml")); err != nil {
-		t.Fatal(err)
-	}
-	return f, target
-}
-
-func TestRestoreBlocksPiOnKnownConflictByDefault(t *testing.T) {
-	f, target := piCLIFixture(t)
-	out, err := runRestore(t, "pi-plugin", "-i", "--dir", f.repo)
-	if err == nil {
-		t.Fatalf("a preflight conflict must produce a nonzero exit:\n%s", out)
-	}
-	if len(f.calls) != 0 {
-		t.Errorf("ran %s before the conflict was resolved", f.ran())
-	}
-	if data, _ := os.ReadFile(target); string(data) != conflictingPi {
-		t.Errorf("local settings changed: %q", data)
-	}
-	if !strings.Contains(out, "conflicting Engram package declarations") || !strings.Contains(out, "install blocked") {
-		t.Errorf("output must explain the blocked install:\n%s", out)
-	}
-}
-
-func TestRestoreAuthorizedRunRepairsPiBeforeFirstInstaller(t *testing.T) {
-	f, target := piCLIFixture(t)
-	var seen []string
-	installExecutor = func(req restore.ExecRequest) error {
-		data, _ := os.ReadFile(target)
-		seen = append(seen, req.AppName+"="+string(data))
-		return f.exec(req)
-	}
-	out, err := runRestore(t, "pi-plugin", "-i", "--with-config", "--replace-existing", "--dir", f.repo)
-	if err != nil {
-		t.Fatalf("exit error: %v\n%s", err, out)
-	}
-	if got, want := strings.Join(seen, "\n"), "pi="+canonicalPi+"\npi-plugin="+canonicalPi; got != want {
-		t.Errorf("installers saw:\n%s", got)
-	}
-	backups, _ := filepath.Glob(target + ".*.bk")
-	if len(backups) != 1 {
-		t.Fatalf("safety backups = %v", backups)
-	}
-	if bk, _ := os.ReadFile(backups[0]); string(bk) != conflictingPi {
-		t.Errorf("safety backup = %q", bk)
-	}
-	if !strings.Contains(out, "🩹 repaired before install: "+target) || !strings.Contains(out, "safety backup: "+backups[0]) {
-		t.Errorf("output must report the pre-install repair and its backup:\n%s", out)
 	}
 }
 

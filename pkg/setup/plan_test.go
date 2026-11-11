@@ -87,3 +87,21 @@ func TestNeonStepGuidesTheAPIKeyHeader(t *testing.T) {
 	}
 	t.Fatal("plan has no neon step")
 }
+
+func TestPlanGuidesOnlySupportedHarnesses(t *testing.T) {
+	ids := map[string]bool{}
+	for _, s := range Plan() {
+		ids[s.ID] = true
+		text := strings.ToLower(s.Title + " " + s.Guide + " " + strings.Join(s.Command, " "))
+		for _, gone := range []string{"~/.pi/", "in pi ", "`pi`", "gemini", "kilocode", "opencode"} {
+			if strings.Contains(text, gone) {
+				t.Errorf("%s still guides %q", s.ID, gone)
+			}
+		}
+	}
+	for _, id := range []string{"gentle-shell", "gentle-shell-login", "claude", "codex", "antigravity"} {
+		if !ids[id] {
+			t.Errorf("plan is missing %s", id)
+		}
+	}
+}
