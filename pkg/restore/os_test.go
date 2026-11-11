@@ -10,8 +10,6 @@ import (
 	"github.com/kevnnard/dots/pkg/manifest"
 )
 
-// osFixture stages one backed-up file and returns the repository and a home
-// directory for targets.
 func osFixture(t *testing.T) (repo, home string) {
 	t.Helper()
 	root := t.TempDir()

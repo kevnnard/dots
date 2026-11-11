@@ -1,6 +1,3 @@
-// Package discover finds what a machine has installed or configured that the
-// manifest does not declare, so a full backup can stage it. It only reads:
-// the repository and its manifest are never written.
 package discover
 
 import (
@@ -20,51 +17,38 @@ import (
 	"github.com/kevnnard/dots/pkg/manifest"
 )
 
-// Item is one discovered entry: kind is formula, cask, tap or config.
 type Item struct {
 	Name string
 	Kind string
 	OS   []string
 }
 
-// Skip is a ~/.config entry left out on purpose.
 type Skip struct {
 	Name   string
 	Reason string
 }
 
-// Options says where to look. A nil Exec skips package discovery; an empty
-// Home skips config discovery.
 type Options struct {
-	Exec clean.Executor
-	Home string
-	// Brewfiles hold declarations that count as declared (brew, cask, tap).
+	Exec      clean.Executor
+	Home      string
 	Brewfiles []string
 }
 
-// Result holds the discovery and what to stage for it.
 type Result struct {
 	New     []Item
 	Skipped []Skip
-	// Apps are the app definitions to write into the staged manifest: new
-	// apps, or declared apps extended with a discovered config path.
-	Apps map[string]manifest.AppConfig
-	// Configs are, per app, only the discovered paths to back up now.
+	Apps    map[string]manifest.AppConfig
 	Configs map[string]manifest.AppConfig
 }
 
 var (
-	both           = []string{"darwin", "linux"}
-	macOS          = []string{"darwin"}
-	credentialDirs = map[string]bool{"gcloud": true, "configstore": true, "github-copilot": true, "gh-copilot": true, "gh": true}
-	// Excludes added to every discovered config path.
+	both            = []string{"darwin", "linux"}
+	macOS           = []string{"darwin"}
+	credentialDirs  = map[string]bool{"gcloud": true, "configstore": true, "github-copilot": true, "gh-copilot": true, "gh": true}
 	defaultExcludes = []string{".DS_Store", "cache/**", "Cache/**", "logs/**", "*.log"}
 	brewfileLine    = regexp.MustCompile(`^\s*(brew|cask|tap)\s+"([^"]+)"`)
 )
 
-// ForThisMachine returns the options for the running system: Homebrew is
-// queried on macOS when brew is on PATH, and the Brewfiles in repoDir count
-// as declared.
 func ForThisMachine(repoDir string) Options {
 	var opts Options
 	if home, err := os.UserHomeDir(); err == nil {
@@ -79,8 +63,6 @@ func ForThisMachine(repoDir string) Options {
 	return opts
 }
 
-// Run lists what m does not declare. An error means a Homebrew listing could
-// not be read; nothing is returned then.
 func Run(ctx context.Context, m *manifest.Manifest, opts Options) (*Result, error) {
 	res := &Result{Apps: map[string]manifest.AppConfig{}, Configs: map[string]manifest.AppConfig{}}
 	if opts.Exec != nil {
@@ -102,8 +84,6 @@ func Run(ctx context.Context, m *manifest.Manifest, opts Options) (*Result, erro
 	return res, nil
 }
 
-// Lines renders the "New:" list, then the "Skipped:" list; nothing when both
-// are empty.
 func (r *Result) Lines() []string {
 	var lines []string
 	if len(r.New) > 0 {
@@ -123,7 +103,6 @@ func (r *Result) Lines() []string {
 
 func shortName(name string) string { return name[strings.LastIndex(name, "/")+1:] }
 
-// tapOf returns the tap of a tap-qualified name (user/repo/name), else "".
 func tapOf(name string) string {
 	parts := strings.Split(name, "/")
 	if len(parts) != 3 {
@@ -132,8 +111,6 @@ func tapOf(name string) string {
 	return strings.ToLower(parts[0] + "/" + parts[1])
 }
 
-// declared collects the short package names and taps m and the Brewfiles
-// declare. An app named like a package also counts, so no app is replaced.
 func declared(m *manifest.Manifest, brewfiles []string) (pkgs, taps map[string]bool) {
 	pkgs, taps = map[string]bool{}, map[string]bool{}
 	add := func(name string) {
@@ -243,7 +220,6 @@ func discoverPackages(ctx context.Context, m *manifest.Manifest, opts Options, r
 	var info brewInfo
 	if len(formulae)+len(casks) > 0 {
 		argv := append([]string{"brew", "info", "--json=v2"}, formulae...)
-		// No data is an answer too: such packages stay macOS only.
 		if r, err := opts.Exec.Run(ctx, append(argv, casks...)); err == nil && r.ExitCode == 0 {
 			_ = json.Unmarshal(r.Stdout, &info)
 		}
@@ -298,11 +274,6 @@ func markTap(taps map[string]bool, name string) {
 	}
 }
 
-// formulaOS: Linux bottles or a Linux requirement mean the formula works on
-// both systems; macOS-only bottles or a macOS requirement mean macOS. A
-// formula with no bottles and no macOS requirement builds from source, so it
-// works wherever Homebrew does (a Go tool from a personal tap, for example).
-// A formula brew info did not describe stays macOS.
 func formulaOS(files map[string]json.RawMessage, reqs []struct {
 	Name string `json:"name"`
 }) []string {
@@ -332,7 +303,6 @@ func addApp(res *Result, key, kind, display string, osList []string, app manifes
 	res.New = append(res.New, Item{Name: display, Kind: kind, OS: osList})
 }
 
-// coveredSet returns every manifest source, on any system, as an absolute path.
 func coveredSet(m *manifest.Manifest, home string) []string {
 	var srcs []string
 	expand := func(s string) {
@@ -357,7 +327,6 @@ func coveredSet(m *manifest.Manifest, home string) []string {
 	return srcs
 }
 
-// isCovered reports whether a source is entry, inside it, or contains it.
 func isCovered(entry string, srcs []string) bool {
 	sep := string(filepath.Separator)
 	for _, s := range srcs {
@@ -408,14 +377,10 @@ func discoverConfigs(m *manifest.Manifest, home string, res *Result) error {
 		listed := both
 		switch {
 		case discovered:
-			// Already new as a package: attach the config to that app, which
-			// works only on the package's systems.
 			listed = app.OS
 		case declaredApp:
 			app = existing
 			if !installsOnLinux(existing) {
-				// Its recipes only install on macOS: mark the whole app so a
-				// Linux restore skips it instead of reporting it unsupported.
 				listed = macOS
 				if len(app.OS) == 0 {
 					app.OS = macOS
@@ -437,8 +402,6 @@ func discoverConfigs(m *manifest.Manifest, home string, res *Result) error {
 	return nil
 }
 
-// installsOnLinux: an app with no recipes is config-only and fits Linux; one
-// whose recipes are all macOS or Windows (casks included) does not.
 func installsOnLinux(app manifest.AppConfig) bool {
 	if len(app.OS) > 0 {
 		return app.AppliesTo("linux")

@@ -74,9 +74,7 @@ type ReadinessOptions struct {
 	LookPath  func(string) (string, error)
 	// MaxFileSize bounds every file read; larger files are not scanned.
 	MaxFileSize int64
-	// OS selects the paths scanned for each app (their os list and src_os
-	// entry). Empty scans every path at its plain src.
-	OS string
+	OS          string
 }
 
 const defaultReadinessMaxFileSize = 1 << 20

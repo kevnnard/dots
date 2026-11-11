@@ -16,11 +16,9 @@ type PathMapping struct {
 	// KeepLocal marks a machine-specific file (a signing key, per-machine
 	// models): restore deploys it only where it is missing and never replaces
 	// an existing copy, even with --replace-existing.
-	KeepLocal bool `yaml:"keep_local,omitempty"`
-	// OS limits the mapping to these systems (GOOS values); empty means all.
-	OS []string `yaml:"os,omitempty"`
-	// SrcOS overrides Src on the named systems.
-	SrcOS map[string]string `yaml:"src_os,omitempty"`
+	KeepLocal bool              `yaml:"keep_local,omitempty"`
+	OS        []string          `yaml:"os,omitempty"`
+	SrcOS     map[string]string `yaml:"src_os,omitempty"`
 }
 
 type InstallRecipe struct {
@@ -39,8 +37,7 @@ type AppConfig struct {
 	// ConfigRequires lists apps the backed-up configuration expects (plugins,
 	// helpers). They are pulled only when that configuration is restored.
 	ConfigRequires []string `yaml:"config_requires,omitempty"`
-	// OS limits the app to these systems (GOOS values); empty means all.
-	OS []string `yaml:"os,omitempty"`
+	OS             []string `yaml:"os,omitempty"`
 	// Provides lists package managers this app makes available (node -> npm).
 	Provides []string `yaml:"provides,omitempty"`
 	// Check lists commands (or ~/absolute paths) whose presence means the app
@@ -183,8 +180,6 @@ func WithPackageLinks(data []byte, links map[string][]PackageLink) ([]byte, erro
 	return yaml.Marshal(&doc)
 }
 
-// WithApps returns the manifest YAML data with each named app set to apps[name]:
-// added when missing, replaced when declared. Everything else in data is kept.
 func WithApps(data []byte, apps map[string]AppConfig) ([]byte, error) {
 	var doc yaml.Node
 	if err := yaml.Unmarshal(data, &doc); err != nil {
@@ -199,7 +194,7 @@ func WithApps(data []byte, apps map[string]AppConfig) ([]byte, error) {
 		list = &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
 		set := false
 		for i := 0; i+1 < len(root.Content); i += 2 {
-			if root.Content[i].Value == "apps" { // apps: with no entries
+			if root.Content[i].Value == "apps" {
 				root.Content[i+1], set = list, true
 			}
 		}

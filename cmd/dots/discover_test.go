@@ -15,11 +15,8 @@ import (
 	"github.com/kevnnard/dots/pkg/manifest"
 )
 
-// No test may query the real Homebrew or read the real home through backup
-// discovery; tests that exercise it inject their own options.
 func TestMain(m *testing.M) {
 	discoverOptions = func(string) discover.Options { return discover.Options{} }
-	// Nor may any test run the real engram.
 	engramOptions = func() engramsync.Options { return engramsync.Options{} }
 	os.Exit(m.Run())
 }

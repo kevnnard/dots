@@ -14,7 +14,6 @@ import (
 	"github.com/kevnnard/dots/pkg/manifest"
 )
 
-// engramFake plays engram: export writes the named file, import records it.
 type engramFake struct{ calls [][]string }
 
 func (f *engramFake) Run(_ context.Context, argv []string) (clean.Result, error) {

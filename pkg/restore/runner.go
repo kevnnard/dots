@@ -61,7 +61,7 @@ const (
 	OutcomeBlocked          InstallOutcome = "blocked" // a required app is not available
 	OutcomeUnsupported      InstallOutcome = "unsupported"
 	OutcomeManagerMissing   InstallOutcome = "manager-missing"
-	OutcomeNotForOS         InstallOutcome = "not-for-os" // the app's os list excludes this system
+	OutcomeNotForOS         InstallOutcome = "not-for-os"
 )
 
 // ConfigOutcome is what happened to an app's backed-up configuration.
@@ -75,7 +75,7 @@ const (
 	ConfigNoBackup     ConfigOutcome = "no-backup"     // repository has no config: stock config kept
 	ConfigIncomplete   ConfigOutcome = "incomplete"    // a config prerequisite is not installed
 	ConfigFailed       ConfigOutcome = "failed"        // file errors or refused replacements
-	ConfigNotForOS     ConfigOutcome = "not-for-os"    // the app or all its paths exclude this system
+	ConfigNotForOS     ConfigOutcome = "not-for-os"
 )
 
 // StepResult is the outcome of one planned app. It is the shared result
@@ -228,7 +228,6 @@ func Run(m *manifest.Manifest, selected []string, sys *detector.SystemInfo, opts
 
 // deployConfigs deploys each app's backed-up configuration once the app and
 // all its prerequisites are installed.
-// Apps and paths whose os list excludes goos are skipped and reported.
 func deployConfigs(m *manifest.Manifest, res *RunResult, outcome map[string]InstallOutcome, goos string, opts RunOptions) {
 	for i := range res.Steps {
 		r := &res.Steps[i]

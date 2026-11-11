@@ -12,12 +12,10 @@ import (
 	"github.com/kevnnard/dots/pkg/clean"
 )
 
-// fakeExec records every argv and never runs a real engram.
 type fakeExec struct {
 	calls [][]string
 	res   clean.Result
 	err   error
-	// write creates the export file named in argv, as engram would.
 	write bool
 }
 
@@ -167,7 +165,6 @@ func TestImportFailureIsAnError(t *testing.T) {
 	}
 }
 
-// The zero value never runs anything: it reports engram as missing.
 func TestZeroOptionsRunNothing(t *testing.T) {
 	dir, _ := stageWithExport(t)
 	if line, err := Import(context.Background(), Options{}, dir, false); err != nil || !strings.Contains(line, "not installed") {

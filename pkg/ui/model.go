@@ -78,13 +78,9 @@ type Model struct {
 	Exec  restore.Executor
 	// Receipts asks the package manager about each selected recipe (see
 	// restore.PlanOptions). Nil skips it.
-	Receipts restore.ReceiptProbe
-	// Discovery says where backup looks for undeclared packages and
-	// configs. The zero value discovers nothing; RunTUI sets the machine's.
+	Receipts  restore.ReceiptProbe
 	Discovery discover.Options
-	// Engram says how backup exports and a config restore imports Engram
-	// memories. The zero value reports engram as not installed.
-	Engram engramsync.Options
+	Engram    engramsync.Options
 	// Suspend hands the terminal to a blocking command and resumes the TUI
 	// when it returns. It is tea.Exec; tests inject a fake terminal.
 	Suspend func(tea.ExecCommand, tea.ExecCallback) tea.Cmd
@@ -411,10 +407,9 @@ func (m Model) executeAction() (tea.Model, tea.Cmd) {
 
 // restoreDoneMsg reports a restore run that held the terminal.
 type restoreDoneMsg struct {
-	res *restore.RunResult
-	err error
-	ran bool // false when the terminal could not be handed off
-	// engram reports the memory import; engramFailed marks a failed one.
+	res          *restore.RunResult
+	err          error
+	ran          bool // false when the terminal could not be handed off
 	engram       string
 	engramFailed bool
 }
@@ -455,8 +450,6 @@ func (m Model) startRestore() (tea.Model, tea.Cmd) {
 		}
 	}
 	mf, sys, exe := m.Manifest, m.SysInfo, m.Exec
-	// Memories travel with a whole backup: a custom selection of named apps
-	// leaves them alone, like `dots restore <app>`.
 	importMemories := m.WithConfig && !m.explicit
 	engram := m.Engram
 	source := m.RepoDir

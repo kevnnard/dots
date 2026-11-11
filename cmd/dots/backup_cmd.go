@@ -27,10 +27,8 @@ var (
 	// Runs `tailscale file`, replaced by tests.
 	transferRunner transfer.Runner = transfer.ExecRunner{}
 
-	// Where full backup discovery looks; replaced by tests.
 	discoverOptions = discover.ForThisMachine
 
-	// How backup and restore run engram; replaced by tests.
 	engramOptions = engramsync.ForThisMachine
 )
 
@@ -181,9 +179,6 @@ func runFullBackup(m *manifest.Manifest, repoDir, outDir string, sendHint bool) 
 	return nil
 }
 
-// stageDiscovered backs up the configs discovery finds and stages the
-// manifest with the discovered apps. A discovery failure is not a backup
-// failure: it is reported and the manifest is staged unchanged.
 func stageDiscovered(m *manifest.Manifest, repoDir, outDir string) (*discover.Result, []*backup.Result, error) {
 	found, err := discover.Run(context.Background(), m, discoverOptions(repoDir))
 	if err != nil {

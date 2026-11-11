@@ -54,15 +54,11 @@ type TotalResult struct {
 	Warnings []string           `json:"warnings"`
 }
 
-// BackupApp backs up the files and directories for a single app config on
-// the running system.
+// BackupApp backs up the files and directories for a single app config.
 func BackupApp(appName string, app manifest.AppConfig, destRepoDir string) (*Result, error) {
 	return BackupAppFor(appName, app, destRepoDir, runtime.GOOS)
 }
 
-// BackupAppFor backs up the app's paths that apply to the system goos, each
-// read from its effective source there and staged at its unchanged dest. An
-// app not for goos stages nothing.
 func BackupAppFor(appName string, app manifest.AppConfig, destRepoDir, goos string) (*Result, error) {
 	res := &Result{
 		AppName: appName,
@@ -172,14 +168,11 @@ func stagePackageLink(src, dest string, res *Result) bool {
 	return true
 }
 
-// BackupAll iterates through all apps declared in the manifest and backs up
-// those that apply to the running system.
+// BackupAll iterates through all apps declared in the manifest and backs them up.
 func BackupAll(m *manifest.Manifest, destRepoDir string) (*TotalResult, error) {
 	return BackupAllFor(m, destRepoDir, runtime.GOOS)
 }
 
-// BackupAllFor backs up the apps that apply to the system goos; the others
-// are ignored.
 func BackupAllFor(m *manifest.Manifest, destRepoDir, goos string) (*TotalResult, error) {
 	total := &TotalResult{
 		Results: make(map[string]*Result),

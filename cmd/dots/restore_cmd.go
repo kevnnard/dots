@@ -159,8 +159,6 @@ the command to check it.`,
 		for _, line := range res.Summary() {
 			fmt.Fprintln(out, line)
 		}
-		// Memories travel with a whole backup, so a restore of named apps
-		// leaves them alone.
 		var engramErr error
 		if withConfigFlag && len(args) == 0 {
 			line, err := engramsync.Import(context.Background(), engramOptions(), repoDir, dryRunFlag)

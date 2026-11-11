@@ -21,7 +21,7 @@ const (
 	StatusUnsupported    PlanStatus = "unsupported"     // no recipe for this platform
 	StatusManagerMissing PlanStatus = "manager-missing" // recipe exists but its manager is absent
 	StatusBlocked        PlanStatus = "blocked"         // a required app cannot be installed
-	StatusNotForOS       PlanStatus = "not-for-os"      // the app's os list excludes this system
+	StatusNotForOS       PlanStatus = "not-for-os"
 )
 
 // Step is one entry of an ordered installation plan.

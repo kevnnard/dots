@@ -11,7 +11,6 @@ import (
 	"github.com/kevnnard/dots/pkg/manifest"
 )
 
-// The TUI backup lists and stages the same discovery as `dots backup`.
 func TestBackupShowsDiscoveryAndStagesItOnlyInTheStage(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

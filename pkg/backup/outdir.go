@@ -50,9 +50,6 @@ func StageManifest(repoDir, outDir string) error {
 	return StageManifestApps(repoDir, outDir, nil)
 }
 
-// StageManifestApps stages the repository manifest with apps set in it (new
-// apps added, same-named apps replaced). The repository copy is never
-// written; without apps the staged copy is byte-identical.
 func StageManifestApps(repoDir, outDir string, apps map[string]manifest.AppConfig) error {
 	data, err := os.ReadFile(filepath.Join(repoDir, "manifest.yaml"))
 	if err != nil {
@@ -69,8 +66,6 @@ func StageManifestApps(repoDir, outDir string, apps map[string]manifest.AppConfi
 	return os.WriteFile(filepath.Join(outDir, "manifest.yaml"), data, 0644)
 }
 
-// BackupDiscovered backs up the config paths discovery found, in name order,
-// with the same copy, exclude and secret masking rules as declared apps.
 func BackupDiscovered(configs map[string]manifest.AppConfig, outDir string) ([]*Result, error) {
 	names := make([]string, 0, len(configs))
 	for name := range configs {

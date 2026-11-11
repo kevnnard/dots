@@ -40,14 +40,11 @@ type OverallStatus struct {
 	Apps map[string]*AppStatus `json:"apps"`
 }
 
-// CheckAppStatus checks the synchronization state of an app's paths on the
-// running system.
+// CheckAppStatus checks the synchronization state of an app's paths.
 func CheckAppStatus(appName string, app manifest.AppConfig, repoDir string) *AppStatus {
 	return CheckAppStatusFor(appName, app, repoDir, runtime.GOOS)
 }
 
-// CheckAppStatusFor checks the app's paths that apply to the system goos,
-// each at its effective source there.
 func CheckAppStatusFor(appName string, app manifest.AppConfig, repoDir, goos string) *AppStatus {
 	app = app.ForOS(goos)
 	st := &AppStatus{
@@ -106,14 +103,11 @@ func CheckAppStatusFor(appName string, app manifest.AppConfig, repoDir, goos str
 	return st
 }
 
-// CheckAll gathers status across all configured apps in the manifest that
-// apply to the running system.
+// CheckAll gathers status across all configured apps in the manifest.
 func CheckAll(m *manifest.Manifest, repoDir string) *OverallStatus {
 	return CheckAllFor(m, repoDir, runtime.GOOS)
 }
 
-// CheckAllFor gathers status across the apps that apply to the system goos;
-// the others are ignored.
 func CheckAllFor(m *manifest.Manifest, repoDir, goos string) *OverallStatus {
 	overall := &OverallStatus{
 		Apps: make(map[string]*AppStatus),

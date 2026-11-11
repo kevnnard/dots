@@ -13,7 +13,6 @@ import (
 	"github.com/kevnnard/dots/pkg/manifest"
 )
 
-// fakeExec answers fixed argv only; any other command fails the test.
 type fakeExec struct {
 	t     *testing.T
 	out   map[string]string
@@ -71,14 +70,14 @@ func TestPackagesNotDeclaredAreClassifiedBySystem(t *testing.T) {
 	both, mac := []string{"darwin", "linux"}, []string{"darwin"}
 	want := []Item{
 		{Name: "acme/apps/menubar", Kind: "cask", OS: mac},
-		{Name: "acme/tools/fpm", Kind: "formula", OS: both},    // linux requirement
-		{Name: "acme/tools/gotool", Kind: "formula", OS: both}, // built from source, no macOS requirement
-		{Name: "ghostly", Kind: "formula", OS: mac},            // no data
+		{Name: "acme/tools/fpm", Kind: "formula", OS: both},
+		{Name: "acme/tools/gotool", Kind: "formula", OS: both},
+		{Name: "ghostly", Kind: "formula", OS: mac},
 		{Name: "godot-mono", Kind: "cask", OS: mac},
 		{Name: "lonely/tap", Kind: "tap", OS: both},
-		{Name: "mas", Kind: "formula", OS: mac},      // macOS-only bottles
-		{Name: "ripgrep", Kind: "formula", OS: both}, // linux bottle
-		{Name: "swiftfmt", Kind: "formula", OS: mac}, // macos requirement
+		{Name: "mas", Kind: "formula", OS: mac},
+		{Name: "ripgrep", Kind: "formula", OS: both},
+		{Name: "swiftfmt", Kind: "formula", OS: mac},
 	}
 	if !reflect.DeepEqual(res.New, want) {
 		t.Fatalf("new =\n%+v\nwant\n%+v", res.New, want)
@@ -134,11 +133,11 @@ func writeFile(t *testing.T, p, body string) {
 func configHome(t *testing.T) string {
 	home := t.TempDir()
 	for _, rel := range []string{
-		"atuin/config.toml",   // covered by a file mapping inside it
-		"linuxonly/x.conf",    // covered through src_os
-		"wezterm/wezterm.lua", // uncovered
-		"starship.toml",       // uncovered file
-		"btop/btop.conf",      // uncovered, same name as a declared app
+		"atuin/config.toml",
+		"linuxonly/x.conf",
+		"wezterm/wezterm.lua",
+		"starship.toml",
+		"btop/btop.conf",
 		"gcloud/credentials.db",
 		"configstore/update-notifier.json",
 		"github-copilot/apps.json",
@@ -194,7 +193,6 @@ func TestConfigEntriesNotCoveredBecomeConfigApps(t *testing.T) {
 	if !reflect.DeepEqual(star.Paths, []manifest.PathMapping{{Src: "~/.config/starship.toml", Dest: "configs/starship/starship.toml"}}) {
 		t.Errorf("starship app = %+v", star)
 	}
-	// A declared app with the same name keeps its recipe and gains the path.
 	btop := res.Apps["btop"]
 	if btop.Install["brew"].Package != "btop" || len(btop.Paths) != 1 || btop.Paths[0].Src != "~/.config/btop" ||
 		!reflect.DeepEqual(btop.Paths[0].OS, both) {
@@ -316,7 +314,6 @@ func TestConfigOfDeclaredMacOnlyAppIsForMacOnly(t *testing.T) {
 			t.Errorf("%s paths = %+v, want os %v", name, p, w)
 		}
 	}
-	// A restore on Linux then skips the whole app instead of failing on it.
 	for _, name := range []string{"mole", "codexbar"} {
 		if !reflect.DeepEqual(res.Apps[name].OS, mac) {
 			t.Errorf("%s app os = %v, want %v", name, res.Apps[name].OS, mac)
