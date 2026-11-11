@@ -131,7 +131,7 @@ Some configs link into a package install, such as a skill folder that links to `
 |:---|:---|
 | `dots backup` | Stages the link as it is. |
 | `dots backup --send` | Absolute links never travel as links. A link into a supported package travels as a reference in the archived `manifest.yaml`: app, staged path, package, source version, resource path below the version folder, and whether it is a folder or a file. The staged folder is not changed. |
-| `dots backup --receive` | Refuses the archive, and extracts nothing, if a reference is malformed, sits outside its app's paths, or sits where the archive holds an entry. |
+| `dots backup --receive` | Refuses the archive, and extracts nothing, if a reference is malformed, sits outside its app's paths, or sits where the archive holds an entry. After a successful receive, `~/.cache/dots/incoming` keeps only the 3 newest received backups. |
 | `dots restore --with-config` | After the installs, asks the package manager here, read-only, where the package is installed. Then links the same resource of the installed version. An existing different link or file is kept, or with `--replace-existing` replaced after its `.bk` safety backup. A staged folder copied as is (for example over SSH) still holds the absolute links, and they are resolved the same way. |
 
 **Supported:** Homebrew casks (`Caskroom`) and formulae, dependencies included (`Cellar`). The source prefix does not matter: Apple silicon, Intel, Linuxbrew and custom prefixes all work, and the prefix of the receiving machine comes from `brew --caskroom` and `brew --cellar`.

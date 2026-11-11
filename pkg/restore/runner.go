@@ -298,7 +298,15 @@ func prepareLocal(app manifest.AppConfig, opts RunOptions) (issue, done string) 
 		if err != nil {
 			return fmt.Sprintf("%s; pre-install repair failed: %v", conflict, err), ""
 		}
-		return "", fmt.Sprintf("%s: %s before installing; safety backup: %s (copy it back to undo)", target, local.applied, bk)
+		note := fmt.Sprintf("%s: %s before installing; safety backup: %s (copy it back to undo)", target, local.applied, bk)
+		removed, err := pruneSafetyCopies(target, bk)
+		if len(removed) > 0 {
+			note += fmt.Sprintf("; removed %d older safety backup(s)", len(removed))
+		}
+		if err != nil {
+			note += fmt.Sprintf("; older safety backups not removed: %v", err)
+		}
+		return "", note
 	}
 	return "", ""
 }
@@ -555,6 +563,9 @@ func configLines(s StepResult) []string {
 	}
 	for _, f := range s.Files.LocalBackups {
 		lines = append(lines, "      🛡️ safety backup: "+f)
+	}
+	for _, f := range s.Files.OldBackupsRemoved {
+		lines = append(lines, "      🧹 "+f)
 	}
 	machineLocal := map[string]bool{}
 	for _, f := range s.Files.MachineLocal {

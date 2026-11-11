@@ -186,7 +186,7 @@ Local Machine Config                       Private backup (~/.cache/dots/backup)
 1. **AST-Level JSON Sanitization**: Detects and redacts Bearer tokens, OpenAI/Anthropic/Linear/GCP API keys, and connection strings while preserving JSON hierarchy and server arguments.
 2. **SSH Config Anonymization**: Preserves connection options, aliases, and timeouts, while masking private IP addresses and user accounts.
 3. **Template Preservation on Restore**: When running `restore`, existing local files are never overwritten with templates. New machines receive `.template` files as a clean scaffolding for credentials.
-4. **Local Files Are Kept**: `restore --with-config` keeps local files whose content differs from the backup and lists them. Only `--replace-existing` (TUI: `r`) replaces them, and each replacement happens only after `<file>.<YYYYMMDD_HHMMSS>.bk` was written successfully. Machine-specific files marked `keep_local: true` in the manifest (`~/.gitconfig`, which holds the git signing key, and the Pi and Gentle Shell `subagents.json`) are never replaced: restore deploys them only where they are missing and lists them as `kept machine-specific file`.
+4. **Local Files Are Kept**: `restore --with-config` keeps local files whose content differs from the backup and lists them. Only `--replace-existing` (TUI: `r`) replaces them, and each replacement happens only after `<file>.<YYYYMMDD_HHMMSS>.bk` was written successfully. Then the older safety copies of that same file are deleted so the 3 newest remain (see "Retention" below). Machine-specific files marked `keep_local: true` in the manifest (`~/.gitconfig`, which holds the git signing key, and the Pi and Gentle Shell `subagents.json`) are never replaced: restore deploys them only where they are missing and lists them as `kept machine-specific file`.
 5. **Readiness Report, Names Only**: every restore (CLI and TUI) ends with a per-app list of what is still missing: placeholder fields and unset environment variables by name, file and field (`env GH_MCP_TOKEN (mcpServers.github.env.GITHUB_TOKEN in ~/.pi/agent/mcp.json) → export GH_MCP_TOKEN=…`), pending logins (`codex login`, `/login` in `pi`) and missing MCP commands. Values are never printed, and nothing is validated online: what dots cannot prove is marked `not-verified` with the command to check it. See [docs/install-flow.md](docs/install-flow.md#readiness-report).
 
 ---
@@ -238,7 +238,7 @@ dots restore --install-packages
 # Install packages and deploy the configs of the last received backup
 dots restore --received --all --install-packages
 
-# Same, also replacing differing local files (each gets a .bk safety backup first)
+# Same, also replacing differing local files (each gets a .bk safety backup first; the 3 newest per file are kept)
 dots restore --received --all --install-packages --replace-existing
 
 # Deploy configs from a backup folder you extracted yourself
@@ -320,10 +320,11 @@ What to expect:
 
 1. **The code** is the start of the archive sha256 and is not stored anywhere: copy it from the sender output. A wrong code extracts nothing. The full sha256 also works with `--sha256 <sha256>`.
 2. **Several backups in the inbox** are fine: copies of the matching one are dropped and any other backup is kept in `~/.cache/dots/incoming/unclaimed/`, never lost.
-3. **Skills shared through `~/.agents/skills`** travel as relative symlinks; restore refuses any link that points outside home.
-4. **Local files are kept** when they differ from the backup, and the summary lists them. Add `--replace-existing` only after reviewing the dry run; every replaced file first gets a `.bk` copy.
-5. **Logins do not travel**: login files (`auth.json`, `mcp-auth.json`) are not mapped and `mcp.json` arrives as a template. Sign in again (Gentle Shell, Pi, Claude, Codex, Linear, Neon API key, Postgres); `dots setup` and the restore summary list each one.
-6. **Gentle Shell**: install the bundled Gentle Shell with its own installer (`dots setup` shows where), then `dots restore gentle-shell --received`.
+3. **Older received backups** are removed after a successful receive: `~/.cache/dots/incoming` keeps the 3 newest, always including the one just received, and prints `🧹 Removed N older received backup(s)`. Only folders named by a received code are removed; `latest`, `unclaimed/` and anything else stay.
+4. **Skills shared through `~/.agents/skills`** travel as relative symlinks; restore refuses any link that points outside home.
+5. **Local files are kept** when they differ from the backup, and the summary lists them. Add `--replace-existing` only after reviewing the dry run; every replaced file first gets a `.bk` copy.
+6. **Logins do not travel**: login files (`auth.json`, `mcp-auth.json`) are not mapped and `mcp.json` arrives as a template. Sign in again (Gentle Shell, Pi, Claude, Codex, Linear, Neon API key, Postgres); `dots setup` and the restore summary list each one.
+7. **Gentle Shell**: install the bundled Gentle Shell with its own installer (`dots setup` shows where), then `dots restore gentle-shell --received`.
 
 ## 🔁 Keep two machines in sync
 
@@ -336,14 +337,24 @@ dots sync <device> --yes        # apply without asking
 dots sync <device> --no-install # deploy configs only, install nothing
 ```
 
-1. **Backup**: a full backup is staged into a new private folder under `~/.cache/dots` (as `dots backup --out <new folder>`), never the default `~/.cache/dots/backup`. The folder is kept so you can review what was sent.
+1. **Backup**: a full backup is staged into a new private folder under `~/.cache/dots` (as `dots backup --out <new folder>`), never the default `~/.cache/dots/backup`. Once the send succeeds, sync removes that folder when it ends, whether the backup is applied, not applied, only dry-run or a later remote step fails. If the backup or the send fails, the folder stays and its path is printed. Nothing else under `~/.cache/dots` is removed.
 2. **Send**: the backup goes to `<device>` over Taildrop, as with `dots backup --send`.
-3. **Dry run**: over `ssh <device>`, in your login shell there, dots runs `dots backup --receive <code>` and then `dots restore --received --all --replace-existing --install-packages --dry-run`. Its plan is printed: packages to install, apps skipped as not for that system, files that change, problems and the readiness count.
+3. **Dry run**: over `ssh <device>`, in your login shell there, dots runs `dots backup --receive <code>` (which keeps the 3 newest received backups there) and then `dots restore --received --all --replace-existing --install-packages --dry-run`. Its plan is printed: packages to install, apps skipped as not for that system, files that change, problems and the readiness count.
 4. **Apply**: `Apply on <device>? [y/N]`. Only `y` or `yes` runs the same restore without `--dry-run`; every replaced file gets a `.bk` copy first. Anything else changes nothing.
 
 Requirements: dots on both machines, both on the same tailnet, the receiver allowed to read its Taildrop inbox (step 2 above), and `ssh <device>` connecting without a prompt (keys or Tailscale SSH). A failed step stops with its error and a nonzero exit; a failed connection names `ssh <device>`. A dry run that reports problems still asks, with `N` as the default; with `--yes` it stops instead of applying.
 
 Known pitfalls of a macOS-to-Linux move (pnpm path, Gentle Shell installs, the Engram MCP server inside Gentle Shell, Neon sign-in) are listed in [docs/install-flow.md](docs/install-flow.md#moving-to-another-machine-known-pitfalls).
+
+## ♻️ Retention
+
+dots does not pile up copies:
+
+| What | Where | What stays |
+|:---|:---|:---|
+| `dots sync` stage | `~/.cache/dots/sync-XXXX` on the sender | Removed when sync ends after a successful send. Kept, with its path printed, if the backup or the send fails. |
+| Received backups | `~/.cache/dots/incoming/<code>` | The 3 newest after each successful `dots backup --receive` (also run by `dots sync`), always including the one just received. `latest` and unrecognized entries stay. |
+| Restore safety copies | `<file>.<YYYYMMDD_HHMMSS>[.<N>].bk` beside the file | The 3 newest of that file, by the timestamp in the name and then N, each time `--replace-existing` writes a new one. Other names (`.bk-1719`, `.bk.old`), other files' copies and directories are never touched; `--dry-run` deletes nothing; the summary prints `🧹 removed N older safety backup(s) of <file>`. |
 
 ## 🧹 Clean up
 
@@ -355,7 +366,7 @@ Pick what to clean; the three scopes are independent, and with none of them noth
 |:---|:---|
 | `--packages` | Uninstalls the apps' packages with the manager's plain uninstall (no force, purge or recursion), dependents first. Only packages whose single declared owner the package database proves; others are reported as blocked or unsupported and never touched. |
 | `--configs` | Moves the apps' mapped config files into `~/.dots-quarantine/clean-<timestamp>/`. Nothing is deleted; files that may hold credentials stay in place. Directories are not supported yet. |
-| `--backups` | Moves older restore backups (`<file>.<timestamp>.bk`) into the same quarantine. The most recent backup of every file always stays. |
+| `--backups` | Moves older restore backups (`<file>.<timestamp>.bk`) into the same quarantine. The most recent backup of every file always stays. Restore already keeps only the 3 newest per file; this also covers the copies left before that. |
 
 ```bash
 # Preview everything for every declared app (changes nothing)

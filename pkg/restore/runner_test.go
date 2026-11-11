@@ -282,3 +282,24 @@ func TestRunReportsPreflightForInstalledPiWithoutBlockingOtherApps(t *testing.T)
 		t.Error("local settings were modified")
 	}
 }
+
+func TestRunPreInstallRepairKeepsThreeNewestSafetyCopies(t *testing.T) {
+	m, repo, target := piConflictFixture(t, repairedPiSettings)
+	for _, s := range []string{".20200101_000000.bk", ".20200102_000000.bk", ".20200103_000000.bk"} {
+		mustWrite(t, target+s, "old")
+	}
+	res, err := authorizedRun(m, repo, noneInstalled, (&fakeExec{}).run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(target + ".20200101_000000.bk"); !os.IsNotExist(err) {
+		t.Errorf("oldest copy kept: %q", listDir(t, filepath.Dir(target)))
+	}
+	if n := len(listDir(t, filepath.Dir(target))); n != 4 {
+		t.Errorf("dir = %q", listDir(t, filepath.Dir(target)))
+	}
+	pi := resultByName(t, res, "pi")
+	if !strings.HasSuffix(pi.Prepared, " (copy it back to undo); removed 1 older safety backup(s)") {
+		t.Errorf("prepared = %q", pi.Prepared)
+	}
+}

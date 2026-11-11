@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -38,8 +39,9 @@ type ApplyResult struct {
 	NotRepaired []string `json:"not_repaired,omitempty"`
 	// MachineLocal lists the Kept files their mapping marks keep_local: they
 	// stay as they are on this machine even with Replace.
-	MachineLocal []string `json:"machine_local,omitempty"`
-	NotForOS     []string `json:"not_for_os,omitempty"`
+	MachineLocal      []string `json:"machine_local,omitempty"`
+	NotForOS          []string `json:"not_for_os,omitempty"`
+	OldBackupsRemoved []string `json:"old_backups_removed,omitempty"`
 }
 
 // PlanApp generates an installation plan for a single application based on current system.
@@ -433,6 +435,7 @@ func placeFile(g writeGuard, src, dest string, opts ApplyOptions, res *ApplyResu
 				return
 			}
 			res.LocalBackups = append(res.LocalBackups, bk)
+			pruneReport(dest, bk, res)
 		}
 		switch {
 		case fixed.data != nil && info != nil && info.Mode()&os.ModeSymlink != 0:
@@ -564,6 +567,7 @@ func placeSymlink(g writeGuard, src string, ref *manifest.PackageLink, dest stri
 				return
 			}
 			res.LocalBackups = append(res.LocalBackups, bk)
+			pruneReport(dest, bk, res)
 		}
 		if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
 			res.Warnings = append(res.Warnings, fmt.Sprintf("failed creating symlink %s: %v", dest, err))
@@ -871,6 +875,93 @@ func backupExisting(dest string) (string, error) {
 		return "", fmt.Errorf("%s is not a regular file", dest)
 	}
 	return createUnique(base, ".bk", func(p string) error { return homepath.CopyRawNew(dest, p, info.Mode().Perm()) })
+}
+
+const keptSafetyCopies = 3
+
+type safetyCopy struct {
+	name  string
+	stamp string
+	n     int
+}
+
+func parseSafetyCopy(base, name string) (safetyCopy, bool) {
+	if !strings.HasPrefix(name, base+".") || !strings.HasSuffix(name, ".bk") {
+		return safetyCopy{}, false
+	}
+	mid := strings.TrimSuffix(strings.TrimPrefix(name, base+"."), ".bk")
+	stamp, num, hasNum := strings.Cut(mid, ".")
+	if len(stamp) != len("20060102_150405") {
+		return safetyCopy{}, false
+	}
+	if _, err := time.Parse("20060102_150405", stamp); err != nil {
+		return safetyCopy{}, false
+	}
+	c := safetyCopy{name: name, stamp: stamp}
+	if !hasNum {
+		return c, true
+	}
+	if num == "" || num[0] == '0' || len(num) > 9 || strings.Trim(num, "0123456789") != "" {
+		return safetyCopy{}, false
+	}
+	n, err := strconv.Atoi(num)
+	if err != nil {
+		return safetyCopy{}, false
+	}
+	c.n = n
+	return c, true
+}
+
+func pruneSafetyCopies(dest, created string) ([]string, error) {
+	dir, base := filepath.Dir(dest), filepath.Base(dest)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	var copies []safetyCopy
+	for _, e := range entries {
+		if t := e.Type(); !t.IsRegular() && t&os.ModeSymlink == 0 {
+			continue
+		}
+		if c, ok := parseSafetyCopy(base, e.Name()); ok {
+			copies = append(copies, c)
+		}
+	}
+	sort.Slice(copies, func(i, j int) bool {
+		if copies[i].stamp != copies[j].stamp {
+			return copies[i].stamp > copies[j].stamp
+		}
+		return copies[i].n > copies[j].n
+	})
+	var removed []string
+	for i := keptSafetyCopies; i < len(copies); i++ {
+		p := filepath.Join(dir, copies[i].name)
+		if p == filepath.Clean(created) {
+			continue
+		}
+		info, err := os.Lstat(p)
+		if err != nil {
+			return removed, err
+		}
+		if !info.Mode().IsRegular() && info.Mode()&os.ModeSymlink == 0 {
+			continue
+		}
+		if err := os.Remove(p); err != nil {
+			return removed, err
+		}
+		removed = append(removed, p)
+	}
+	return removed, nil
+}
+
+func pruneReport(dest, created string, res *ApplyResult) {
+	removed, err := pruneSafetyCopies(dest, created)
+	if len(removed) > 0 {
+		res.OldBackupsRemoved = append(res.OldBackupsRemoved, fmt.Sprintf("removed %d older safety backup(s) of %s", len(removed), dest))
+	}
+	if err != nil {
+		res.Warnings = append(res.Warnings, fmt.Sprintf("older safety backups of %s not removed: %v", dest, err))
+	}
 }
 
 // replaceWith creates the replacement at a fresh sibling path and renames it

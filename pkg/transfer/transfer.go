@@ -376,6 +376,74 @@ func RecordLatest(incoming, dest string) error {
 	return os.WriteFile(filepath.Join(incoming, latestFile), []byte(abs+"\n"), 0o644)
 }
 
+const keptReceived = 3
+
+func receivedName(name string) bool {
+	if len(name) < MinCodeLength || len(name) > 12 {
+		return false
+	}
+	return strings.Trim(name, "0123456789abcdef") == ""
+}
+
+func PruneReceived(incoming, keep string) ([]string, error) {
+	keepAbs, err := filepath.Abs(keep)
+	if err != nil {
+		return nil, err
+	}
+	entries, err := os.ReadDir(incoming)
+	if err != nil {
+		return nil, err
+	}
+	type received struct {
+		path string
+		info os.FileInfo
+	}
+	var all []received
+	for _, e := range entries {
+		if !e.IsDir() || !receivedName(e.Name()) {
+			continue
+		}
+		p := filepath.Join(incoming, e.Name())
+		info, err := os.Lstat(p)
+		if err != nil || !info.IsDir() {
+			continue
+		}
+		all = append(all, received{p, info})
+	}
+	isKeep := func(p string) bool {
+		abs, err := filepath.Abs(p)
+		return err != nil || abs == keepAbs
+	}
+	sort.Slice(all, func(i, j int) bool {
+		if ki, kj := isKeep(all[i].path), isKeep(all[j].path); ki != kj {
+			return ki
+		}
+		if !all[i].info.ModTime().Equal(all[j].info.ModTime()) {
+			return all[i].info.ModTime().After(all[j].info.ModTime())
+		}
+		return all[i].path > all[j].path
+	})
+	var removed []string
+	for i := keptReceived; i < len(all); i++ {
+		p := all[i].path
+		if isKeep(p) {
+			continue
+		}
+		info, err := os.Lstat(p)
+		if err != nil {
+			return removed, err
+		}
+		if !info.IsDir() {
+			continue
+		}
+		if err := os.RemoveAll(p); err != nil {
+			return removed, err
+		}
+		removed = append(removed, p)
+	}
+	return removed, nil
+}
+
 // LatestReceived returns the last backup recorded by RecordLatest, provided it
 // still holds a manifest.
 func LatestReceived(incoming string) (string, error) {

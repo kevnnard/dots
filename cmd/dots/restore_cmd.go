@@ -44,7 +44,12 @@ By default apps keep their stock configuration: configs in the repository are
 only deployed with --with-config, after every package the config needs is
 installed. Existing local files that differ are kept unless --replace-existing
 is also given, in which case each one gets a timestamped .bk safety backup
-before it is replaced. Machine-specific files (keep_local in the manifest:
+before it is replaced. After writing it, restore deletes older safety copies
+of that same file so the 3 newest remain: only <file>.<YYYYMMDD_HHMMSS>.bk and
+<file>.<YYYYMMDD_HHMMSS>.<N>.bk in the file's own folder count, newest by the
+timestamp in the name, then N; other names and directories are never touched,
+--dry-run deletes nothing, and the summary reports how many were removed.
+dots clean --backups is unchanged. Machine-specific files (keep_local in the manifest:
 ~/.gitconfig with its signing key, the Pi and Gentle Shell subagents.json) are
 deployed only where missing and never replaced, even with --replace-existing.
 
@@ -204,7 +209,7 @@ func init() {
 	restoreCmd.Flags().BoolVarP(&allProfilesFlag, "all", "a", false, "Restore all profiles (optional apps still need to be named)")
 	restoreCmd.Flags().BoolVar(&withConfigFlag, "with-config", false, "Deploy configs backed up in the dotfiles repo (default: keep stock configs)")
 	restoreCmd.Flags().BoolVar(&receivedFlag, "received", false, "Restore the last backup received with dots backup --receive (implies --with-config)")
-	restoreCmd.Flags().BoolVar(&replaceExistingFlag, "replace-existing", false, "With --with-config, replace differing local files after a .bk safety backup")
+	restoreCmd.Flags().BoolVar(&replaceExistingFlag, "replace-existing", false, "With --with-config, replace differing local files after a .bk safety backup (the 3 newest .bk of each file are kept)")
 	rootCmd.AddCommand(restoreCmd)
 }
 

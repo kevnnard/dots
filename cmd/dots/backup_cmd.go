@@ -78,6 +78,11 @@ Move the backup to another machine over Taildrop:
   dots backup --receive <code>  on the other machine, then
   dots restore --received --all --dry-run
 
+After a successful receive, ~/.cache/dots/incoming keeps only the 3 newest
+received backups (folders named by a received code); the one just received
+always stays. The latest file and anything else there are never removed. The
+removal is reported in one line.
+
 Or do every step from this machine with dots sync <device>.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Changed, not a non-empty check: --send '' must fail here, never fall
@@ -333,6 +338,13 @@ func runReceive(code, into string) error {
 	}
 	fmt.Printf("📥 Received and verified (code %s)\n", code)
 	fmt.Printf("   Extracted into %s\n", into)
+	removed, err := transfer.PruneReceived(incoming, into)
+	if len(removed) > 0 {
+		fmt.Printf("🧹 Removed %d older received backup(s)\n", len(removed))
+	}
+	if err != nil {
+		fmt.Printf("⚠️  Older received backups not removed: %v\n", err)
+	}
 	fmt.Println("   Review the plan, then apply it:")
 	fmt.Println("     dots restore --received --all --dry-run")
 	fmt.Println("     dots restore --received --all")

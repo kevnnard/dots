@@ -482,7 +482,7 @@ func TestApplyFilesNeverClobbersExistingBackup(t *testing.T) {
 	mustWrite(t, dest, "mine\n")
 	now := time.Now()
 	var taken []string
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 2; i++ {
 		p := dest + "." + now.Add(time.Duration(i)*time.Second).Format("20060102_150405") + ".bk"
 		mustWrite(t, p, "older backup\n")
 		taken = append(taken, p)

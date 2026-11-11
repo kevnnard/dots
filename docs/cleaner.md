@@ -227,7 +227,8 @@ filesystem or a concurrent attacker.
 ## Old backups
 
 `dots restore` keeps every file it replaces beside the original as
-`<file>.<YYYYMMDD_HHMMSS>[.<n>].bk`. `clean.BackupRunner` (`--backups`, TUI
+`<file>.<YYYYMMDD_HHMMSS>[.<n>].bk`, and after each new one deletes older
+copies of that same file so the 3 newest remain (see the README, "Retention"). `clean.BackupRunner` (`--backups`, TUI
 `b`) finds these backups for the selected apps' mapped paths: beside a mapped
 file, or anywhere below a mapped directory (symlinked directories, the
 quarantine and the repository are not entered). Backups are grouped by the

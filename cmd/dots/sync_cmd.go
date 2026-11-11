@@ -43,7 +43,10 @@ var syncCmd = &cobra.Command{
 	Long: `Keeps another machine in step with this one, in one command:
 
   1. Stages a full backup into a new private folder under ~/.cache/dots
-     (as dots backup --out <new folder>); the folder is kept for review.
+     (as dots backup --out <new folder>). Once the send succeeds that folder
+     is removed when sync ends, whatever happens next (applied, not applied,
+     --dry-run or a remote failure). If the backup or the send fails, it is
+     kept and its path printed. Nothing else under ~/.cache/dots is removed.
   2. Sends it to <device> over Taildrop (as dots backup --send <device>).
   3. Over ssh <device>, in the remote user's login shell, runs
        dots backup --receive <code>
@@ -53,7 +56,9 @@ var syncCmd = &cobra.Command{
   4. Asks "Apply on <device>? [y/N]". Only y or yes runs the same restore
      without --dry-run and prints its summary; anything else changes nothing.
 
-Every replaced file gets a .bk copy first, as with restore --replace-existing.
+Every replaced file gets a .bk copy first, as with restore --replace-existing,
+and the receive keeps only the 3 newest received backups, as with
+dots backup --receive.
 A dry run that reports problems still asks (default no); with --yes it stops
 instead. --dry-run stops after the remote dry run, --no-install restores the
 configs without --install-packages.
@@ -91,21 +96,26 @@ func syncDevice(in io.Reader, out io.Writer, device string) error {
 	if err != nil {
 		return err
 	}
+	kept := func(err error) error {
+		fmt.Fprintf(out, "\n📁 Stage kept: %s\n", fresh)
+		return err
+	}
 	stage, err := resolveOutDir(fresh, repoDir)
 	if err != nil {
-		return err
+		return kept(err)
 	}
 
 	fmt.Fprintf(out, "📦 Staging backup in: %s\n\n", stage)
 	printMissingDefaultPaths(repoDir, m, "")
 	if err := runFullBackup(m, repoDir, stage, false); err != nil {
-		return err
+		return kept(err)
 	}
 	fmt.Fprintln(out)
 	code, err := sendStage(stage, device)
 	if err != nil {
-		return err
+		return kept(err)
 	}
+	defer removeStage(out, fresh)
 
 	restore := "dots restore --received --all --replace-existing"
 	if !syncNoInstallFlag {
@@ -141,6 +151,16 @@ func syncDevice(in io.Reader, out io.Writer, device string) error {
 	}
 	fmt.Fprintf(out, "\n✨ %s is in sync.\n", device)
 	return nil
+}
+
+func removeStage(out io.Writer, stage string) {
+	info, err := os.Lstat(stage)
+	if err != nil || !info.IsDir() || !strings.HasPrefix(filepath.Base(stage), "sync-") {
+		return
+	}
+	if err := os.RemoveAll(stage); err != nil {
+		fmt.Fprintf(out, "⚠️  Stage not removed: %s: %v\n", stage, err)
+	}
 }
 
 func remote(out io.Writer, device, step, script string) error {

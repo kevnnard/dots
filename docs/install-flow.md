@@ -70,7 +70,13 @@ Existing local files:
 | Directory where a file is expected | Not touched, reported | Not touched, reported |
 
 If the safety backup cannot be written, the file is not replaced and the run
-reports a failure. Nothing is deleted in bulk. Secret `.template` files are
+reports a failure. After a new safety backup is written, older safety copies
+of that same file are deleted so the 3 newest remain. Only
+`<file>.<YYYYMMDD_HHMMSS>.bk` and `<file>.<YYYYMMDD_HHMMSS>.<N>.bk` in the
+file's own folder count, ordered by the timestamp in the name and then N; other
+suffixes, other files' copies and directories are never touched. A dry run
+deletes nothing, and the summary prints
+`🧹 removed N older safety backup(s) of <file>`. Nothing else is deleted in bulk. Secret `.template` files are
 only created where no file exists.
 
 ## Known legacy configuration repairs
@@ -120,7 +126,10 @@ These were found moving a macOS setup to Linux (Omarchy). dots handles the
 first three itself; the rest are steps for you. They apply the same whether the
 backup moves with `dots backup --send` and `--receive` or with
 `dots sync <device>`, which runs the receive and restore over `ssh <device>`
-(see the README, "Keep two machines in sync").
+(see the README, "Keep two machines in sync"). A successful receive keeps only
+the 3 newest received backups in `~/.cache/dots/incoming`, and sync removes its
+`~/.cache/dots/sync-XXXX` stage after a successful send (see the README,
+"Retention").
 
 | Pitfall | What dots does or what to do |
 |:---|:---|
