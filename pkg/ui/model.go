@@ -14,6 +14,7 @@ import (
 	"github.com/kevnnard/dots/pkg/clean"
 	"github.com/kevnnard/dots/pkg/detector"
 	"github.com/kevnnard/dots/pkg/discover"
+	"github.com/kevnnard/dots/pkg/engramsync"
 	"github.com/kevnnard/dots/pkg/manifest"
 	"github.com/kevnnard/dots/pkg/restore"
 	"github.com/kevnnard/dots/pkg/status"
@@ -81,6 +82,9 @@ type Model struct {
 	// Discovery says where backup looks for undeclared packages and
 	// configs. The zero value discovers nothing; RunTUI sets the machine's.
 	Discovery discover.Options
+	// Engram says how backup exports and a config restore imports Engram
+	// memories. The zero value reports engram as not installed.
+	Engram engramsync.Options
 	// Suspend hands the terminal to a blocking command and resumes the TUI
 	// when it returns. It is tea.Exec; tests inject a fake terminal.
 	Suspend func(tea.ExecCommand, tea.ExecCallback) tea.Cmd
@@ -395,6 +399,11 @@ func (m Model) executeAction() (tea.Model, tea.Cmd) {
 		} else {
 			m.Logs = append(m.Logs, StyleMuted.Render(fmt.Sprintf("Staged in %s (not committed, not pushed)", outDir)))
 		}
+		if line, err := engramsync.Export(context.Background(), m.Engram, outDir); err != nil {
+			m.Logs = append(m.Logs, StyleWarning.Render(fmt.Sprintf("⚠️  Engram memories not exported: %v", err)))
+		} else {
+			m.Logs = append(m.Logs, StyleMuted.Render(line))
+		}
 		return m, nil
 	}
 	return m.startRestore()
@@ -405,6 +414,9 @@ type restoreDoneMsg struct {
 	res *restore.RunResult
 	err error
 	ran bool // false when the terminal could not be handed off
+	// engram reports the memory import; engramFailed marks a failed one.
+	engram       string
+	engramFailed bool
 }
 
 // installRun is the tea.ExecCommand that runs the restore while Bubble Tea
@@ -416,6 +428,8 @@ type installRun struct {
 	run            func(stdin io.Reader, stdout, stderr io.Writer) (*restore.RunResult, error)
 	res            *restore.RunResult
 	ran            bool
+	engram         string
+	engramFailed   bool
 }
 
 func (c *installRun) SetStdin(r io.Reader)  { c.stdin = r }
@@ -441,6 +455,10 @@ func (m Model) startRestore() (tea.Model, tea.Cmd) {
 		}
 	}
 	mf, sys, exe := m.Manifest, m.SysInfo, m.Exec
+	// Memories travel with a whole backup: a custom selection of named apps
+	// leaves them alone, like `dots restore <app>`.
+	importMemories := m.WithConfig && !m.explicit
+	engram := m.Engram
 	source := m.RepoDir
 	if m.WithConfig {
 		source = m.ConfigDir
@@ -454,15 +472,24 @@ func (m Model) startRestore() (tea.Model, tea.Cmd) {
 		Probe:           m.Probe,
 		Receipts:        m.Receipts,
 	}
-	c := &installRun{run: func(stdin io.Reader, stdout, stderr io.Writer) (*restore.RunResult, error) {
+	c := &installRun{}
+	c.run = func(stdin io.Reader, stdout, stderr io.Writer) (*restore.RunResult, error) {
 		o := opts
 		o.Stdin, o.Stdout, o.Stderr = stdin, stdout, stderr
 		o.Exec = func(req restore.ExecRequest) error {
 			fmt.Fprintf(stdout, "▶ [%s] %s\n", req.AppName, req.Command)
 			return exe(req)
 		}
-		return restore.Run(mf, selected, sys, o)
-	}}
+		res, err := restore.Run(mf, selected, sys, o)
+		if err == nil && importMemories {
+			line, ierr := engramsync.Import(context.Background(), engram, source, false)
+			c.engram, c.engramFailed = line, ierr != nil
+			if ierr != nil {
+				c.engram = fmt.Sprintf("❌ Engram memories not imported: %v", ierr)
+			}
+		}
+		return res, err
+	}
 	suspend := m.Suspend
 	if suspend == nil {
 		suspend = tea.Exec
@@ -470,7 +497,7 @@ func (m Model) startRestore() (tea.Model, tea.Cmd) {
 	m.State = viewExecuting
 	m.LastRun = nil
 	return m, suspend(c, func(err error) tea.Msg {
-		return restoreDoneMsg{res: c.res, err: err, ran: c.ran}
+		return restoreDoneMsg{res: c.res, err: err, ran: c.ran, engram: c.engram, engramFailed: c.engramFailed}
 	})
 }
 
@@ -501,6 +528,13 @@ func (m Model) finishRestore(msg restoreDoneMsg) Model {
 			style = StyleWarning
 		}
 		m.Logs = append(m.Logs, style.Render(line))
+	}
+	if msg.engram != "" {
+		style := StyleMuted
+		if msg.engramFailed {
+			style = StyleError
+		}
+		m.Logs = append(m.Logs, style.Render(msg.engram))
 	}
 	if msg.err != nil {
 		// The run finished but Bubble Tea could not fully restore the terminal.

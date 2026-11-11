@@ -11,6 +11,7 @@ import (
 
 	"github.com/kevnnard/dots/pkg/clean"
 	"github.com/kevnnard/dots/pkg/discover"
+	"github.com/kevnnard/dots/pkg/engramsync"
 	"github.com/kevnnard/dots/pkg/manifest"
 )
 
@@ -18,6 +19,8 @@ import (
 // discovery; tests that exercise it inject their own options.
 func TestMain(m *testing.M) {
 	discoverOptions = func(string) discover.Options { return discover.Options{} }
+	// Nor may any test run the real engram.
+	engramOptions = func() engramsync.Options { return engramsync.Options{} }
 	os.Exit(m.Run())
 }
 

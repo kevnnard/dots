@@ -11,6 +11,7 @@ import (
 
 	"github.com/kevnnard/dots/pkg/backup"
 	"github.com/kevnnard/dots/pkg/discover"
+	"github.com/kevnnard/dots/pkg/engramsync"
 	"github.com/kevnnard/dots/pkg/manifest"
 	"github.com/kevnnard/dots/pkg/transfer"
 	"github.com/spf13/cobra"
@@ -28,6 +29,9 @@ var (
 
 	// Where full backup discovery looks; replaced by tests.
 	discoverOptions = discover.ForThisMachine
+
+	// How backup and restore run engram; replaced by tests.
+	engramOptions = engramsync.ForThisMachine
 )
 
 var backupCmd = &cobra.Command{
@@ -130,6 +134,13 @@ Move the backup to another machine over Taildrop:
 			for _, l := range lines {
 				fmt.Println(l)
 			}
+		}
+
+		fmt.Println()
+		if line, err := engramsync.Export(context.Background(), engramOptions(), outDir); err != nil {
+			total.Warnings = append(total.Warnings, fmt.Sprintf("Engram memories not exported: %v", err))
+		} else {
+			fmt.Println(line)
 		}
 
 		fmt.Printf("\n✨ Backup staged. Files processed: %d\n", total.Total)

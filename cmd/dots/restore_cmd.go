@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/kevnnard/dots/pkg/clean"
 	"github.com/kevnnard/dots/pkg/detector"
+	"github.com/kevnnard/dots/pkg/engramsync"
 	"github.com/kevnnard/dots/pkg/manifest"
 	"github.com/kevnnard/dots/pkg/packagelink"
 	"github.com/kevnnard/dots/pkg/restore"
@@ -146,6 +148,17 @@ the command to check it.`,
 		for _, line := range res.Summary() {
 			fmt.Fprintln(out, line)
 		}
+		// Memories travel with a whole backup, so a restore of named apps
+		// leaves them alone.
+		var engramErr error
+		if withConfigFlag && len(args) == 0 {
+			line, err := engramsync.Import(context.Background(), engramOptions(), repoDir, dryRunFlag)
+			if err != nil {
+				engramErr = err
+				line = fmt.Sprintf("❌ Engram memories not imported: %v", err)
+			}
+			fmt.Fprintln(out, line)
+		}
 		if !installPackagesFlag && !dryRunFlag {
 			fmt.Fprintln(out, "\n💡 Tip: run with --install-packages (-i) to execute the planned installs.")
 		}
@@ -155,7 +168,7 @@ the command to check it.`,
 		if problems := res.Problems(); len(problems) > 0 {
 			return fmt.Errorf("restore finished with %d problem(s)", len(problems))
 		}
-		return nil
+		return engramErr
 	},
 }
 

@@ -7,6 +7,7 @@ import (
 	"github.com/kevnnard/dots/pkg/clean"
 	"github.com/kevnnard/dots/pkg/detector"
 	"github.com/kevnnard/dots/pkg/discover"
+	"github.com/kevnnard/dots/pkg/engramsync"
 	"github.com/kevnnard/dots/pkg/manifest"
 )
 
@@ -14,6 +15,7 @@ import (
 func RunTUI(m *manifest.Manifest, sys *detector.SystemInfo, repoDir string) error {
 	model := NewModel(m, sys, repoDir)
 	model.Discovery = discover.ForThisMachine(repoDir)
+	model.Engram = engramsync.ForThisMachine()
 	if home, err := os.UserHomeDir(); err == nil {
 		model.Receipts = clean.NativeProbe{Sys: sys, Exec: model.CleanExec, Home: home}.Installed
 	}
