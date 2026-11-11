@@ -372,15 +372,13 @@ func discoverConfigs(m *manifest.Manifest, home string, res *Result) error {
 		name := e.Name()
 		full := filepath.Join(dir, name)
 		switch {
-		case strings.HasPrefix(name, "."):
+		case strings.HasPrefix(name, "."), isCovered(full, srcs):
 			continue
 		case credentialDirs[name]:
 			res.Skipped = append(res.Skipped, Skip{Name: name, Reason: "may hold credentials"})
 			continue
 		case strings.Contains(strings.ToLower(name), "cache"):
 			res.Skipped = append(res.Skipped, Skip{Name: name, Reason: "cache"})
-			continue
-		case isCovered(full, srcs):
 			continue
 		}
 		info, err := os.Stat(full)
@@ -397,9 +395,12 @@ func discoverConfigs(m *manifest.Manifest, home string, res *Result) error {
 		}
 		app, discovered := res.Apps[key]
 		existing, declaredApp := m.Apps[key]
+		listed := both
 		switch {
 		case discovered:
-			// Already new as a package: attach the config to that app.
+			// Already new as a package: attach the config to that app, which
+			// works only on the package's systems.
+			listed = app.OS
 		case declaredApp:
 			app = existing
 			path.OS = both
@@ -413,7 +414,7 @@ func discoverConfigs(m *manifest.Manifest, home string, res *Result) error {
 			Exclude: withDefaults(app.Exclude),
 			Secrets: app.Secrets,
 		}
-		res.New = append(res.New, Item{Name: key, Kind: "config", OS: both})
+		res.New = append(res.New, Item{Name: key, Kind: "config", OS: listed})
 	}
 	return nil
 }

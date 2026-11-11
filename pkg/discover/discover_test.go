@@ -256,3 +256,33 @@ func contains(list []string, v string) bool {
 	}
 	return false
 }
+
+func TestConfigOfMacOnlyPackageListsThePackageSystems(t *testing.T) {
+	m, opts, _ := brewFixture(t)
+	opts.Home = t.TempDir()
+	writeFile(t, filepath.Join(opts.Home, ".config", "mas", "config"), "x\n")
+	res, err := Run(context.Background(), m, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, it := range res.New {
+		if it.Name == "mas" && it.Kind == "config" && !reflect.DeepEqual(it.OS, []string{"darwin"}) {
+			t.Errorf("mas config listed for %v, want [darwin]", it.OS)
+		}
+	}
+}
+
+func TestCoveredCredentialFolderIsNotListedAsSkipped(t *testing.T) {
+	home := t.TempDir()
+	writeFile(t, filepath.Join(home, ".config", "gh", "config.yml"), "x\n")
+	m := &manifest.Manifest{Apps: map[string]manifest.AppConfig{
+		"gh": {Paths: []manifest.PathMapping{{Src: "~/.config/gh/config.yml", Dest: "configs/gh/config.yml"}}},
+	}}
+	res, err := Run(context.Background(), m, Options{Home: home})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Skipped) != 0 || len(res.New) != 0 {
+		t.Errorf("declared gh must be silent: new=%+v skipped=%+v", res.New, res.Skipped)
+	}
+}
