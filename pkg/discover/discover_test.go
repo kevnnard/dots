@@ -314,4 +314,13 @@ func TestConfigOfDeclaredMacOnlyAppIsForMacOnly(t *testing.T) {
 			t.Errorf("%s paths = %+v, want os %v", name, p, w)
 		}
 	}
+	// A restore on Linux then skips the whole app instead of failing on it.
+	for _, name := range []string{"mole", "codexbar"} {
+		if !reflect.DeepEqual(res.Apps[name].OS, mac) {
+			t.Errorf("%s app os = %v, want %v", name, res.Apps[name].OS, mac)
+		}
+	}
+	if res.Apps["ngrok"].OS != nil {
+		t.Errorf("ngrok app os = %v, want unset", res.Apps["ngrok"].OS)
+	}
 }

@@ -404,7 +404,12 @@ func discoverConfigs(m *manifest.Manifest, home string, res *Result) error {
 		case declaredApp:
 			app = existing
 			if !installsOnLinux(existing) {
+				// Its recipes only install on macOS: mark the whole app so a
+				// Linux restore skips it instead of reporting it unsupported.
 				listed = macOS
+				if len(app.OS) == 0 {
+					app.OS = macOS
+				}
 			}
 			path.OS = listed
 		default:
