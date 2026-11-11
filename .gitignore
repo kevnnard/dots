@@ -15,3 +15,9 @@ configs/ssh/config
 !*.template
 
 
+
+# Agent workspace files (local only)
+.atl/
+odd/
+design/
+.codegraph/
