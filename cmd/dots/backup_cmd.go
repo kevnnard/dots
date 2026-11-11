@@ -78,7 +78,9 @@ receiving machine. Other absolute links do not travel.
 Move the backup to another machine over Taildrop:
   dots backup --send <device>   prints a short code
   dots backup --receive <code>  on the other machine, then
-  dots restore --received --all --dry-run`,
+  dots restore --received --all --dry-run
+
+Or do every step from this machine with dots sync <device>.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Changed, not a non-empty check: --send '' must fail here, never fall
 		// through to the normal backup.
@@ -125,52 +127,58 @@ Move the backup to another machine over Taildrop:
 		}
 
 		printMissingDefaultPaths(repoDir, m, "")
-		total, err := backup.BackupAll(m, outDir)
-		if err != nil {
-			return err
-		}
-		found, discovered, err := stageDiscovered(m, repoDir, outDir)
-		if err != nil {
-			return err
-		}
-
-		names := make([]string, 0, len(total.Results))
-		for name := range total.Results {
-			names = append(names, name)
-		}
-		sort.Strings(names)
-		for _, name := range names {
-			printAppBackupResult(total.Results[name])
-		}
-		for _, res := range discovered {
-			printAppBackupResult(res)
-			total.Total += len(res.Copied) + len(res.SecretsMasked)
-		}
-		if lines := found.Lines(); len(lines) > 0 {
-			fmt.Println()
-			for _, l := range lines {
-				fmt.Println(l)
-			}
-		}
-
-		fmt.Println()
-		if line, err := engramsync.Export(context.Background(), engramOptions(), outDir); err != nil {
-			total.Warnings = append(total.Warnings, fmt.Sprintf("Engram memories not exported: %v", err))
-		} else {
-			fmt.Println(line)
-		}
-
-		fmt.Printf("\n✨ Backup staged. Files processed: %d\n", total.Total)
-		fmt.Printf("   Send it with: dots backup --send <device>\n")
-
-		if len(total.Warnings) > 0 {
-			fmt.Println("\n⚠️  Warnings:")
-			for _, w := range total.Warnings {
-				fmt.Printf("   - %s\n", w)
-			}
-		}
-		return nil
+		return runFullBackup(m, repoDir, outDir, true)
 	},
+}
+
+func runFullBackup(m *manifest.Manifest, repoDir, outDir string, sendHint bool) error {
+	total, err := backup.BackupAll(m, outDir)
+	if err != nil {
+		return err
+	}
+	found, discovered, err := stageDiscovered(m, repoDir, outDir)
+	if err != nil {
+		return err
+	}
+
+	names := make([]string, 0, len(total.Results))
+	for name := range total.Results {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		printAppBackupResult(total.Results[name])
+	}
+	for _, res := range discovered {
+		printAppBackupResult(res)
+		total.Total += len(res.Copied) + len(res.SecretsMasked)
+	}
+	if lines := found.Lines(); len(lines) > 0 {
+		fmt.Println()
+		for _, l := range lines {
+			fmt.Println(l)
+		}
+	}
+
+	fmt.Println()
+	if line, err := engramsync.Export(context.Background(), engramOptions(), outDir); err != nil {
+		total.Warnings = append(total.Warnings, fmt.Sprintf("Engram memories not exported: %v", err))
+	} else {
+		fmt.Println(line)
+	}
+
+	fmt.Printf("\n✨ Backup staged. Files processed: %d\n", total.Total)
+	if sendHint {
+		fmt.Printf("   Send it with: dots backup --send <device>\n")
+	}
+
+	if len(total.Warnings) > 0 {
+		fmt.Println("\n⚠️  Warnings:")
+		for _, w := range total.Warnings {
+			fmt.Printf("   - %s\n", w)
+		}
+	}
+	return nil
 }
 
 // stageDiscovered backs up the configs discovery finds and stages the
@@ -266,27 +274,35 @@ func runSend(device, out string) error {
 		return fmt.Errorf("no staged backup in %s: run `dots backup` first", stage)
 	}
 
-	tmp, err := os.MkdirTemp("", "dots-send-")
+	code, err := sendStage(stage, device)
 	if err != nil {
 		return err
+	}
+	fmt.Println("   On the receiving machine:")
+	fmt.Printf("     dots backup --receive %s\n", code)
+	fmt.Println("     dots restore --received --all --dry-run")
+	return nil
+}
+
+func sendStage(stage, device string) (string, error) {
+	tmp, err := os.MkdirTemp("", "dots-send-")
+	if err != nil {
+		return "", err
 	}
 	defer os.RemoveAll(tmp)
 
 	archive := filepath.Join(tmp, transfer.ArchivePrefix+time.Now().Format("20060102-150405")+".tar.gz")
 	sum, err := transfer.Archive(stage, archive)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if err := transfer.Send(transferRunner, archive, device); err != nil {
-		return err
+		return "", err
 	}
 	code := transfer.ShortCode(sum)
 	fmt.Printf("✈️  Sent %s to %s\n", filepath.Base(archive), device)
 	fmt.Printf("   Code: %s (sha256 %s)\n", code, sum)
-	fmt.Println("   On the receiving machine:")
-	fmt.Printf("     dots backup --receive %s\n", code)
-	fmt.Println("     dots restore --received --all --dry-run")
-	return nil
+	return code, nil
 }
 
 // runReceive takes the backup from the Taildrop inbox. It needs the code (or

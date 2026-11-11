@@ -117,7 +117,10 @@ check/write race limitations still apply.
 ## Moving to another machine: known pitfalls
 
 These were found moving a macOS setup to Linux (Omarchy). dots handles the
-first three itself; the rest are steps for you.
+first three itself; the rest are steps for you. They apply the same whether the
+backup moves with `dots backup --send` and `--receive` or with
+`dots sync <device>`, which runs the receive and restore over `ssh <device>`
+(see the README, "Keep two machines in sync").
 
 | Pitfall | What dots does or what to do |
 |:---|:---|

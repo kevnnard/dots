@@ -67,6 +67,7 @@ This repository holds the **tool and its install recipes**, not your configs. Yo
 | Goal | What you run |
 |:---|:---|
 | **Set up a machine with these tools** | Install `dots` (Quickstart), then `dots restore --all --install-packages` and `dots setup`. Apps keep their stock configuration. |
+| **Keep another machine in sync** | `dots sync <device>`: backs up this machine, sends it over Taildrop, shows the dry run on `<device>` over ssh and applies it there after you answer `y`. See [Keep two machines in sync](#-keep-two-machines-in-sync). |
 | **Bring your configs from another machine** | On the machine that has them: `dots backup` and `dots backup --send <device>`. On the new one: `dots backup --receive <code>`, then `dots restore --received --all`. See [New machine, step by step](#-new-machine-step-by-step). |
 | **Track one more config** | `dots add <app> <path>`: records it in the manifest and stages it in your private backup; it travels with your next `dots backup --send`. |
 
@@ -220,6 +221,11 @@ dots backup --send kevnnard-station
 # Receiver: take the archive from the Taildrop inbox; it must match the code the sender printed.
 dots backup --receive <code>
 
+# Or do it all in one step: back up, send, dry-run on the device over ssh, ask, apply.
+# --dry-run stops after the remote dry run, --yes applies without asking,
+# --no-install deploys configs without installing packages.
+dots sync kevnnard-station
+
 # Restore the last received backup: review first, then apply (see "New machine, step by step")
 dots restore --received --all --dry-run
 
@@ -318,6 +324,24 @@ What to expect:
 4. **Local files are kept** when they differ from the backup, and the summary lists them. Add `--replace-existing` only after reviewing the dry run; every replaced file first gets a `.bk` copy.
 5. **Logins do not travel**: login files (`auth.json`, `mcp-auth.json`) are not mapped and `mcp.json` arrives as a template. Sign in again (Gentle Shell, Pi, Claude, Codex, Linear, Neon API key, Postgres); `dots setup` and the restore summary list each one.
 6. **Gentle Shell**: install the bundled Gentle Shell with its own installer (`dots setup` shows where), then `dots restore gentle-shell --received`.
+
+## 🔁 Keep two machines in sync
+
+Once both machines run dots, one command replaces the steps above, in either direction (macOS to Linux or back):
+
+```bash
+dots sync <device>              # back up, send, dry run on <device>, ask, apply
+dots sync <device> --dry-run    # stop after the remote dry run
+dots sync <device> --yes        # apply without asking
+dots sync <device> --no-install # deploy configs only, install nothing
+```
+
+1. **Backup**: a full backup is staged into a new private folder under `~/.cache/dots` (as `dots backup --out <new folder>`), never the default `~/.cache/dots/backup`. The folder is kept so you can review what was sent.
+2. **Send**: the backup goes to `<device>` over Taildrop, as with `dots backup --send`.
+3. **Dry run**: over `ssh <device>`, in your login shell there, dots runs `dots backup --receive <code>` and then `dots restore --received --all --replace-existing --install-packages --dry-run`. Its plan is printed: packages to install, apps skipped as not for that system, files that change, problems and the readiness count.
+4. **Apply**: `Apply on <device>? [y/N]`. Only `y` or `yes` runs the same restore without `--dry-run`; every replaced file gets a `.bk` copy first. Anything else changes nothing.
+
+Requirements: dots on both machines, both on the same tailnet, the receiver allowed to read its Taildrop inbox (step 2 above), and `ssh <device>` connecting without a prompt (keys or Tailscale SSH). A failed step stops with its error and a nonzero exit; a failed connection names `ssh <device>`. A dry run that reports problems still asks, with `N` as the default; with `--yes` it stops instead of applying.
 
 Known pitfalls of a macOS-to-Linux move (pnpm path, Gentle Shell installs, the Engram MCP server inside Gentle Shell, Neon sign-in) are listed in [docs/install-flow.md](docs/install-flow.md#moving-to-another-machine-known-pitfalls).
 
