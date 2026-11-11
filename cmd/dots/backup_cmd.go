@@ -1,13 +1,16 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/kevnnard/dots/pkg/backup"
+	"github.com/kevnnard/dots/pkg/discover"
 	"github.com/kevnnard/dots/pkg/manifest"
 	"github.com/kevnnard/dots/pkg/transfer"
 	"github.com/spf13/cobra"
@@ -22,6 +25,9 @@ var (
 
 	// Runs `tailscale file`, replaced by tests.
 	transferRunner transfer.Runner = transfer.ExecRunner{}
+
+	// Where full backup discovery looks; replaced by tests.
+	discoverOptions = discover.ForThisMachine
 )
 
 var backupCmd = &cobra.Command{
@@ -102,12 +108,28 @@ Move the backup to another machine over Taildrop:
 		if err != nil {
 			return err
 		}
-		if err := backup.StageManifest(repoDir, outDir); err != nil {
+		found, discovered, err := stageDiscovered(m, repoDir, outDir)
+		if err != nil {
 			return err
 		}
 
-		for _, res := range total.Results {
+		names := make([]string, 0, len(total.Results))
+		for name := range total.Results {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			printAppBackupResult(total.Results[name])
+		}
+		for _, res := range discovered {
 			printAppBackupResult(res)
+			total.Total += len(res.Copied) + len(res.SecretsMasked)
+		}
+		if lines := found.Lines(); len(lines) > 0 {
+			fmt.Println()
+			for _, l := range lines {
+				fmt.Println(l)
+			}
 		}
 
 		fmt.Printf("\n✨ Backup staged. Files processed: %d\n", total.Total)
@@ -121,6 +143,25 @@ Move the backup to another machine over Taildrop:
 		}
 		return nil
 	},
+}
+
+// stageDiscovered backs up the configs discovery finds and stages the
+// manifest with the discovered apps. A discovery failure is not a backup
+// failure: it is reported and the manifest is staged unchanged.
+func stageDiscovered(m *manifest.Manifest, repoDir, outDir string) (*discover.Result, []*backup.Result, error) {
+	found, err := discover.Run(context.Background(), m, discoverOptions(repoDir))
+	if err != nil {
+		fmt.Printf("⚠️  Discovery skipped: %v\n", err)
+		found = &discover.Result{}
+	}
+	results, err := backup.BackupDiscovered(found.Configs, outDir)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := backup.StageManifestApps(repoDir, outDir, found.Apps); err != nil {
+		return nil, nil, err
+	}
+	return found, results, nil
 }
 
 // resolveOutDir returns the staging directory and refuses one inside the repository.

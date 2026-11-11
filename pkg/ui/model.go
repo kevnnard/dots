@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/kevnnard/dots/pkg/backup"
 	"github.com/kevnnard/dots/pkg/clean"
 	"github.com/kevnnard/dots/pkg/detector"
+	"github.com/kevnnard/dots/pkg/discover"
 	"github.com/kevnnard/dots/pkg/manifest"
 	"github.com/kevnnard/dots/pkg/restore"
 	"github.com/kevnnard/dots/pkg/status"
@@ -76,6 +78,9 @@ type Model struct {
 	// Receipts asks the package manager about each selected recipe (see
 	// restore.PlanOptions). Nil skips it.
 	Receipts restore.ReceiptProbe
+	// Discovery says where backup looks for undeclared packages and
+	// configs. The zero value discovers nothing; RunTUI sets the machine's.
+	Discovery discover.Options
 	// Suspend hands the terminal to a blocking command and resumes the TUI
 	// when it returns. It is tea.Exec; tests inject a fake terminal.
 	Suspend func(tea.ExecCommand, tea.ExecCallback) tea.Cmd
@@ -365,10 +370,27 @@ func (m Model) executeAction() (tea.Model, tea.Cmd) {
 				totalCopied++
 			}
 		}
+		found, err := discover.Run(context.Background(), m.Manifest, m.Discovery)
+		if err != nil {
+			m.Logs = append(m.Logs, StyleWarning.Render(fmt.Sprintf("⚠️  Discovery skipped: %v", err)))
+			found = &discover.Result{}
+		}
+		discovered, err := backup.BackupDiscovered(found.Configs, outDir)
+		if err != nil {
+			m.Logs = append(m.Logs, StyleError.Render(fmt.Sprintf("✗ discovered configs: %v", err)))
+			return m, nil
+		}
+		for _, res := range discovered {
+			totalCopied += len(res.Copied) + len(res.SecretsMasked)
+		}
 		m.Logs = append(m.Logs, "")
 		m.Logs = append(m.Logs, StyleSuccess.Render(fmt.Sprintf("✨ Backup complete! Total items saved: %d", totalCopied)))
+		if lines := found.Lines(); len(lines) > 0 {
+			m.Logs = append(m.Logs, "")
+			m.Logs = append(m.Logs, lines...)
+		}
 
-		if err := backup.StageManifest(m.RepoDir, outDir); err != nil {
+		if err := backup.StageManifestApps(m.RepoDir, outDir, found.Apps); err != nil {
 			m.Logs = append(m.Logs, StyleError.Render(fmt.Sprintf("✗ manifest: %v", err)))
 		} else {
 			m.Logs = append(m.Logs, StyleMuted.Render(fmt.Sprintf("Staged in %s (not committed, not pushed)", outDir)))

@@ -183,6 +183,53 @@ func WithPackageLinks(data []byte, links map[string][]PackageLink) ([]byte, erro
 	return yaml.Marshal(&doc)
 }
 
+// WithApps returns the manifest YAML data with each named app set to apps[name]:
+// added when missing, replaced when declared. Everything else in data is kept.
+func WithApps(data []byte, apps map[string]AppConfig) ([]byte, error) {
+	var doc yaml.Node
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		return nil, fmt.Errorf("unmarshaling manifest yaml: %w", err)
+	}
+	if doc.Kind != yaml.DocumentNode || len(doc.Content) != 1 {
+		return nil, fmt.Errorf("manifest is not a single YAML document")
+	}
+	root := doc.Content[0]
+	list := mappingValue(root, "apps")
+	if list == nil {
+		list = &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+		set := false
+		for i := 0; i+1 < len(root.Content); i += 2 {
+			if root.Content[i].Value == "apps" { // apps: with no entries
+				root.Content[i+1], set = list, true
+			}
+		}
+		if !set {
+			root.Content = append(root.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "apps"}, list)
+		}
+	}
+	names := make([]string, 0, len(apps))
+	for name := range apps {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		var value yaml.Node
+		if err := value.Encode(apps[name]); err != nil {
+			return nil, err
+		}
+		replaced := false
+		for i := 0; i+1 < len(list.Content); i += 2 {
+			if list.Content[i].Value == name {
+				list.Content[i+1], replaced = &value, true
+			}
+		}
+		if !replaced {
+			list.Content = append(list.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: name}, &value)
+		}
+	}
+	return yaml.Marshal(&doc)
+}
+
 // mappingValue returns the mapping value of key in node, or nil.
 func mappingValue(node *yaml.Node, key string) *yaml.Node {
 	if node.Kind != yaml.MappingNode {

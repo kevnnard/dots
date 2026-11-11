@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
+
+	"github.com/kevnnard/dots/pkg/manifest"
 )
 
 // DefaultOutDir is where a backup is staged when no --out is given. It sits
@@ -44,12 +47,43 @@ func CheckOutsideRepo(repoDir, outDir string) error {
 // StageManifest copies the repository manifest next to the staged configs, so
 // the staged directory is a complete input for `dots -d <dir> restore`.
 func StageManifest(repoDir, outDir string) error {
+	return StageManifestApps(repoDir, outDir, nil)
+}
+
+// StageManifestApps stages the repository manifest with apps set in it (new
+// apps added, same-named apps replaced). The repository copy is never
+// written; without apps the staged copy is byte-identical.
+func StageManifestApps(repoDir, outDir string, apps map[string]manifest.AppConfig) error {
 	data, err := os.ReadFile(filepath.Join(repoDir, "manifest.yaml"))
 	if err != nil {
 		return fmt.Errorf("reading manifest: %w", err)
+	}
+	if len(apps) > 0 {
+		if data, err = manifest.WithApps(data, apps); err != nil {
+			return err
+		}
 	}
 	if err := os.MkdirAll(outDir, 0755); err != nil {
 		return err
 	}
 	return os.WriteFile(filepath.Join(outDir, "manifest.yaml"), data, 0644)
+}
+
+// BackupDiscovered backs up the config paths discovery found, in name order,
+// with the same copy, exclude and secret masking rules as declared apps.
+func BackupDiscovered(configs map[string]manifest.AppConfig, outDir string) ([]*Result, error) {
+	names := make([]string, 0, len(configs))
+	for name := range configs {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	var results []*Result
+	for _, name := range names {
+		res, err := BackupApp(name, configs[name], outDir)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, res)
+	}
+	return results, nil
 }
