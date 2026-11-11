@@ -74,6 +74,9 @@ type ReadinessOptions struct {
 	LookPath  func(string) (string, error)
 	// MaxFileSize bounds every file read; larger files are not scanned.
 	MaxFileSize int64
+	// OS selects the paths scanned for each app (their os list and src_os
+	// entry). Empty scans every path at its plain src.
+	OS string
 }
 
 const defaultReadinessMaxFileSize = 1 << 20
@@ -192,14 +195,18 @@ func ScanReadiness(m *manifest.Manifest, steps []StepResult, opts ReadinessOptio
 	trusted := trustedPaths(builtin)
 	report := &ReadinessReport{}
 	for i, s := range steps {
-		if s.Install == OutcomeUnsupported {
+		if s.Install == OutcomeUnsupported || s.Install == OutcomeNotForOS {
 			continue
+		}
+		app := m.Apps[s.AppName]
+		if opts.OS != "" {
+			app = app.ForOS(opts.OS)
 		}
 		label := s.AppName
 		if _, ok := builtin.Apps[s.AppName]; !ok {
 			label = fmt.Sprintf("app #%d", i+1)
 		}
-		if items := sc.scanApp(s.AppName, label, m.Apps[s.AppName], trusted); len(items) > 0 {
+		if items := sc.scanApp(s.AppName, label, app, trusted); len(items) > 0 {
 			report.Apps = append(report.Apps, AppReadiness{App: label, Items: items})
 		}
 	}

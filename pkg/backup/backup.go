@@ -54,14 +54,27 @@ type TotalResult struct {
 	Warnings []string           `json:"warnings"`
 }
 
-// BackupApp backs up the files and directories for a single app config.
+// BackupApp backs up the files and directories for a single app config on
+// the running system.
 func BackupApp(appName string, app manifest.AppConfig, destRepoDir string) (*Result, error) {
+	return BackupAppFor(appName, app, destRepoDir, runtime.GOOS)
+}
+
+// BackupAppFor backs up the app's paths that apply to the system goos, each
+// read from its effective source there and staged at its unchanged dest. An
+// app not for goos stages nothing.
+func BackupAppFor(appName string, app manifest.AppConfig, destRepoDir, goos string) (*Result, error) {
 	res := &Result{
 		AppName: appName,
 	}
+	if !app.AppliesTo(goos) {
+		res.Skipped = append(res.Skipped, fmt.Sprintf("%s (not for %s)", appName, goos))
+		return res, nil
+	}
+	app = app.ForOS(goos)
 
 	// Special case: Homebrew Brewfile dump
-	if appName == "brew" && runtime.GOOS == "darwin" {
+	if appName == "brew" && goos == "darwin" {
 		if err := dumpBrewfile(destRepoDir); err != nil {
 			res.Warnings = append(res.Warnings, fmt.Sprintf("brew bundle dump failed: %v", err))
 		} else {
@@ -159,14 +172,24 @@ func stagePackageLink(src, dest string, res *Result) bool {
 	return true
 }
 
-// BackupAll iterates through all apps declared in the manifest and backs them up.
+// BackupAll iterates through all apps declared in the manifest and backs up
+// those that apply to the running system.
 func BackupAll(m *manifest.Manifest, destRepoDir string) (*TotalResult, error) {
+	return BackupAllFor(m, destRepoDir, runtime.GOOS)
+}
+
+// BackupAllFor backs up the apps that apply to the system goos; the others
+// are ignored.
+func BackupAllFor(m *manifest.Manifest, destRepoDir, goos string) (*TotalResult, error) {
 	total := &TotalResult{
 		Results: make(map[string]*Result),
 	}
 
 	for name, app := range m.Apps {
-		res, err := BackupApp(name, app, destRepoDir)
+		if !app.AppliesTo(goos) {
+			continue
+		}
+		res, err := BackupAppFor(name, app, destRepoDir, goos)
 		if err != nil {
 			// A partial stage must never be reported, staged or sent as a backup.
 			return nil, err

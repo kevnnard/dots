@@ -39,6 +39,9 @@ type ApplyResult struct {
 	// MachineLocal lists the Kept files their mapping marks keep_local: they
 	// stay as they are on this machine even with Replace.
 	MachineLocal []string `json:"machine_local,omitempty"`
+	// NotForOS lists the mappings skipped because their os list excludes
+	// the receiving system, as "<dest> (not for <system>)".
+	NotForOS []string `json:"not_for_os,omitempty"`
 }
 
 // PlanApp generates an installation plan for a single application based on current system.
@@ -103,6 +106,9 @@ type ApplyOptions struct {
 	// pkg/packagelink) against this machine. Nil refuses every link that
 	// points outside the mapping's root.
 	Packages *packagelink.Resolver
+	// OS is the receiving system (a GOOS value) that selects each mapping's
+	// os list and src_os entry. Empty means the running system.
+	OS string
 	// machineLocal is set for a keep_local mapping, whose kept files are
 	// reported as machine-specific.
 	machineLocal bool
@@ -135,8 +141,14 @@ func ApplyAppFilesWith(appName string, app manifest.AppConfig, repoDir string, o
 		return res, nil
 	}
 
+	goos := receivingOS(opts.OS)
 	shared := opts
 	for _, mapping := range app.Paths {
+		if !mapping.AppliesTo(goos) {
+			res.NotForOS = append(res.NotForOS, fmt.Sprintf("%s (not for %s)", mapping.Dest, goos))
+			continue
+		}
+		mapping.Src = mapping.SrcFor(goos)
 		opts := shared
 		if mapping.KeepLocal {
 			opts.Replace, opts.machineLocal = false, true
@@ -242,6 +254,15 @@ func ApplyAppFilesWith(appName string, app manifest.AppConfig, repoDir string, o
 	}
 
 	return res, nil
+}
+
+// receivingOS is the system restore deploys for: goos, or the running
+// system when it is empty.
+func receivingOS(goos string) string {
+	if goos == "" {
+		return runtime.GOOS
+	}
+	return goos
 }
 
 // checkRefs returns the app's package link references keyed by staged path,

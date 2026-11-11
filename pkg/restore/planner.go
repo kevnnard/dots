@@ -21,6 +21,7 @@ const (
 	StatusUnsupported    PlanStatus = "unsupported"     // no recipe for this platform
 	StatusManagerMissing PlanStatus = "manager-missing" // recipe exists but its manager is absent
 	StatusBlocked        PlanStatus = "blocked"         // a required app cannot be installed
+	StatusNotForOS       PlanStatus = "not-for-os"      // the app's os list excludes this system
 )
 
 // Step is one entry of an ordered installation plan.
@@ -153,6 +154,11 @@ func BuildPlan(m *manifest.Manifest, selected []string, sys *detector.SystemInfo
 
 func planStep(name string, app manifest.AppConfig, deps []string, sys *detector.SystemInfo, provided map[string]bool, status map[string]PlanStatus, probe InstalledProbe, receipts ReceiptProbe) Step {
 	step := Step{AppName: name, Description: app.Description}
+	if !app.AppliesTo(sys.OS) {
+		step.Status = StatusNotForOS
+		step.Reason = "not for " + sys.OS
+		return step
+	}
 	if len(app.Install) == 0 {
 		step.Status = StatusConfigOnly
 		return step
@@ -170,7 +176,7 @@ func planStep(name string, app manifest.AppConfig, deps []string, sys *detector.
 	}
 	for _, dep := range deps {
 		switch status[dep] {
-		case StatusUnsupported, StatusManagerMissing, StatusBlocked:
+		case StatusUnsupported, StatusManagerMissing, StatusBlocked, StatusNotForOS:
 			step.Status = StatusBlocked
 			step.Reason = fmt.Sprintf("requires %s (%s)", dep, status[dep])
 			return step

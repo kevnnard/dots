@@ -17,6 +17,10 @@ type PathMapping struct {
 	// models): restore deploys it only where it is missing and never replaces
 	// an existing copy, even with --replace-existing.
 	KeepLocal bool `yaml:"keep_local,omitempty"`
+	// OS limits the mapping to these systems (GOOS values); empty means all.
+	OS []string `yaml:"os,omitempty"`
+	// SrcOS overrides Src on the named systems.
+	SrcOS map[string]string `yaml:"src_os,omitempty"`
 }
 
 type InstallRecipe struct {
@@ -35,6 +39,8 @@ type AppConfig struct {
 	// ConfigRequires lists apps the backed-up configuration expects (plugins,
 	// helpers). They are pulled only when that configuration is restored.
 	ConfigRequires []string `yaml:"config_requires,omitempty"`
+	// OS limits the app to these systems (GOOS values); empty means all.
+	OS []string `yaml:"os,omitempty"`
 	// Provides lists package managers this app makes available (node -> npm).
 	Provides []string `yaml:"provides,omitempty"`
 	// Check lists commands (or ~/absolute paths) whose presence means the app
@@ -109,6 +115,9 @@ func Load(filePath string) (*Manifest, error) {
 	var m Manifest
 	if err := yaml.Unmarshal(data, &m); err != nil {
 		return nil, fmt.Errorf("unmarshaling manifest yaml: %w", err)
+	}
+	if err := m.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid manifest %s: %w", filePath, err)
 	}
 
 	return &m, nil

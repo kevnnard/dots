@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/kevnnard/dots/pkg/detector"
@@ -39,8 +40,16 @@ type OverallStatus struct {
 	Apps map[string]*AppStatus `json:"apps"`
 }
 
-// CheckAppStatus checks the synchronization state of an app's paths.
+// CheckAppStatus checks the synchronization state of an app's paths on the
+// running system.
 func CheckAppStatus(appName string, app manifest.AppConfig, repoDir string) *AppStatus {
+	return CheckAppStatusFor(appName, app, repoDir, runtime.GOOS)
+}
+
+// CheckAppStatusFor checks the app's paths that apply to the system goos,
+// each at its effective source there.
+func CheckAppStatusFor(appName string, app manifest.AppConfig, repoDir, goos string) *AppStatus {
+	app = app.ForOS(goos)
 	st := &AppStatus{
 		AppName:   appName,
 		Installed: detector.IsInstalled(appName),
@@ -97,13 +106,23 @@ func CheckAppStatus(appName string, app manifest.AppConfig, repoDir string) *App
 	return st
 }
 
-// CheckAll gathers status across all configured apps in the manifest.
+// CheckAll gathers status across all configured apps in the manifest that
+// apply to the running system.
 func CheckAll(m *manifest.Manifest, repoDir string) *OverallStatus {
+	return CheckAllFor(m, repoDir, runtime.GOOS)
+}
+
+// CheckAllFor gathers status across the apps that apply to the system goos;
+// the others are ignored.
+func CheckAllFor(m *manifest.Manifest, repoDir, goos string) *OverallStatus {
 	overall := &OverallStatus{
 		Apps: make(map[string]*AppStatus),
 	}
 	for name, app := range m.Apps {
-		overall.Apps[name] = CheckAppStatus(name, app, repoDir)
+		if !app.AppliesTo(goos) {
+			continue
+		}
+		overall.Apps[name] = CheckAppStatusFor(name, app, repoDir, goos)
 	}
 	return overall
 }

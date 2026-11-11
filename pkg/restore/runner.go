@@ -61,6 +61,7 @@ const (
 	OutcomeBlocked          InstallOutcome = "blocked" // a required app is not available
 	OutcomeUnsupported      InstallOutcome = "unsupported"
 	OutcomeManagerMissing   InstallOutcome = "manager-missing"
+	OutcomeNotForOS         InstallOutcome = "not-for-os" // the app's os list excludes this system
 )
 
 // ConfigOutcome is what happened to an app's backed-up configuration.
@@ -74,6 +75,7 @@ const (
 	ConfigNoBackup     ConfigOutcome = "no-backup"     // repository has no config: stock config kept
 	ConfigIncomplete   ConfigOutcome = "incomplete"    // a config prerequisite is not installed
 	ConfigFailed       ConfigOutcome = "failed"        // file errors or refused replacements
+	ConfigNotForOS     ConfigOutcome = "not-for-os"    // the app or all its paths exclude this system
 )
 
 // StepResult is the outcome of one planned app. It is the shared result
@@ -163,7 +165,10 @@ func Run(m *manifest.Manifest, selected []string, sys *detector.SystemInfo, opts
 	// before any installer runs.
 	prepared := map[string][2]string{}
 	for _, step := range steps {
-		issue, done := prepareLocal(m.Apps[step.AppName], opts)
+		if step.Status == StatusNotForOS {
+			continue
+		}
+		issue, done := prepareLocal(m.Apps[step.AppName].ForOS(sys.OS), opts)
 		prepared[step.AppName] = [2]string{issue, done}
 	}
 	for _, step := range steps {
@@ -180,6 +185,8 @@ func Run(m *manifest.Manifest, selected []string, sys *detector.SystemInfo, opts
 			r.Install = OutcomeManagerMissing
 		case StatusBlocked:
 			r.Install = OutcomeBlocked
+		case StatusNotForOS:
+			r.Install = OutcomeNotForOS
 		case StatusInstall:
 			if dep, why := unmetRequirement(m.Apps[step.AppName].Requires, outcome); dep != "" {
 				r.Install = OutcomeBlocked
@@ -211,19 +218,26 @@ func Run(m *manifest.Manifest, selected []string, sys *detector.SystemInfo, opts
 	}
 
 	if opts.WithConfig {
-		deployConfigs(m, res, outcome, opts)
+		deployConfigs(m, res, outcome, sys.OS, opts)
 	}
-	res.Readiness = ScanReadiness(m, res.Steps, opts.Readiness)
+	readiness := opts.Readiness
+	readiness.OS = sys.OS
+	res.Readiness = ScanReadiness(m, res.Steps, readiness)
 	return res, nil
 }
 
 // deployConfigs deploys each app's backed-up configuration once the app and
 // all its prerequisites are installed.
-func deployConfigs(m *manifest.Manifest, res *RunResult, outcome map[string]InstallOutcome, opts RunOptions) {
+// Apps and paths whose os list excludes goos are skipped and reported.
+func deployConfigs(m *manifest.Manifest, res *RunResult, outcome map[string]InstallOutcome, goos string, opts RunOptions) {
 	for i := range res.Steps {
 		r := &res.Steps[i]
 		app := m.Apps[r.AppName]
 		if len(app.Paths) == 0 {
+			continue
+		}
+		if r.Install == OutcomeNotForOS {
+			r.Config, r.ConfigReason = ConfigNotForOS, "not for "+goos
 			continue
 		}
 		if dep, why := unmetConfigPrerequisite(m, r.AppName, outcome, opts.DryRun); dep != "" {
@@ -231,7 +245,7 @@ func deployConfigs(m *manifest.Manifest, res *RunResult, outcome map[string]Inst
 			r.ConfigReason = fmt.Sprintf("%s is %s", dep, why)
 			continue
 		}
-		files, err := ApplyAppFilesWith(r.AppName, app, opts.RepoDir, ApplyOptions{DryRun: opts.DryRun, Replace: opts.ReplaceExisting, Packages: opts.Packages})
+		files, err := ApplyAppFilesWith(r.AppName, app, opts.RepoDir, ApplyOptions{DryRun: opts.DryRun, Replace: opts.ReplaceExisting, Packages: opts.Packages, OS: goos})
 		if err != nil {
 			r.Config = ConfigFailed
 			r.ConfigReason = err.Error()
@@ -239,6 +253,9 @@ func deployConfigs(m *manifest.Manifest, res *RunResult, outcome map[string]Inst
 		}
 		r.Files = files
 		r.Config = configOutcome(files, opts.DryRun)
+		if r.Config == ConfigNotForOS {
+			r.ConfigReason = "not for " + goos
+		}
 	}
 }
 
@@ -292,7 +309,7 @@ func prepareLocal(app manifest.AppConfig, opts RunOptions) (issue, done string) 
 func unmetRequirement(deps []string, outcome map[string]InstallOutcome) (string, InstallOutcome) {
 	for _, dep := range deps {
 		switch outcome[dep] {
-		case OutcomeFailed, OutcomeBlocked, OutcomeUnsupported, OutcomeManagerMissing:
+		case OutcomeFailed, OutcomeBlocked, OutcomeUnsupported, OutcomeManagerMissing, OutcomeNotForOS:
 			return dep, outcome[dep]
 		}
 	}
@@ -343,6 +360,8 @@ func configOutcome(files *ApplyResult, dryRun bool) ConfigOutcome {
 		return ConfigFailed
 	case len(files.Kept) > 0:
 		return ConfigKeptExisting
+	case len(files.Restored) == 0 && len(files.TemplatesInit) == 0 && len(files.Skipped) == 0 && len(files.NotForOS) > 0:
+		return ConfigNotForOS
 	case len(files.Restored) == 0 && len(files.TemplatesInit) == 0:
 		return ConfigNoBackup
 	case dryRun:
@@ -501,6 +520,8 @@ func installDetail(s StepResult) string {
 		return "planned: " + s.InstallCmd
 	case OutcomeFailed:
 		return fmt.Sprintf("failed: %s (%s)", s.InstallCmd, s.Error)
+	case OutcomeNotForOS:
+		return "skipped: " + s.Reason
 	default:
 		return fmt.Sprintf("%s: %s", s.Install, s.Reason)
 	}
@@ -521,6 +542,8 @@ func configLines(s StepResult) []string {
 		lines = append(lines, fmt.Sprintf("  ✗ %-24s incomplete, not deployed: %s", s.AppName, s.ConfigReason))
 	case ConfigFailed:
 		lines = append(lines, fmt.Sprintf("  ✗ %-24s failed", s.AppName))
+	case ConfigNotForOS:
+		lines = append(lines, fmt.Sprintf("  - %-24s skipped: %s", s.AppName, s.ConfigReason))
 	}
 	if s.Prepared != "" {
 		lines = append(lines, "      🩹 repaired before install: "+s.Prepared)
@@ -550,6 +573,9 @@ func configLines(s StepResult) []string {
 	}
 	for _, f := range s.Files.NotRepaired {
 		lines = append(lines, "      ⚠️ repair not applied: "+f)
+	}
+	for _, f := range s.Files.NotForOS {
+		lines = append(lines, "      - skipped: "+f)
 	}
 	for _, f := range s.Files.TemplatesInit {
 		lines = append(lines, "      🔒 secret template: "+f+" (fill in real values)")
