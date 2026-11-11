@@ -67,7 +67,7 @@ func TestFullBackupStagesDiscoveredItemsOnlyInTheStage(t *testing.T) {
 	writeTestFile(t, filepath.Join(home, ".config/wezterm/.env"), []byte("TOKEN=fixture-value\n"))
 	writeTestFile(t, filepath.Join(home, ".config/gcloud/credentials.db"), []byte("x"))
 	useDiscovery(t, discover.Options{Home: home, Exec: discoverExec{t: t, out: map[string]string{
-		"brew leaves --installed-on-request":     "btop\nripgrep\n",
+		"brew list --formula --installed-on-request --full-name":     "btop\nripgrep\n",
 		"brew list --cask":                       "godot-mono\n",
 		"brew tap":                               "",
 		"brew info --json=v2 ripgrep godot-mono": `{"formulae":[{"full_name":"ripgrep","bottle":{"stable":{"files":{"x86_64_linux":{}}}}}],"casks":[{"token":"godot-mono","full_token":"godot-mono","tap":"homebrew/cask"}]}`,
@@ -136,7 +136,7 @@ func TestFullBackupWithNothingNewPrintsNothingNew(t *testing.T) {
 		t.Fatal(err)
 	}
 	useDiscovery(t, discover.Options{Home: home, Exec: discoverExec{t: t, out: map[string]string{
-		"brew leaves --installed-on-request": "btop\n",
+		"brew list --formula --installed-on-request --full-name": "btop\n",
 		"brew list --cask":                   "",
 		"brew tap":                           "homebrew/core\n",
 	}}})

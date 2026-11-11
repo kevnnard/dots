@@ -53,7 +53,7 @@ func brewFixture(t *testing.T) (*manifest.Manifest, Options, *fakeExec) {
 		t.Fatal(err)
 	}
 	f := &fakeExec{t: t, out: map[string]string{
-		"brew leaves --installed-on-request": "atuin\ngentleman-programming/tap/engram\njq\nripgrep\nmas\nswiftfmt\nghostly\nacme/tools/fpm\n",
+		"brew list --formula --installed-on-request --full-name": "atuin\ngentleman-programming/tap/engram\njq\nripgrep\nmas\nswiftfmt\nghostly\nacme/tools/fpm\n",
 		"brew list --cask":                   "smartwindow\ncodexbar\ngodot-mono\nmenubar\n",
 		"brew tap":                           "gentleman-programming/tap\nkevnnard/tap\nsteipete/tap\nacme/tools\nacme/apps\nlonely/tap\nhomebrew/core\n",
 		"brew info --json=v2 acme/tools/fpm ghostly mas ripgrep swiftfmt godot-mono menubar": infoJSON,

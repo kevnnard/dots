@@ -16,7 +16,7 @@ A full `dots backup` (CLI or TUI, no app named) also looks for what the manifest
 
 | Source | Counts as declared | Added to the staged manifest as |
 |:---|:---|:---|
-| `brew leaves --installed-on-request`, `brew list --cask`, `brew tap` (macOS, when `brew` is on PATH) | A manifest `brew` recipe or an app of the same name, or a `brew`/`cask`/`tap` line in a repository `Brewfile*` | An app with a `brew` install recipe. A tap gets its own `tap-<user>-<repo>` app only when no new package uses it. |
+| `brew list --formula --installed-on-request --full-name`, `brew list --cask`, `brew tap` (macOS, when `brew` is on PATH) | A manifest `brew` recipe or an app of the same name, or a `brew`/`cask`/`tap` line in a repository `Brewfile*` | An app with a `brew` install recipe. A tap gets its own `tap-<user>-<repo>` app only when no new package uses it. |
 | `~/.config/<entry>` | Any manifest `src` or `src_os` that is, contains or lies inside the entry | A config-only app with path `~/.config/<entry>` -> `configs/<entry>`, backed up now with the usual secret masking and the excludes `.DS_Store`, `cache/**`, `Cache/**`, `logs/**`, `*.log`. An entry named like a declared app extends that app instead. |
 
 The staged `Brewfile` from `brew bundle dump` is not the basis: it lists everything installed, so nothing would ever be new.

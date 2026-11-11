@@ -215,7 +215,7 @@ type brewInfo struct {
 }
 
 func discoverPackages(ctx context.Context, m *manifest.Manifest, opts Options, res *Result) error {
-	formulae, err := list(ctx, opts.Exec, "brew", "leaves", "--installed-on-request")
+	formulae, err := list(ctx, opts.Exec, "brew", "list", "--formula", "--installed-on-request", "--full-name")
 	if err != nil {
 		return err
 	}
