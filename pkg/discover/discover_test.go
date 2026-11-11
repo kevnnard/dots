@@ -54,8 +54,8 @@ func brewFixture(t *testing.T) (*manifest.Manifest, Options, *fakeExec) {
 	}
 	f := &fakeExec{t: t, out: map[string]string{
 		"brew list --formula --installed-on-request --full-name": "atuin\ngentleman-programming/tap/engram\njq\nripgrep\nmas\nswiftfmt\nghostly\nacme/tools/fpm\n",
-		"brew list --cask":                   "smartwindow\ncodexbar\ngodot-mono\nmenubar\n",
-		"brew tap":                           "gentleman-programming/tap\nkevnnard/tap\nsteipete/tap\nacme/tools\nacme/apps\nlonely/tap\nhomebrew/core\n",
+		"brew list --cask": "smartwindow\ncodexbar\ngodot-mono\nmenubar\n",
+		"brew tap":         "gentleman-programming/tap\nkevnnard/tap\nsteipete/tap\nacme/tools\nacme/apps\nlonely/tap\nhomebrew/core\n",
 		"brew info --json=v2 acme/tools/fpm ghostly mas ripgrep swiftfmt godot-mono menubar": infoJSON,
 	}}
 	return m, Options{Exec: f, Brewfiles: []string{brewfile}}, f
@@ -284,5 +284,34 @@ func TestCoveredCredentialFolderIsNotListedAsSkipped(t *testing.T) {
 	}
 	if len(res.Skipped) != 0 || len(res.New) != 0 {
 		t.Errorf("declared gh must be silent: new=%+v skipped=%+v", res.New, res.Skipped)
+	}
+}
+
+func TestConfigOfDeclaredMacOnlyAppIsForMacOnly(t *testing.T) {
+	home := t.TempDir()
+	for _, n := range []string{"mole", "codexbar", "ngrok", "plain"} {
+		writeFile(t, filepath.Join(home, ".config", n, "config"), "x\n")
+	}
+	m := &manifest.Manifest{Apps: map[string]manifest.AppConfig{
+		"mole":     {Install: map[string]manifest.InstallRecipe{"darwin": {Manager: "brew", Package: "mole"}}},
+		"codexbar": {Install: map[string]manifest.InstallRecipe{"brew": {Manager: "brew", Cask: "steipete/tap/codexbar"}}},
+		"ngrok": {Install: map[string]manifest.InstallRecipe{
+			"darwin": {Manager: "brew", Cask: "ngrok/ngrok/ngrok"}, "yay": {Manager: "yay", Package: "ngrok"}}},
+	}}
+	res, err := Run(context.Background(), m, Options{Home: home})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mac, both := []string{"darwin"}, []string{"darwin", "linux"}
+	want := map[string][]string{"mole": mac, "codexbar": mac, "ngrok": both, "plain": both}
+	for _, it := range res.New {
+		if !reflect.DeepEqual(it.OS, want[it.Name]) {
+			t.Errorf("%s listed for %v, want %v", it.Name, it.OS, want[it.Name])
+		}
+	}
+	for name, w := range map[string][]string{"mole": mac, "codexbar": mac, "ngrok": both} {
+		if p := res.Apps[name].Paths; len(p) != 1 || !reflect.DeepEqual(p[0].OS, w) {
+			t.Errorf("%s paths = %+v, want os %v", name, p, w)
+		}
 	}
 }

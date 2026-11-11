@@ -403,7 +403,10 @@ func discoverConfigs(m *manifest.Manifest, home string, res *Result) error {
 			listed = app.OS
 		case declaredApp:
 			app = existing
-			path.OS = both
+			if !installsOnLinux(existing) {
+				listed = macOS
+			}
+			path.OS = listed
 		default:
 			app = manifest.AppConfig{Description: "Config discovered by dots backup", OS: both, Exclude: defaultExcludes}
 		}
@@ -417,6 +420,27 @@ func discoverConfigs(m *manifest.Manifest, home string, res *Result) error {
 		res.New = append(res.New, Item{Name: key, Kind: "config", OS: listed})
 	}
 	return nil
+}
+
+// installsOnLinux: an app with no recipes is config-only and fits Linux; one
+// whose recipes are all macOS or Windows (casks included) does not.
+func installsOnLinux(app manifest.AppConfig) bool {
+	if len(app.OS) > 0 {
+		return app.AppliesTo("linux")
+	}
+	if len(app.Install) == 0 {
+		return true
+	}
+	for key, r := range app.Install {
+		switch key {
+		case "darwin", "windows", "winget", "scoop", "choco":
+			continue
+		}
+		if r.Cask == "" {
+			return true
+		}
+	}
+	return false
 }
 
 func withDefaults(excludes []string) []string {
