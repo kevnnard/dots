@@ -408,6 +408,9 @@ func PruneReceived(incoming, keep string) ([]string, error) {
 		if err != nil || !info.IsDir() {
 			continue
 		}
+		if m, err := os.Lstat(filepath.Join(p, "manifest.yaml")); err != nil || !m.Mode().IsRegular() {
+			continue
+		}
 		all = append(all, received{p, info})
 	}
 	isKeep := func(p string) bool {

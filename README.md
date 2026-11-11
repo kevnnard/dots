@@ -320,7 +320,7 @@ What to expect:
 
 1. **The code** is the start of the archive sha256 and is not stored anywhere: copy it from the sender output. A wrong code extracts nothing. The full sha256 also works with `--sha256 <sha256>`.
 2. **Several backups in the inbox** are fine: copies of the matching one are dropped and any other backup is kept in `~/.cache/dots/incoming/unclaimed/`, never lost.
-3. **Older received backups** are removed after a successful receive: `~/.cache/dots/incoming` keeps the 3 newest, always including the one just received, and prints `🧹 Removed N older received backup(s)`. Only folders named by a received code are removed; `latest`, `unclaimed/` and anything else stay.
+3. **Older received backups** are removed after a successful receive: `~/.cache/dots/incoming` keeps the 3 newest, always including the one just received, and prints `🧹 Removed N older received backup(s)`. Only folders named by a received code that hold a `manifest.yaml` are removed; `latest`, `unclaimed/` and anything else stay.
 4. **Skills shared through `~/.agents/skills`** travel as relative symlinks; restore refuses any link that points outside home.
 5. **Local files are kept** when they differ from the backup, and the summary lists them. Add `--replace-existing` only after reviewing the dry run; every replaced file first gets a `.bk` copy.
 6. **Logins do not travel**: login files (`auth.json`, `mcp-auth.json`) are not mapped and `mcp.json` arrives as a template. Sign in again (Gentle Shell, Pi, Claude, Codex, Linear, Neon API key, Postgres); `dots setup` and the restore summary list each one.

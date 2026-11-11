@@ -934,9 +934,14 @@ func pruneSafetyCopies(dest, created string) ([]string, error) {
 		return copies[i].n > copies[j].n
 	})
 	var removed []string
-	for i := keptSafetyCopies; i < len(copies); i++ {
-		p := filepath.Join(dir, copies[i].name)
+	kept := 1
+	for _, c := range copies {
+		p := filepath.Join(dir, c.name)
 		if p == filepath.Clean(created) {
+			continue
+		}
+		if kept < keptSafetyCopies {
+			kept++
 			continue
 		}
 		info, err := os.Lstat(p)

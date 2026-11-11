@@ -391,3 +391,40 @@ func TestSyncKeepsAndPrintsStageWhenSendFails(t *testing.T) {
 		t.Errorf("output must print the kept stage:\n%s", out)
 	}
 }
+
+func TestRestoreKeepsThreeSafetyCopiesWhenOlderOnesAreFutureDated(t *testing.T) {
+	f := bkFixture(t, "# mine\n")
+	writeCopies(t, f.target, ".29990101_000000.bk", ".29990102_000000.bk", ".29990103_000000.bk")
+	out, err := runRestore(t, "zsh", "-i", "--with-config", "--replace-existing", "--dir", f.repo)
+	if err != nil {
+		t.Fatalf("restore: %v\n%s", err, out)
+	}
+	got := safetyCopies(t, f.target)
+	if len(got) != 3 {
+		t.Fatalf("copies = %q", got)
+	}
+	if _, err := os.Lstat(f.target + ".29990101_000000.bk"); !os.IsNotExist(err) {
+		t.Errorf("the oldest of the other copies must be deleted: %q", got)
+	}
+	if !strings.Contains(out, "🧹 removed 1 older safety backup(s) of "+f.target) {
+		t.Errorf("output must report the removed count:\n%s", out)
+	}
+}
+
+func TestReceiveKeepsHexNamedFoldersThatAreNotBackups(t *testing.T) {
+	_, code := receiveSetup(t)
+	incoming, _ := transfer.IncomingDir()
+	oldReceived(t, incoming, "aaaaaaaa", "bbbbbbbb", "cccccccc")
+	writeTestFile(t, filepath.Join(incoming, "deadbeef", "file"), []byte("mine"))
+	at := time.Date(2010, 1, 1, 0, 0, 0, 0, time.UTC)
+	os.Chtimes(filepath.Join(incoming, "deadbeef"), at, at)
+	out, err := runBackup(t, "--receive", code)
+	if err != nil {
+		t.Fatalf("receive: %v\n%s", err, out)
+	}
+	want := []string{"bbbbbbbb", "cccccccc", code, "deadbeef", "latest"}
+	sort.Strings(want)
+	if got := dirNames(t, incoming); strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("incoming = %q\nwant %q", got, want)
+	}
+}
